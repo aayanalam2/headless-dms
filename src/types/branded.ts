@@ -52,10 +52,6 @@ export const FileName = createRefinedType(
 );
 export type FileName = typeof FileName.$infer;
 
-// RBAC roles
-export const ROLES = ["admin", "user"] as const;
-export type Role = (typeof ROLES)[number];
-
 // ---------------------------------------------------------------------------
 // ISODateString
 // A branded string that has been validated (or produced from) an ISO-8601

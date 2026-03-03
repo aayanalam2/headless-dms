@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import type { DocumentRow, VersionRow } from "../models/db/schema.ts";
 import type { BucketKey, DocumentId, VersionId } from "../types/branded.ts";
 import { AppError } from "../types/errors.ts";
+import { Role } from "../types/enums.ts";
 import type { JwtClaims } from "./auth.service.ts";
 
 // ---------------------------------------------------------------------------
@@ -16,7 +17,7 @@ export function canRead(
   actor: JwtClaims,
   doc: DocumentRow,
 ): Effect.Effect<true, AppError> {
-  if (actor.role === "admin" || doc.ownerId === actor.userId) {
+  if (actor.role === Role.Admin || doc.ownerId === actor.userId) {
     return Effect.succeed(true as const);
   }
   return Effect.fail(AppError.accessDenied("You do not have access to this document"));
@@ -26,14 +27,14 @@ export function canWrite(
   actor: JwtClaims,
   doc: DocumentRow,
 ): Effect.Effect<true, AppError> {
-  if (actor.role === "admin" || doc.ownerId === actor.userId) {
+  if (actor.role === Role.Admin || doc.ownerId === actor.userId) {
     return Effect.succeed(true as const);
   }
   return Effect.fail(AppError.accessDenied("You cannot modify this document"));
 }
 
 export function canDelete(actor: JwtClaims): Effect.Effect<true, AppError> {
-  if (actor.role === "admin") {
+  if (actor.role === Role.Admin) {
     return Effect.succeed(true as const);
   }
   return Effect.fail(AppError.accessDenied("Only admins can delete documents"));

@@ -1,4 +1,4 @@
-import type { AppError } from "../types/errors.ts";
+import { type AppError, ErrorTag } from "../types/errors.ts";
 
 // ---------------------------------------------------------------------------
 // mapErrorToResponse
@@ -13,33 +13,40 @@ export type HttpErrorResponse = {
   readonly body: { readonly error: string; readonly detail?: string };
 };
 
+// assertNever — compile-time exhaustiveness guard.
+// If a new ErrorTag variant is added but not handled here TypeScript will
+// flag it as an error before a single test is run.
+export function assertNever(x: never): never {
+  throw new Error(`Unhandled variant: ${String(x)}`);
+}
+
 export function mapErrorToResponse(err: AppError): HttpErrorResponse {
   switch (err.tag) {
-    case "NotFound":
+    case ErrorTag.NotFound:
       return {
         status: 404,
         body: { error: "Not Found", detail: err.resource },
       };
 
-    case "AccessDenied":
+    case ErrorTag.AccessDenied:
       return {
         status: 403,
         body: { error: "Forbidden", detail: err.reason },
       };
 
-    case "Conflict":
+    case ErrorTag.Conflict:
       return {
         status: 409,
         body: { error: "Conflict", detail: err.message },
       };
 
-    case "ValidationError":
+    case ErrorTag.ValidationError:
       return {
         status: 422,
         body: { error: "Unprocessable Entity", detail: err.message },
       };
 
-    case "StorageError":
+    case ErrorTag.StorageError:
       return {
         status: 502,
         body: {
@@ -49,7 +56,7 @@ export function mapErrorToResponse(err: AppError): HttpErrorResponse {
         },
       };
 
-    case "DatabaseError":
+    case ErrorTag.DatabaseError:
       return {
         status: 500,
         body: {
@@ -60,5 +67,8 @@ export function mapErrorToResponse(err: AppError): HttpErrorResponse {
               : "Database operation failed",
         },
       };
+
+    default:
+      return assertNever(err);
   }
 }

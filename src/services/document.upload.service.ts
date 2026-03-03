@@ -1,6 +1,7 @@
 import { Effect, Option } from "effect";
 import { AppError } from "../types/errors.ts";
 import { DocumentId, VersionId, BucketKey } from "../types/branded.ts";
+import { AuditAction, AuditResourceType } from "../types/enums.ts";
 import {
   createDocument,
   createVersion,
@@ -132,8 +133,8 @@ export function uploadDocument(
     yield* Effect.ignoreLogged(
       insertAuditLog({
         actorId: input.userId,
-        action: "document.upload",
-        resourceType: "document",
+        action: AuditAction.DocumentUpload,
+        resourceType: AuditResourceType.Document,
         resourceId: rawDocId,
         metadata: { versionId: rawVerId, filename, contentType },
       }),
@@ -200,8 +201,8 @@ export function uploadNewVersion(
     yield* Effect.ignoreLogged(
       insertAuditLog({
         actorId: actor.userId,
-        action: "document.version.create",
-        resourceType: "document",
+        action: AuditAction.DocumentVersionCreate,
+        resourceType: AuditResourceType.Document,
         resourceId: rawDocId,
         metadata: { versionId: rawVerId, versionNumber, filename },
       }),

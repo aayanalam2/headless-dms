@@ -5,6 +5,7 @@ import {
   hashPassword,
   verifyPassword,
 } from "../../src/services/auth.service.ts";
+import { Role } from "../../src/types/enums.ts";
 import { makeUserRow } from "../helpers/factories.ts";
 
 // ---------------------------------------------------------------------------
@@ -121,13 +122,13 @@ describe("buildJwtClaims", () => {
   });
 
   it("correctly maps the admin role", () => {
-    const admin = makeUserRow({ role: "admin" });
-    expect(buildJwtClaims(admin).role).toBe("admin");
+    const admin = makeUserRow({ role: Role.Admin });
+    expect(buildJwtClaims(admin).role).toBe(Role.Admin);
   });
 
   it("correctly maps the user role", () => {
-    const user = makeUserRow({ role: "user" });
-    expect(buildJwtClaims(user).role).toBe("user");
+    const user = makeUserRow({ role: Role.User });
+    expect(buildJwtClaims(user).role).toBe(Role.User);
   });
 
   it("produces a stable result across multiple calls for the same row", () => {

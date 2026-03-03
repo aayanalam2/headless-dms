@@ -18,6 +18,7 @@ import { BucketKey } from "../types/branded.ts";
 import { toDocumentDTO, toVersionDTO, toPaginatedDocumentsDTO } from "../dto/document.dto.ts";
 import { mapErrorToResponse } from "../lib/http.ts";
 import { AppError } from "../types/errors.ts";
+import { Role, AuditAction, AuditResourceType } from "../types/enums.ts";
 import type { VersionRow } from "../models/db/schema.ts";
 
 // ---------------------------------------------------------------------------
@@ -97,7 +98,7 @@ export const documentsController = new Elysia({ prefix: "/documents" })
         pipe(
           parseSearchParams({
             ...query,
-            ownerId: user.role === "admin" ? query.ownerId : user.userId,
+            ownerId: user.role === Role.Admin ? query.ownerId : user.userId,
           }),
           Effect.flatMap((params) => searchDocuments(params)),
           Effect.map(({ items, total, page, limit }) =>
@@ -173,8 +174,8 @@ export const documentsController = new Elysia({ prefix: "/documents" })
             Effect.ignoreLogged(
               insertAuditLog({
                 actorId: user.userId,
-                action: "document.delete",
-                resourceType: "document",
+                action: AuditAction.DocumentDelete,
+                resourceType: AuditResourceType.Document,
                 resourceId: params.id,
                 metadata: {},
               }),

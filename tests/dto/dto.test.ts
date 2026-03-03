@@ -3,6 +3,7 @@ import { faker } from "@faker-js/faker";
 import { toDocumentDTO, toVersionDTO, toPaginatedDocumentsDTO } from "../../src/dto/document.dto.ts";
 import { toUserDTO } from "../../src/dto/user.dto.ts";
 import { ISODateString } from "../../src/types/branded.ts";
+import { Role } from "../../src/types/enums.ts";
 import { makeUserRow, makeDocumentRow, makeVersionRow } from "../helpers/factories.ts";
 
 // ---------------------------------------------------------------------------
@@ -33,13 +34,13 @@ describe("toUserDTO", () => {
   });
 
   it("correctly maps the admin role", () => {
-    const row = makeUserRow({ role: "admin" });
-    expect(toUserDTO(row).role).toBe("admin");
+    const row = makeUserRow({ role: Role.Admin });
+    expect(toUserDTO(row).role).toBe(Role.Admin);
   });
 
   it("correctly maps the user role", () => {
-    const row = makeUserRow({ role: "user" });
-    expect(toUserDTO(row).role).toBe("user");
+    const row = makeUserRow({ role: Role.User });
+    expect(toUserDTO(row).role).toBe(Role.User);
   });
 
   it("produces ISODateString that satisfies the branded type validator", () => {

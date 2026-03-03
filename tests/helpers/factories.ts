@@ -1,6 +1,7 @@
 import { faker } from "@faker-js/faker";
 import { Effect, Either } from "effect";
 import type { AppError } from "../../src/types/errors.ts";
+import { Role } from "../../src/types/enums.ts";
 import type {
   DocumentRow,
   UserRow,
@@ -42,7 +43,7 @@ export function makeUserRow(overrides: Partial<UserRow> = {}): UserRow {
     id: faker.string.uuid(),
     email: faker.internet.email(),
     passwordHash: faker.string.alphanumeric(60),
-    role: faker.helpers.arrayElement(["admin", "user"] as const),
+    role: faker.helpers.arrayElement([Role.Admin, Role.User]),
     createdAt: faker.date.past(),
     ...overrides,
   };
@@ -91,7 +92,7 @@ export function makeAdminClaims(overrides: Partial<JwtClaims> = {}): JwtClaims {
   return {
     userId: faker.string.uuid(),
     email: faker.internet.email(),
-    role: "admin",
+    role: Role.Admin,
     ...overrides,
   };
 }
@@ -100,7 +101,7 @@ export function makeUserClaims(overrides: Partial<JwtClaims> = {}): JwtClaims {
   return {
     userId: faker.string.uuid(),
     email: faker.internet.email(),
-    role: "user",
+    role: Role.User,
     ...overrides,
   };
 }

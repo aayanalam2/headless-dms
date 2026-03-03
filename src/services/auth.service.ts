@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import type { UserRow } from "../models/db/schema.ts";
 import type { HashedPassword } from "../types/branded.ts";
+import { Role } from "../types/enums.ts";
 
 // ---------------------------------------------------------------------------
 // Auth service — pure functions (no I/O other than CPU-bound hashing).
@@ -12,7 +13,7 @@ import type { HashedPassword } from "../types/branded.ts";
 export type JwtClaims = {
   readonly userId: string;
   readonly email: string;
-  readonly role: "admin" | "user";
+  readonly role: Role;
 };
 
 // ---------------------------------------------------------------------------

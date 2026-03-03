@@ -1,5 +1,5 @@
 import { Effect, Option } from "effect";
-import type { SearchParams, SortField, SortOrder } from "../models/document.repository.ts";
+import { type SearchParams, SortField, SortOrder } from "../models/document.repository.ts";
 import { AppError } from "../types/errors.ts";
 
 // ---------------------------------------------------------------------------
@@ -9,8 +9,8 @@ import { AppError } from "../types/errors.ts";
 // All coercion and validation happens here so repositories receive clean data.
 // ---------------------------------------------------------------------------
 
-const VALID_SORT_FIELDS: SortField[] = ["name", "createdAt", "updatedAt"];
-const VALID_SORT_ORDERS: SortOrder[] = ["asc", "desc"];
+const VALID_SORT_FIELDS = Object.values(SortField);
+const VALID_SORT_ORDERS = Object.values(SortOrder);
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 20;
 const DEFAULT_PAGE = 1;
@@ -86,14 +86,14 @@ export function parseSearchParams(
     const sortBy: SortField =
       raw.sortBy !== undefined && (VALID_SORT_FIELDS as string[]).includes(raw.sortBy)
         ? (raw.sortBy as SortField)
-        : "createdAt";
+        : SortField.CreatedAt;
 
     // --- sortOrder ---
     const sortOrder: SortOrder =
       raw.sortOrder !== undefined &&
       (VALID_SORT_ORDERS as string[]).includes(raw.sortOrder)
         ? (raw.sortOrder as SortOrder)
-        : "desc";
+        : SortOrder.Desc;
 
     // --- metadata (JSONB containment filter) ---
     const metadata = yield* parseMetadata(raw.metadata);

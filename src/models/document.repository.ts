@@ -18,8 +18,16 @@ import { AppError } from "../types/errors.ts";
 // Search parameters — produced by search.service.ts (pure) and consumed here.
 // ---------------------------------------------------------------------------
 
-export type SortField = "name" | "createdAt" | "updatedAt";
-export type SortOrder = "asc" | "desc";
+export enum SortField {
+  Name = "name",
+  CreatedAt = "createdAt",
+  UpdatedAt = "updatedAt",
+}
+
+export enum SortOrder {
+  Asc = "asc",
+  Desc = "desc",
+}
 
 export type SearchParams = {
   readonly ownerId: Option.Option<string>;
@@ -93,13 +101,13 @@ export function searchDocuments(
       const offset = (params.page - 1) * params.limit;
 
       const orderCol =
-        params.sortBy === "name"
+        params.sortBy === SortField.Name
           ? documents.name
-          : params.sortBy === "updatedAt"
+          : params.sortBy === SortField.UpdatedAt
             ? documents.updatedAt
             : documents.createdAt;
 
-      const orderDir = params.sortOrder === "asc" ? asc(orderCol) : desc(orderCol);
+      const orderDir = params.sortOrder === SortOrder.Asc ? asc(orderCol) : desc(orderCol);
 
       const [items, countRows] = await Promise.all([
         db

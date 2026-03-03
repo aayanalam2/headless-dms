@@ -1,5 +1,6 @@
 import type { UserRow } from "../models/db/schema.ts";
 import { ISODateString } from "../types/branded.ts";
+import { Role } from "../types/enums.ts";
 
 // ---------------------------------------------------------------------------
 // User DTO — the outbound shape for user data.
@@ -9,7 +10,7 @@ import { ISODateString } from "../types/branded.ts";
 export type UserDTO = {
   readonly id: string;
   readonly email: string;
-  readonly role: "admin" | "user";
+  readonly role: Role;
   readonly createdAt: ISODateString;
 };
 

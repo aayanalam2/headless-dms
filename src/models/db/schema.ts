@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { Role } from "../../types/enums.ts";
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -27,7 +28,7 @@ export const users = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
-    role: roleEnum("role").notNull().default("user"),
+    role: roleEnum("role").notNull().default(Role.User).$type<Role>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

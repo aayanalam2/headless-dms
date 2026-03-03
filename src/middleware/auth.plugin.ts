@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { config } from "../config/env.ts";
 import type { JwtClaims } from "../services/auth.service.ts";
+import { Role } from "../types/enums.ts";
 
 // ---------------------------------------------------------------------------
 // JWT payload schema — validated at sign and verify time by @elysiajs/jwt.
@@ -12,7 +13,7 @@ import type { JwtClaims } from "../services/auth.service.ts";
 const jwtPayloadSchema = t.Object({
   userId: t.String(),
   email: t.String(),
-  role: t.Union([t.Literal("admin"), t.Literal("user")]),
+  role: t.Union([t.Literal(Role.Admin), t.Literal(Role.User)]),
 });
 
 // ---------------------------------------------------------------------------
@@ -78,7 +79,7 @@ export const authPlugin = new Elysia({ name: "auth" })
 export const adminPlugin = new Elysia({ name: "admin" })
   .use(authPlugin)
   .onBeforeHandle({ as: "scoped" }, ({ user, set }) => {
-    if (!user || user.role !== "admin") {
+    if (!user || user.role !== Role.Admin) {
       set.status = 403;
       return { error: "Forbidden: admin access required" };
     }

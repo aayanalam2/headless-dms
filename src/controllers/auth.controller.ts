@@ -8,7 +8,8 @@ import {
   buildJwtClaims,
 } from "../services/auth.service.ts";
 import { Email } from "../types/branded.ts";
-import { AppError } from "../types/errors.ts";
+import { AppError, ErrorTag } from "../types/errors.ts";
+import { Role } from "../types/enums.ts";
 import { toUserDTO } from "../dto/user.dto.ts";
 import { mapErrorToResponse } from "../lib/http.ts";
 import { config } from "../config/env.ts";
@@ -56,7 +57,7 @@ export const authController = new Elysia({ prefix: "/auth" })
           if (Either.isRight(existingEither)) {
             yield* Effect.fail(AppError.conflict("An account with this email already exists"));
           }
-          if (Either.isLeft(existingEither) && existingEither.left.tag !== "NotFound") {
+          if (Either.isLeft(existingEither) && existingEither.left.tag !== ErrorTag.NotFound) {
             yield* Effect.fail(existingEither.left);
           }
 
@@ -67,7 +68,7 @@ export const authController = new Elysia({ prefix: "/auth" })
           const user = yield* createUser({
             email: body.email,
             passwordHash: passwordHash as string,
-            role: body.role ?? "user",
+            role: body.role ?? Role.User,
           });
 
           const token = yield* Effect.promise(() => jwt.sign(buildJwtClaims(user)));
@@ -78,7 +79,7 @@ export const authController = new Elysia({ prefix: "/auth" })
       body: t.Object({
         email: t.String({ format: "email" }),
         password: t.String({ minLength: 8 }),
-        role: t.Optional(t.Union([t.Literal("admin"), t.Literal("user")])),
+        role: t.Optional(t.Union([t.Literal(Role.Admin), t.Literal(Role.User)])),
       }),
       detail: { summary: "Register a new user", tags: ["Auth"] },
     },

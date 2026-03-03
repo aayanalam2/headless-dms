@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { faker } from "@faker-js/faker";
 import { Option } from "effect";
 import { parseSearchParams } from "../../src/services/search.service.ts";
+import { SortField, SortOrder } from "../../src/models/document.repository.ts";
 import { runOk, runErr } from "../helpers/factories.ts";
 
 // ---------------------------------------------------------------------------
@@ -12,8 +13,8 @@ describe("parseSearchParams", () => {
     const p = runOk(parseSearchParams({}));
     expect(p.page).toBe(1);
     expect(p.limit).toBe(20);
-    expect(p.sortBy).toBe("createdAt");
-    expect(p.sortOrder).toBe("desc");
+    expect(p.sortBy).toBe(SortField.CreatedAt);
+    expect(p.sortOrder).toBe(SortOrder.Desc);
     expect(p.name).toEqual(Option.none());
     expect(p.contentType).toEqual(Option.none());
     expect(p.tags).toEqual(Option.none());
@@ -74,32 +75,32 @@ describe("parseSearchParams", () => {
   // ── Sorting ───────────────────────────────────────────────────────────────
 
   it("accepts sortBy = 'name'", () => {
-    expect(runOk(parseSearchParams({ sortBy: "name" })).sortBy).toBe("name");
+    expect(runOk(parseSearchParams({ sortBy: "name" })).sortBy).toBe(SortField.Name);
   });
 
   it("accepts sortBy = 'updatedAt'", () => {
-    expect(runOk(parseSearchParams({ sortBy: "updatedAt" })).sortBy).toBe("updatedAt");
+    expect(runOk(parseSearchParams({ sortBy: "updatedAt" })).sortBy).toBe(SortField.UpdatedAt);
   });
 
   it("accepts sortBy = 'createdAt'", () => {
-    expect(runOk(parseSearchParams({ sortBy: "createdAt" })).sortBy).toBe("createdAt");
+    expect(runOk(parseSearchParams({ sortBy: "createdAt" })).sortBy).toBe(SortField.CreatedAt);
   });
 
   it("falls back to 'createdAt' for an unknown sortBy value", () => {
     const randomField = faker.word.noun();
-    expect(runOk(parseSearchParams({ sortBy: randomField })).sortBy).toBe("createdAt");
+    expect(runOk(parseSearchParams({ sortBy: randomField })).sortBy).toBe(SortField.CreatedAt);
   });
 
   it("accepts sortOrder = 'asc'", () => {
-    expect(runOk(parseSearchParams({ sortOrder: "asc" })).sortOrder).toBe("asc");
+    expect(runOk(parseSearchParams({ sortOrder: "asc" })).sortOrder).toBe(SortOrder.Asc);
   });
 
   it("accepts sortOrder = 'desc'", () => {
-    expect(runOk(parseSearchParams({ sortOrder: "desc" })).sortOrder).toBe("desc");
+    expect(runOk(parseSearchParams({ sortOrder: "desc" })).sortOrder).toBe(SortOrder.Desc);
   });
 
   it("falls back to 'desc' for an unrecognised sortOrder", () => {
-    expect(runOk(parseSearchParams({ sortOrder: "random" })).sortOrder).toBe("desc");
+    expect(runOk(parseSearchParams({ sortOrder: "random" })).sortOrder).toBe(SortOrder.Desc);
   });
 
   // ── String filters ────────────────────────────────────────────────────────
@@ -238,7 +239,7 @@ describe("parseSearchParams", () => {
     expect(p.metadata).toEqual(Option.some({ author: "alice" }));
     expect(p.page).toBe(2);
     expect(p.limit).toBe(15);
-    expect(p.sortBy).toBe("name");
-    expect(p.sortOrder).toBe("asc");
+    expect(p.sortBy).toBe(SortField.Name);
+    expect(p.sortOrder).toBe(SortOrder.Asc);
   });
 });
