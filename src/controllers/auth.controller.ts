@@ -8,25 +8,8 @@ import { Email } from "../types/branded.ts";
 import { AppError, ErrorTag } from "../types/errors.ts";
 import { Role } from "../types/enums.ts";
 import { toUserDTO } from "../dto/user.dto.ts";
-import { mapErrorToResponse } from "../lib/http.ts";
+import { run } from "../lib/http.ts";
 import { config } from "../config/env.ts";
-
-// ---------------------------------------------------------------------------
-// run — shared Effect executor (same pattern as documents controller).
-// ---------------------------------------------------------------------------
-
-async function run<T>(
-  set: { status?: number | string | undefined },
-  effect: Effect.Effect<T, AppError>,
-): Promise<T | ReturnType<typeof mapErrorToResponse>["body"]> {
-  const either = await Effect.runPromise(Effect.either(effect));
-  if (Either.isLeft(either)) {
-    const mapped = mapErrorToResponse(either.left);
-    set.status = mapped.status;
-    return mapped.body;
-  }
-  return either.right;
-}
 
 // ---------------------------------------------------------------------------
 // Auth controller

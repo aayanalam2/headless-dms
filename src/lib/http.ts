@@ -1,5 +1,7 @@
+import { Effect, Either } from "effect";
 import { StatusCode } from "status-code-enum";
 import { type AppError, ErrorTag } from "../types/errors.ts";
+import { logger } from "./logger.ts";
 
 // ---------------------------------------------------------------------------
 // mapErrorToResponse
@@ -50,22 +52,49 @@ export function mapErrorToResponse(err: AppError): HttpErrorResponse {
     case ErrorTag.StorageError:
       return {
         status: StatusCode.ServerErrorBadGateway,
-        body: {
-          error: "Storage Error",
-          detail: err.cause instanceof Error ? err.cause.message : "Unknown storage error",
-        },
+        body: { error: "Storage Error" },
       };
 
     case ErrorTag.DatabaseError:
       return {
         status: StatusCode.ServerErrorInternal,
-        body: {
-          error: "Internal Server Error",
-          detail: err.cause instanceof Error ? err.cause.message : "Database operation failed",
-        },
+        body: { error: "Internal Server Error" },
       };
 
     default:
       return assertNever(err);
   }
+}
+
+// ---------------------------------------------------------------------------
+// run — shared Effect executor used by all controllers.
+// Runs the effect, maps any AppError to the appropriate HTTP status + body,
+// and returns the success value directly when the effect succeeds.
+// ---------------------------------------------------------------------------
+export async function run<T>(
+  set: { status?: number | string | undefined },
+  effect: Effect.Effect<T, AppError>,
+): Promise<T | ReturnType<typeof mapErrorToResponse>["body"]> {
+  const either = await Effect.runPromise(Effect.either(effect));
+  if (Either.isLeft(either)) {
+    const err = either.left;
+    const mapped = mapErrorToResponse(err);
+    // Log 5xx errors server-side so the cause is visible in logs but never
+    // sent to the client.
+    if (mapped.status >= 500) {
+      logger.error(
+        {
+          tag: err.tag,
+          cause:
+            (err as { cause?: unknown }).cause instanceof Error
+              ? (err as { cause?: unknown }).cause
+              : String((err as { cause?: unknown }).cause),
+        },
+        "Internal error",
+      );
+    }
+    set.status = mapped.status;
+    return mapped.body;
+  }
+  return either.right;
 }

@@ -101,25 +101,25 @@ describe("mapErrorToResponse", () => {
       expect(mapErrorToResponse(err).body.error).toBe("Storage Error");
     });
 
-    it("uses the Error message as detail when cause is an Error", () => {
+    it("never exposes the cause message in the response body", () => {
       const cause = new Error(faker.lorem.sentence());
       const resp = mapErrorToResponse(AppError.storage(cause));
-      expect(resp.body.detail).toBe(cause.message);
+      expect(resp.body.detail).toBeUndefined();
     });
 
-    it("falls back to a generic detail when cause is not an Error", () => {
+    it("returns no detail when cause is not an Error", () => {
       const resp = mapErrorToResponse(AppError.storage("raw string error"));
-      expect(resp.body.detail).toBe("Unknown storage error");
+      expect(resp.body.detail).toBeUndefined();
     });
 
-    it("falls back gracefully when cause is null", () => {
+    it("returns no detail when cause is null", () => {
       const resp = mapErrorToResponse(AppError.storage(null));
-      expect(resp.body.detail).toBe("Unknown storage error");
+      expect(resp.body.detail).toBeUndefined();
     });
 
-    it("falls back gracefully when cause is a plain object", () => {
+    it("returns no detail when cause is a plain object", () => {
       const resp = mapErrorToResponse(AppError.storage({ code: "S3_ERR" }));
-      expect(resp.body.detail).toBe("Unknown storage error");
+      expect(resp.body.detail).toBeUndefined();
     });
   });
 
@@ -136,20 +136,20 @@ describe("mapErrorToResponse", () => {
       expect(mapErrorToResponse(err).body.error).toBe("Internal Server Error");
     });
 
-    it("uses the Error message as detail when cause is an Error", () => {
+    it("never exposes the cause message in the response body", () => {
       const cause = new Error(faker.lorem.sentence());
       const resp = mapErrorToResponse(AppError.database(cause));
-      expect(resp.body.detail).toBe(cause.message);
+      expect(resp.body.detail).toBeUndefined();
     });
 
-    it("falls back to a generic detail when cause is not an Error", () => {
+    it("returns no detail when cause is not an Error", () => {
       const resp = mapErrorToResponse(AppError.database(42));
-      expect(resp.body.detail).toBe("Database operation failed");
+      expect(resp.body.detail).toBeUndefined();
     });
 
-    it("falls back gracefully when cause is undefined", () => {
+    it("returns no detail when cause is undefined", () => {
       const resp = mapErrorToResponse(AppError.database(undefined));
-      expect(resp.body.detail).toBe("Database operation failed");
+      expect(resp.body.detail).toBeUndefined();
     });
   });
 

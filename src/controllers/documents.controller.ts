@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia";
-import { Effect, Either, Option, pipe } from "effect";
+import { Effect, Option, pipe } from "effect";
 import { authPlugin, adminPlugin } from "../middleware/auth.plugin.ts";
 import {
   findDocumentById,
@@ -16,28 +16,11 @@ import { uploadDocument, uploadNewVersion } from "../services/document.upload.se
 import { parseSearchParams } from "../services/search.service.ts";
 import { BucketKey } from "../types/branded.ts";
 import { toDocumentDTO, toVersionDTO, toPaginatedDocumentsDTO } from "../dto/document.dto.ts";
-import { mapErrorToResponse } from "../lib/http.ts";
+import { run } from "../lib/http.ts";
 import { StatusCode } from "status-code-enum";
 import { AppError } from "../types/errors.ts";
 import { Role, AuditAction, AuditResourceType } from "../types/enums.ts";
 import type { VersionRow } from "../models/db/schema.ts";
-
-// ---------------------------------------------------------------------------
-// run — execute an Effect pipeline and return the value or set status + body.
-// This is the single exit point for every handler.
-// ---------------------------------------------------------------------------
-async function run<T>(
-  set: { status?: number | string | undefined },
-  effect: Effect.Effect<T, AppError>,
-): Promise<T | ReturnType<typeof mapErrorToResponse>["body"]> {
-  const either = await Effect.runPromise(Effect.either(effect));
-  if (Either.isLeft(either)) {
-    const mapped = mapErrorToResponse(either.left);
-    set.status = mapped.status;
-    return mapped.body;
-  }
-  return either.right;
-}
 
 // ---------------------------------------------------------------------------
 // validateBucketKey — thin bridge from branded-type parse into AppError.
@@ -85,6 +68,7 @@ export const documentsController = new Elysia({ prefix: "/documents" })
         }),
       ),
     {
+      type: "formdata",
       body: t.Object({
         file: t.File(),
         name: t.Optional(t.String({ maxLength: 255 })),
@@ -141,7 +125,7 @@ export const documentsController = new Elysia({ prefix: "/documents" })
         ),
       ),
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
       detail: { summary: "Get a document by ID", tags: ["Documents"] },
     },
   )
@@ -165,7 +149,7 @@ export const documentsController = new Elysia({ prefix: "/documents" })
         ),
       ),
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
       detail: { summary: "Pre-signed download URL for the current version", tags: ["Documents"] },
     },
   )
@@ -194,7 +178,7 @@ export const documentsController = new Elysia({ prefix: "/documents" })
         ),
       ),
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
       detail: { summary: "Soft-delete a document (admin only)", tags: ["Documents"] },
     },
   )
@@ -219,7 +203,8 @@ export const documentsController = new Elysia({ prefix: "/documents" })
         ),
       ),
     {
-      params: t.Object({ id: t.String() }),
+      type: "formdata",
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
       body: t.Object({
         file: t.File(),
         name: t.Optional(t.String({ maxLength: 255 })),
@@ -242,7 +227,7 @@ export const documentsController = new Elysia({ prefix: "/documents" })
         ),
       ),
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
       detail: { summary: "List all versions of a document", tags: ["Documents"] },
     },
   )
@@ -270,7 +255,10 @@ export const documentsController = new Elysia({ prefix: "/documents" })
         ),
       ),
     {
-      params: t.Object({ id: t.String(), versionId: t.String() }),
+      params: t.Object({
+        id: t.String({ format: "uuid" }),
+        versionId: t.String({ format: "uuid" }),
+      }),
       detail: { summary: "Pre-signed download URL for a specific version", tags: ["Documents"] },
     },
   );
