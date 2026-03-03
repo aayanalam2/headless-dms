@@ -7,7 +7,6 @@ import {
   softDeleteDocument,
   findVersionById,
   listVersions,
-  insertAuditLog,
 } from "../models/document.repository.ts";
 import { getPresignedDownloadUrl } from "../models/storage.ts";
 import { canRead, canWrite, canDelete } from "../services/document.service.ts";
@@ -16,8 +15,10 @@ import { parseSearchParams } from "../services/search.service.ts";
 import { BucketKey } from "../types/branded.ts";
 import { toDocumentDTO, toVersionDTO, toPaginatedDocumentsDTO } from "../dto/document.dto.ts";
 import { run } from "../lib/http.ts";
+import { eventBus } from "../lib/event-bus.ts";
+import { DocumentEvent } from "../events/document.events.ts";
 import { AppError } from "../types/errors.ts";
-import { Role, AuditAction, AuditResourceType } from "../types/enums.ts";
+import { Role } from "../types/enums.ts";
 import type { VersionRow } from "../models/db/schema.ts";
 
 // ---------------------------------------------------------------------------
@@ -162,14 +163,8 @@ export const documentsController = new Elysia({ prefix: "/documents" })
           canDelete(user),
           Effect.flatMap(() => softDeleteDocument(params.id)),
           Effect.tap(() =>
-            Effect.ignoreLogged(
-              insertAuditLog({
-                actorId: user.userId,
-                action: AuditAction.DocumentDelete,
-                resourceType: AuditResourceType.Document,
-                resourceId: params.id,
-                metadata: {},
-              }),
+            Effect.sync(() =>
+              eventBus.emit(DocumentEvent.Deleted, { actorId: user.userId, resourceId: params.id }),
             ),
           ),
           Effect.map(() => ({ message: "Document deleted successfully" })),

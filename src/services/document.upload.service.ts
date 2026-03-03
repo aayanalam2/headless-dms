@@ -1,14 +1,14 @@
 import { Effect, Option } from "effect";
 import { AppError } from "../types/errors.ts";
 import { DocumentId, VersionId, BucketKey } from "../types/branded.ts";
-import { AuditAction, AuditResourceType } from "../types/enums.ts";
 import {
   createDocument,
   createVersion,
   updateDocument,
   listVersions,
-  insertAuditLog,
 } from "../models/document.repository.ts";
+import { eventBus } from "../lib/event-bus.ts";
+import { DocumentEvent } from "../events/document.events.ts";
 import { uploadToS3 } from "../models/storage.ts";
 import { buildBucketKey, nextVersionNumber, validateContentType } from "./document.service.ts";
 import {
@@ -122,13 +122,13 @@ export function uploadDocument(
     yield* Effect.ignoreLogged(
       updateDocument(rawDocId, { currentVersionId: rawVerId, updatedAt: new Date() }),
     );
-    yield* Effect.ignoreLogged(
-      insertAuditLog({
+    yield* Effect.sync(() =>
+      eventBus.emit(DocumentEvent.Uploaded, {
         actorId: input.userId,
-        action: AuditAction.DocumentUpload,
-        resourceType: AuditResourceType.Document,
         resourceId: rawDocId,
-        metadata: { versionId: rawVerId, filename, contentType },
+        versionId: rawVerId,
+        filename,
+        contentType,
       }),
     );
 
@@ -188,13 +188,13 @@ export function uploadNewVersion(
     yield* Effect.ignoreLogged(
       updateDocument(rawDocId, { currentVersionId: rawVerId, updatedAt: new Date() }),
     );
-    yield* Effect.ignoreLogged(
-      insertAuditLog({
+    yield* Effect.sync(() =>
+      eventBus.emit(DocumentEvent.VersionCreated, {
         actorId: actor.userId,
-        action: AuditAction.DocumentVersionCreate,
-        resourceType: AuditResourceType.Document,
         resourceId: rawDocId,
-        metadata: { versionId: rawVerId, versionNumber, filename },
+        versionId: rawVerId,
+        versionNumber,
+        filename,
       }),
     );
 

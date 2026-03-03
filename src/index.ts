@@ -7,6 +7,7 @@ import { logger } from "./lib/logger.ts";
 import { authController } from "./controllers/auth.controller.ts";
 import { documentsController } from "./controllers/documents.controller.ts";
 import { auditController } from "./controllers/audit.controller.ts";
+import { registerAuditListeners } from "./services/audit.listener.ts";
 
 // ---------------------------------------------------------------------------
 // Application factory — wires together all controllers, middleware, and
@@ -104,6 +105,7 @@ export function createApp() {
 // before any other module initialises.
 // ---------------------------------------------------------------------------
 
+registerAuditListeners();
 const app = createApp();
 
 app.listen(config.port, () => {
