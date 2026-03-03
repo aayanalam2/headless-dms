@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { jwt } from "@elysiajs/jwt";
+import { StatusCode } from "status-code-enum";
 import { config } from "../config/env.ts";
 import type { JwtClaims } from "../services/auth.service.ts";
 import { Role } from "../types/enums.ts";
@@ -49,7 +50,7 @@ export const authPlugin = new Elysia({ name: "auth" })
     async ({ jwt, request, set }): Promise<{ user: JwtClaims }> => {
       const authHeader = request.headers.get("authorization");
       if (!authHeader?.startsWith("Bearer ")) {
-        set.status = 401;
+        set.status = StatusCode.ClientErrorUnauthorized;
         throw new Error("Unauthorized: missing or malformed token");
       }
 
@@ -57,7 +58,7 @@ export const authPlugin = new Elysia({ name: "auth" })
       const payload = await jwt.verify(token);
 
       if (!payload) {
-        set.status = 401;
+        set.status = StatusCode.ClientErrorUnauthorized;
         throw new Error("Unauthorized: invalid or expired token");
       }
 
@@ -80,7 +81,7 @@ export const adminPlugin = new Elysia({ name: "admin" })
   .use(authPlugin)
   .onBeforeHandle({ as: "scoped" }, ({ user, set }) => {
     if (!user || user.role !== Role.Admin) {
-      set.status = 403;
+      set.status = StatusCode.ClientErrorForbidden;
       return { error: "Forbidden: admin access required" };
     }
   });

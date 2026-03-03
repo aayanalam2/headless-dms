@@ -17,6 +17,7 @@ import { parseSearchParams } from "../services/search.service.ts";
 import { BucketKey } from "../types/branded.ts";
 import { toDocumentDTO, toVersionDTO, toPaginatedDocumentsDTO } from "../dto/document.dto.ts";
 import { mapErrorToResponse } from "../lib/http.ts";
+import { StatusCode } from "status-code-enum";
 import { AppError } from "../types/errors.ts";
 import { Role, AuditAction, AuditResourceType } from "../types/enums.ts";
 import type { VersionRow } from "../models/db/schema.ts";
@@ -271,11 +272,11 @@ export const auditController = new Elysia({ prefix: "/audit" })
       const limit = query.limit ? parseInt(query.limit, 10) : 20;
 
       if (!Number.isInteger(page) || page < 1) {
-        set.status = 422;
+        set.status = StatusCode.ClientErrorUnprocessableEntity;
         return { error: "page must be a positive integer" };
       }
       if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-        set.status = 422;
+        set.status = StatusCode.ClientErrorUnprocessableEntity;
         return { error: "limit must be between 1 and 100" };
       }
 

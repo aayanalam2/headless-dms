@@ -7,6 +7,7 @@ import {
   verifyPassword,
   buildJwtClaims,
 } from "../services/auth.service.ts";
+import { StatusCode } from "status-code-enum";
 import { Email } from "../types/branded.ts";
 import { AppError, ErrorTag } from "../types/errors.ts";
 import { Role } from "../types/enums.ts";
@@ -117,7 +118,7 @@ export const authController = new Elysia({ prefix: "/auth" })
         ),
       );
       if (Either.isLeft(either)) {
-        set.status = 401;
+        set.status = StatusCode.ClientErrorUnauthorized;
         return { error: "Invalid email or password" };
       }
       return either.right;

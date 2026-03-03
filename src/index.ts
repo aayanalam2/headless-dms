@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { swagger } from "@elysiajs/swagger";
+import { StatusCode } from "status-code-enum";
 import { config } from "./config/env.ts";
 import { logger } from "./lib/logger.ts";
 import { authController } from "./controllers/auth.controller.ts";
@@ -60,7 +61,7 @@ export function createApp() {
         // Elysia has already set the status for VALIDATION / NOT_FOUND et al.
         // We just ensure the response body is JSON.
         if (code === "VALIDATION") {
-          set.status = 422;
+          set.status = StatusCode.ClientErrorUnprocessableEntity;
           return {
             error: "Validation Error",
             detail: error.message,
@@ -68,7 +69,7 @@ export function createApp() {
         }
 
         if (code === "NOT_FOUND") {
-          set.status = 404;
+          set.status = StatusCode.ClientErrorNotFound;
           return { error: "Route not found" };
         }
 
@@ -78,7 +79,7 @@ export function createApp() {
           "Unhandled server error",
         );
 
-        set.status = 500;
+        set.status = StatusCode.ServerErrorInternal;
         return { error: "Internal Server Error" };
       })
 

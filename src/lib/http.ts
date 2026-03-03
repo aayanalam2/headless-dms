@@ -1,3 +1,4 @@
+import { StatusCode } from "status-code-enum";
 import { type AppError, ErrorTag } from "../types/errors.ts";
 
 // ---------------------------------------------------------------------------
@@ -24,31 +25,31 @@ export function mapErrorToResponse(err: AppError): HttpErrorResponse {
   switch (err.tag) {
     case ErrorTag.NotFound:
       return {
-        status: 404,
+        status: StatusCode.ClientErrorNotFound,
         body: { error: "Not Found", detail: err.resource },
       };
 
     case ErrorTag.AccessDenied:
       return {
-        status: 403,
+        status: StatusCode.ClientErrorForbidden,
         body: { error: "Forbidden", detail: err.reason },
       };
 
     case ErrorTag.Conflict:
       return {
-        status: 409,
+        status: StatusCode.ClientErrorConflict,
         body: { error: "Conflict", detail: err.message },
       };
 
     case ErrorTag.ValidationError:
       return {
-        status: 422,
+        status: StatusCode.ClientErrorUnprocessableEntity,
         body: { error: "Unprocessable Entity", detail: err.message },
       };
 
     case ErrorTag.StorageError:
       return {
-        status: 502,
+        status: StatusCode.ServerErrorBadGateway,
         body: {
           error: "Storage Error",
           detail:
@@ -58,7 +59,7 @@ export function mapErrorToResponse(err: AppError): HttpErrorResponse {
 
     case ErrorTag.DatabaseError:
       return {
-        status: 500,
+        status: StatusCode.ServerErrorInternal,
         body: {
           error: "Internal Server Error",
           detail:
