@@ -1,12 +1,10 @@
 {
   "compilerOptions": {
-    // Environment setup & latest features
+    // Environment setup
     "lib": ["ESNext"],
     "target": "ESNext",
-    "module": "Preserve",
+    "module": "ESNext",
     "moduleDetection": "force",
-    "jsx": "react-jsx",
-    "allowJs": true,
 
     // Bundler mode
     "moduleResolution": "bundler",
@@ -14,16 +12,17 @@
     "verbatimModuleSyntax": true,
     "noEmit": true,
 
-    // Best practices
+    // Strict type checking
     "strict": true,
+    "exactOptionalPropertyTypes": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
+    "esModuleInterop": true,
 
-    // Some stricter flags (disabled by default)
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noPropertyAccessFromIndexSignature": false
-  }
+    // Bun types
+    "types": ["bun-types"]
+  },
+  "include": ["src/**/*", "drizzle.config.ts", "index.ts"]
 }
