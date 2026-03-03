@@ -71,7 +71,7 @@ export type Role = (typeof ROLES)[number];
 
 const _ISODateStringRefined = createRefinedType(
   "ISODateString",
-  z.string().datetime({ offset: true }),
+  z.iso.datetime({ offset: true }),
 );
 
 export const ISODateString = Object.assign(_ISODateStringRefined, {

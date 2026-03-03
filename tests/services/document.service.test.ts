@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Effect, Either } from "effect";
+import { faker } from "@faker-js/faker";
 import {
   canRead,
   canWrite,
@@ -8,77 +8,52 @@ import {
   nextVersionNumber,
   validateContentType,
 } from "../../src/services/document.service.ts";
-import type { JwtClaims } from "../../src/services/auth.service.ts";
-import type { DocumentRow } from "../../src/models/db/schema.ts";
 import { DocumentId, VersionId } from "../../src/types/branded.ts";
-
-// ---------------------------------------------------------------------------
-// Test helpers
-// ---------------------------------------------------------------------------
-
-function runOk<T>(effect: Effect.Effect<T, unknown>): T {
-  return Effect.runSync(effect);
-}
-
-function runErr<E>(effect: Effect.Effect<unknown, E>): E {
-  const result = Effect.runSync(Effect.either(effect));
-  if (Either.isRight(result)) throw new Error("Expected failure but got success");
-  return result.left;
-}
-
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
-const adminUser: JwtClaims = {
-  userId: "00000000-0000-4000-8000-000000000001",
-  email: "admin@example.com",
-  role: "admin",
-};
-
-const ownerUser: JwtClaims = {
-  userId: "00000000-0000-4000-8000-000000000002",
-  email: "owner@example.com",
-  role: "user",
-};
-
-const otherUser: JwtClaims = {
-  userId: "00000000-0000-4000-8000-000000000003",
-  email: "other@example.com",
-  role: "user",
-};
-
-const now = new Date();
-
-const sampleDoc: DocumentRow = {
-  id: "00000000-0000-4000-8000-000000000010",
-  ownerId: ownerUser.userId,
-  name: "report.pdf",
-  contentType: "application/pdf",
-  currentVersionId: null,
-  tags: ["finance", "q1"],
-  metadata: { author: "alice" },
-  createdAt: now,
-  updatedAt: now,
-  deletedAt: null,
-};
+import {
+  runOk,
+  runErr,
+  makeDocumentRow,
+  makeAdminClaims,
+  makeUserClaims,
+} from "../helpers/factories.ts";
 
 // ---------------------------------------------------------------------------
 // canRead
 // ---------------------------------------------------------------------------
 
 describe("canRead", () => {
-  it("allows admin to read any document", () => {
-    expect(runOk(canRead(adminUser, sampleDoc))).toBe(true);
+  it("allows an admin to read any document", () => {
+    const admin = makeAdminClaims();
+    const doc = makeDocumentRow();
+    expect(runOk(canRead(admin, doc))).toBe(true);
   });
 
-  it("allows the owner to read their own document", () => {
-    expect(runOk(canRead(ownerUser, sampleDoc))).toBe(true);
+  it("allows the document owner to read their own document", () => {
+    const user = makeUserClaims();
+    const doc = makeDocumentRow({ ownerId: user.userId });
+    expect(runOk(canRead(user, doc))).toBe(true);
   });
 
-  it("denies a non-owner user read access", () => {
-    const err = runErr(canRead(otherUser, sampleDoc));
-    expect(err.tag).toBe("AccessDenied");
+  it("denies a regular user who does not own the document", () => {
+    const user = makeUserClaims();
+    const doc = makeDocumentRow({ ownerId: faker.string.uuid() });
+    const err = runErr(canRead(user, doc));
+    expect(err).toMatchObject({ tag: "AccessDenied" });
+  });
+
+  it("denies multiple unrelated users in sequence", () => {
+    const doc = makeDocumentRow({ ownerId: faker.string.uuid() });
+    for (let i = 0; i < 5; i++) {
+      const stranger = makeUserClaims();
+      expect(runErr(canRead(stranger, doc))).toMatchObject({ tag: "AccessDenied" });
+    }
+  });
+
+  it("never denies an admin regardless of document ownership", () => {
+    const admin = makeAdminClaims();
+    Array.from({ length: 10 }, () => makeDocumentRow()).forEach((doc) =>
+      expect(runOk(canRead(admin, doc))).toBe(true),
+    );
   });
 });
 
@@ -87,17 +62,28 @@ describe("canRead", () => {
 // ---------------------------------------------------------------------------
 
 describe("canWrite", () => {
-  it("allows admin to write any document", () => {
-    expect(runOk(canWrite(adminUser, sampleDoc))).toBe(true);
+  it("allows an admin to write any document", () => {
+    const admin = makeAdminClaims();
+    expect(runOk(canWrite(admin, makeDocumentRow()))).toBe(true);
   });
 
-  it("allows the owner to write their own document", () => {
-    expect(runOk(canWrite(ownerUser, sampleDoc))).toBe(true);
+  it("allows the document owner to write their own document", () => {
+    const user = makeUserClaims();
+    expect(runOk(canWrite(user, makeDocumentRow({ ownerId: user.userId })))).toBe(true);
   });
 
-  it("denies a non-owner user write access", () => {
-    const err = runErr(canWrite(otherUser, sampleDoc));
-    expect(err.tag).toBe("AccessDenied");
+  it("denies a non-owner regular user", () => {
+    const user = makeUserClaims();
+    const doc = makeDocumentRow({ ownerId: faker.string.uuid() });
+    expect(runErr(canWrite(user, doc))).toMatchObject({ tag: "AccessDenied" });
+  });
+
+  it("returns an AccessDenied error with a non-empty reason", () => {
+    const user = makeUserClaims();
+    const doc = makeDocumentRow({ ownerId: faker.string.uuid() });
+    const err = runErr(canWrite(user, doc)) as { tag: string; reason: string };
+    expect(typeof err.reason).toBe("string");
+    expect(err.reason.length).toBeGreaterThan(0);
   });
 });
 
@@ -106,13 +92,22 @@ describe("canWrite", () => {
 // ---------------------------------------------------------------------------
 
 describe("canDelete", () => {
-  it("allows admin to delete", () => {
-    expect(runOk(canDelete(adminUser))).toBe(true);
+  it("allows an admin to delete", () => {
+    expect(runOk(canDelete(makeAdminClaims()))).toBe(true);
   });
 
-  it("denies owner (non-admin) from deleting", () => {
-    const err = runErr(canDelete(ownerUser));
-    expect(err.tag).toBe("AccessDenied");
+  it("denies a regular user regardless of identity", () => {
+    expect(runErr(canDelete(makeUserClaims()))).toMatchObject({ tag: "AccessDenied" });
+  });
+
+  it("denies 8 randomly generated regular users", () => {
+    for (let i = 0; i < 8; i++) {
+      expect(runErr(canDelete(makeUserClaims()))).toMatchObject({ tag: "AccessDenied" });
+    }
+  });
+
+  it("allows admin with any UUID as userId", () => {
+    expect(runOk(canDelete(makeAdminClaims({ userId: faker.string.uuid() })))).toBe(true);
   });
 });
 
@@ -121,22 +116,50 @@ describe("canDelete", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildBucketKey", () => {
-  it("produces a deterministic key in the expected format", () => {
+  function validDocId() {
+    return DocumentId.create(faker.string.uuid()).unwrap();
+  }
+  function validVerId() {
+    return VersionId.create(faker.string.uuid()).unwrap();
+  }
+
+  it("produces a key in the format {docId}/{verId}/{encodedFilename}", () => {
     const docId = DocumentId.create("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa").unwrap();
     const verId = VersionId.create("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb").unwrap();
-    const key = buildBucketKey(docId, verId, "my report.pdf");
-
-    expect(key).toBe(
+    expect(buildBucketKey(docId, verId, "my report.pdf")).toBe(
       "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/my%20report.pdf",
     );
   });
 
-  it("percent-encodes special characters in the filename", () => {
-    const docId = DocumentId.create("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa").unwrap();
-    const verId = VersionId.create("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb").unwrap();
-    const key = buildBucketKey(docId, verId, "hello world & more.pdf");
+  it("percent-encodes spaces in arbitrary filenames", () => {
+    const key = buildBucketKey(validDocId(), validVerId(), "hello world.pdf");
+    expect(key).not.toContain(" ");
+  });
 
-    expect(key).toContain("hello%20world");
+  it("encodes special characters: &, #, +, ?", () => {
+    const key = buildBucketKey(validDocId(), validVerId(), "hello world & more #1.pdf");
+    expect(key).not.toMatch(/[ &#+?]/);
+  });
+
+  it("keeps alphanumeric filenames unchanged", () => {
+    const docId = validDocId();
+    const verId = validVerId();
+    const key = buildBucketKey(docId, verId, "plainfilename.pdf");
+    expect(key).toEndWith("/plainfilename.pdf");
+  });
+
+  it("generates a unique key for each unique versionId", () => {
+    const docId = validDocId();
+    const keys = Array.from({ length: 5 }, () =>
+      buildBucketKey(docId, validVerId(), "file.pdf"),
+    );
+    expect(new Set(keys).size).toBe(5);
+  });
+
+  it("starts with the document ID", () => {
+    const docId = validDocId();
+    const key = buildBucketKey(docId, validVerId(), "file.txt");
+    expect(key.startsWith(String(docId))).toBe(true);
   });
 });
 
@@ -145,16 +168,52 @@ describe("buildBucketKey", () => {
 // ---------------------------------------------------------------------------
 
 describe("nextVersionNumber", () => {
+  function makeVersion(documentId: string, versionNumber: number) {
+    return {
+      id: faker.string.uuid(),
+      documentId,
+      versionNumber,
+      bucketKey: `k${versionNumber}`,
+      sizeBytes: 100,
+      uploadedBy: faker.string.uuid(),
+      checksum: faker.string.alphanumeric(8),
+      createdAt: new Date(),
+    };
+  }
+
   it("returns 1 when there are no existing versions", () => {
     expect(nextVersionNumber([])).toBe(1);
   });
 
-  it("returns max + 1 for existing versions", () => {
-    const versions = [
-      { ...sampleDoc, id: "v1", versionNumber: 1, documentId: sampleDoc.id, bucketKey: "k", sizeBytes: 100, uploadedBy: ownerUser.userId, checksum: "abc", createdAt: now },
-      { ...sampleDoc, id: "v2", versionNumber: 2, documentId: sampleDoc.id, bucketKey: "k", sizeBytes: 100, uploadedBy: ownerUser.userId, checksum: "def", createdAt: now },
-    ];
-    expect(nextVersionNumber(versions)).toBe(3);
+  it("returns 2 when the only existing version is number 1", () => {
+    const docId = faker.string.uuid();
+    expect(nextVersionNumber([makeVersion(docId, 1)])).toBe(2);
+  });
+
+  it("returns max + 1 for sequential versions", () => {
+    const docId = faker.string.uuid();
+    const versions = [1, 2, 3, 4, 5].map((n) => makeVersion(docId, n));
+    expect(nextVersionNumber(versions)).toBe(6);
+  });
+
+  it("returns max + 1 even when versions are out of order", () => {
+    const docId = faker.string.uuid();
+    const versions = [3, 1, 5, 2, 4].map((n) => makeVersion(docId, n));
+    expect(nextVersionNumber(versions)).toBe(6);
+  });
+
+  it("handles non-contiguous version numbers (gaps)", () => {
+    const docId = faker.string.uuid();
+    const versions = [10, 7, 3].map((n) => makeVersion(docId, n));
+    expect(nextVersionNumber(versions)).toBe(11);
+  });
+
+  it("is stable across 20 random shuffles of the same list", () => {
+    const docId = faker.string.uuid();
+    const base = [2, 5, 1, 8, 3].map((n) => makeVersion(docId, n));
+    for (let i = 0; i < 20; i++) {
+      expect(nextVersionNumber(faker.helpers.shuffle([...base]))).toBe(9);
+    }
   });
 });
 
@@ -163,16 +222,31 @@ describe("nextVersionNumber", () => {
 // ---------------------------------------------------------------------------
 
 describe("validateContentType", () => {
-  it("accepts a valid content type", () => {
+  it("accepts a valid MIME type", () => {
     expect(runOk(validateContentType("application/pdf"))).toBe("application/pdf");
   });
 
-  it("trims surrounding whitespace", () => {
+  it("trims leading and trailing whitespace", () => {
     expect(runOk(validateContentType("  image/png  "))).toBe("image/png");
   });
 
-  it("rejects an empty content type", () => {
-    const err = runErr(validateContentType(""));
-    expect(err.tag).toBe("ValidationError");
+  it("accepts a variety of real MIME types", () => {
+    const types = [
+      "text/plain", "image/jpeg", "image/svg+xml",
+      "application/json", "application/octet-stream", "video/mp4",
+    ];
+    types.forEach((t) => expect(runOk(validateContentType(t))).toBe(t));
+  });
+
+  it("rejects an empty string", () => {
+    expect(runErr(validateContentType(""))).toMatchObject({ tag: "ValidationError" });
+  });
+
+  it("rejects a string of only whitespace", () => {
+    expect(runErr(validateContentType("   "))).toMatchObject({ tag: "ValidationError" });
+  });
+
+  it("rejects a tab-only string", () => {
+    expect(runErr(validateContentType("\t\t"))).toMatchObject({ tag: "ValidationError" });
   });
 });
