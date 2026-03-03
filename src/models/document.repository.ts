@@ -52,13 +52,19 @@ export type PaginatedDocuments = {
 // Document repository
 // ---------------------------------------------------------------------------
 
-export function findDocumentById(id: string): Effect.Effect<DocumentRow, AppError> {
+export function findDocumentById(id: string, actorId?: string): Effect.Effect<DocumentRow, AppError> {
   return Effect.tryPromise({
     try: () =>
       db
         .select()
         .from(documents)
-        .where(and(eq(documents.id, id), isNull(documents.deletedAt)))
+        .where(
+          and(
+            eq(documents.id, id),
+            isNull(documents.deletedAt),
+            actorId !== undefined ? eq(documents.ownerId, actorId) : undefined,
+          ),
+        )
         .limit(1),
     catch: (e) => AppError.database(e),
   }).pipe(

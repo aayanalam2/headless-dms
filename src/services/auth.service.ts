@@ -1,7 +1,9 @@
 import bcrypt from "bcryptjs";
+import { Effect } from "effect";
 import type { UserRow } from "../models/db/schema.ts";
 import type { HashedPassword } from "../types/branded.ts";
 import { Role } from "../types/enums.ts";
+import { AppError } from "../types/errors.ts";
 
 // ---------------------------------------------------------------------------
 // Auth service — pure functions (no I/O other than CPU-bound hashing).
@@ -15,6 +17,22 @@ export type JwtClaims = {
   readonly email: string;
   readonly role: Role;
 };
+
+// ---------------------------------------------------------------------------
+// requireRole
+// Returns Effect.succeed(void) when the actor holds one of the allowed roles,
+// or Effect.fail(AppError.accessDenied) otherwise.
+// Composes directly into any effect pipeline — no controller boilerplate.
+// ---------------------------------------------------------------------------
+
+export function requireRole(
+  actor: JwtClaims,
+  ...allowed: Role[]
+): Effect.Effect<void, AppError> {
+  return allowed.includes(actor.role)
+    ? Effect.void
+    : Effect.fail(AppError.accessDenied(`requires role: ${allowed.join(" | ")}`));
+}
 
 // ---------------------------------------------------------------------------
 // hashPassword

@@ -9,7 +9,6 @@ import {
   listVersions,
 } from "../models/document.repository.ts";
 import { getPresignedDownloadUrl } from "../models/storage.ts";
-import { canRead, canWrite, canDelete } from "../services/document.service.ts";
 import { uploadDocument, uploadNewVersion } from "../services/document.upload.service.ts";
 import { parseSearchParams } from "../services/search.service.ts";
 import { BucketKey } from "../types/branded.ts";
@@ -19,6 +18,7 @@ import { eventBus } from "../lib/event-bus.ts";
 import { DocumentEvent } from "../events/document.events.ts";
 import { AppError } from "../types/errors.ts";
 import { Role } from "../types/enums.ts";
+import { requireRole } from "../services/auth.service.ts";
 import type { VersionRow } from "../models/db/schema.ts";
 
 // ---------------------------------------------------------------------------
@@ -118,8 +118,7 @@ export const documentsController = new Elysia({ prefix: "/documents" })
       run(
         set,
         pipe(
-          findDocumentById(params.id),
-          Effect.flatMap((doc) => pipe(canRead(user, doc), Effect.as(doc))),
+          findDocumentById(params.id, user.role === Role.Admin ? undefined : user.userId),
           Effect.map((doc) => ({ document: toDocumentDTO(doc) })),
         ),
       ),
@@ -136,8 +135,7 @@ export const documentsController = new Elysia({ prefix: "/documents" })
       run(
         set,
         pipe(
-          findDocumentById(params.id),
-          Effect.flatMap((doc) => pipe(canRead(user, doc), Effect.as(doc))),
+          findDocumentById(params.id, user.role === Role.Admin ? undefined : user.userId),
           Effect.flatMap((doc) =>
             Option.match(Option.fromNullable(doc.currentVersionId), {
               onNone: () => Effect.fail(AppError.notFound("Document has no uploaded version yet")),
@@ -153,29 +151,6 @@ export const documentsController = new Elysia({ prefix: "/documents" })
     },
   )
 
-  // DELETE /documents/:id — soft delete (admin only)
-  .delete(
-    "/:id",
-    ({ params, user, set }) =>
-      run(
-        set,
-        pipe(
-          canDelete(user),
-          Effect.flatMap(() => softDeleteDocument(params.id)),
-          Effect.tap(() =>
-            Effect.sync(() =>
-              eventBus.emit(DocumentEvent.Deleted, { actorId: user.userId, resourceId: params.id }),
-            ),
-          ),
-          Effect.map(() => ({ message: "Document deleted successfully" })),
-        ),
-      ),
-    {
-      params: t.Object({ id: t.String({ format: "uuid" }) }),
-      detail: { summary: "Soft-delete a document (admin only)", tags: ["Documents"] },
-    },
-  )
-
   // POST /documents/:id/versions — upload a new version
   .post(
     "/:id/versions",
@@ -183,8 +158,7 @@ export const documentsController = new Elysia({ prefix: "/documents" })
       run(
         set,
         pipe(
-          findDocumentById(params.id),
-          Effect.flatMap((doc) => pipe(canWrite(user, doc), Effect.as(doc))),
+          findDocumentById(params.id, user.role === Role.Admin ? undefined : user.userId),
           Effect.flatMap((doc) =>
             uploadNewVersion({
               doc,
@@ -213,8 +187,7 @@ export const documentsController = new Elysia({ prefix: "/documents" })
       run(
         set,
         pipe(
-          findDocumentById(params.id),
-          Effect.flatMap((doc) => pipe(canRead(user, doc), Effect.as(doc))),
+          findDocumentById(params.id, user.role === Role.Admin ? undefined : user.userId),
           Effect.flatMap((doc) => listVersions(doc.id)),
           Effect.map((versions) => ({ versions: versions.map(toVersionDTO) })),
         ),
@@ -232,8 +205,7 @@ export const documentsController = new Elysia({ prefix: "/documents" })
       run(
         set,
         pipe(
-          findDocumentById(params.id),
-          Effect.flatMap((doc) => pipe(canRead(user, doc), Effect.as(doc))),
+          findDocumentById(params.id, user.role === Role.Admin ? undefined : user.userId),
           Effect.flatMap((doc) =>
             pipe(
               findVersionById(params.versionId),
@@ -253,6 +225,29 @@ export const documentsController = new Elysia({ prefix: "/documents" })
         versionId: t.String({ format: "uuid" }),
       }),
       detail: { summary: "Pre-signed download URL for a specific version", tags: ["Documents"] },
+    },
+  )
+
+  // DELETE /documents/:id — soft delete (admin only)
+  .delete(
+    "/:id",
+    ({ params, user, set }) =>
+      run(
+        set,
+        pipe(
+          requireRole(user, Role.Admin),
+          Effect.flatMap(() => softDeleteDocument(params.id)),
+          Effect.tap(() =>
+            Effect.sync(() =>
+              eventBus.emit(DocumentEvent.Deleted, { actorId: user.userId, resourceId: params.id }),
+            ),
+          ),
+          Effect.map(() => ({ message: "Document deleted successfully" })),
+        ),
+      ),
+    {
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
+      detail: { summary: "Soft-delete a document (admin only)", tags: ["Documents"] },
     },
   );
 

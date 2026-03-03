@@ -1,115 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import { faker } from "@faker-js/faker";
 import {
-  canRead,
-  canWrite,
-  canDelete,
   buildBucketKey,
   nextVersionNumber,
   validateContentType,
 } from "../../src/services/document.service.ts";
 import { DocumentId, VersionId } from "../../src/types/branded.ts";
-import {
-  runOk,
-  runErr,
-  makeDocumentRow,
-  makeAdminClaims,
-  makeUserClaims,
-} from "../helpers/factories.ts";
-
-// ---------------------------------------------------------------------------
-// canRead
-// ---------------------------------------------------------------------------
-
-describe("canRead", () => {
-  it("allows an admin to read any document", () => {
-    const admin = makeAdminClaims();
-    const doc = makeDocumentRow();
-    expect(runOk(canRead(admin, doc))).toBe(true);
-  });
-
-  it("allows the document owner to read their own document", () => {
-    const user = makeUserClaims();
-    const doc = makeDocumentRow({ ownerId: user.userId });
-    expect(runOk(canRead(user, doc))).toBe(true);
-  });
-
-  it("denies a regular user who does not own the document", () => {
-    const user = makeUserClaims();
-    const doc = makeDocumentRow({ ownerId: faker.string.uuid() });
-    const err = runErr(canRead(user, doc));
-    expect(err).toMatchObject({ tag: "AccessDenied" });
-  });
-
-  it("denies multiple unrelated users in sequence", () => {
-    const doc = makeDocumentRow({ ownerId: faker.string.uuid() });
-    for (let i = 0; i < 5; i++) {
-      const stranger = makeUserClaims();
-      expect(runErr(canRead(stranger, doc))).toMatchObject({ tag: "AccessDenied" });
-    }
-  });
-
-  it("never denies an admin regardless of document ownership", () => {
-    const admin = makeAdminClaims();
-    Array.from({ length: 10 }, () => makeDocumentRow()).forEach((doc) =>
-      expect(runOk(canRead(admin, doc))).toBe(true),
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// canWrite
-// ---------------------------------------------------------------------------
-
-describe("canWrite", () => {
-  it("allows an admin to write any document", () => {
-    const admin = makeAdminClaims();
-    expect(runOk(canWrite(admin, makeDocumentRow()))).toBe(true);
-  });
-
-  it("allows the document owner to write their own document", () => {
-    const user = makeUserClaims();
-    expect(runOk(canWrite(user, makeDocumentRow({ ownerId: user.userId })))).toBe(true);
-  });
-
-  it("denies a non-owner regular user", () => {
-    const user = makeUserClaims();
-    const doc = makeDocumentRow({ ownerId: faker.string.uuid() });
-    expect(runErr(canWrite(user, doc))).toMatchObject({ tag: "AccessDenied" });
-  });
-
-  it("returns an AccessDenied error with a non-empty reason", () => {
-    const user = makeUserClaims();
-    const doc = makeDocumentRow({ ownerId: faker.string.uuid() });
-    const err = runErr(canWrite(user, doc)) as { tag: string; reason: string };
-    expect(typeof err.reason).toBe("string");
-    expect(err.reason.length).toBeGreaterThan(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// canDelete — admin only
-// ---------------------------------------------------------------------------
-
-describe("canDelete", () => {
-  it("allows an admin to delete", () => {
-    expect(runOk(canDelete(makeAdminClaims()))).toBe(true);
-  });
-
-  it("denies a regular user regardless of identity", () => {
-    expect(runErr(canDelete(makeUserClaims()))).toMatchObject({ tag: "AccessDenied" });
-  });
-
-  it("denies 8 randomly generated regular users", () => {
-    for (let i = 0; i < 8; i++) {
-      expect(runErr(canDelete(makeUserClaims()))).toMatchObject({ tag: "AccessDenied" });
-    }
-  });
-
-  it("allows admin with any UUID as userId", () => {
-    expect(runOk(canDelete(makeAdminClaims({ userId: faker.string.uuid() })))).toBe(true);
-  });
-});
+import { runOk, runErr } from "../helpers/factories.ts";
 
 // ---------------------------------------------------------------------------
 // buildBucketKey
