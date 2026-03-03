@@ -30,7 +30,6 @@ export type DocumentId = typeof DocumentId.$infer;
 export const VersionId = createRefinedType("VersionId", uuidSchema);
 export type VersionId = typeof VersionId.$infer;
 
-// Valid email address
 export const Email = createRefinedType("Email", z.email());
 export type Email = typeof Email.$infer;
 
@@ -56,3 +55,28 @@ export type FileName = typeof FileName.$infer;
 // RBAC roles
 export const ROLES = ["admin", "user"] as const;
 export type Role = (typeof ROLES)[number];
+
+// ---------------------------------------------------------------------------
+// ISODateString
+// A branded string that has been validated (or produced from) an ISO-8601
+// date-time. Two construction paths:
+//
+//   ISODateString.fromDate(date)   — always safe; Date.toISOString() is always
+//                                    valid ISO-8601. Used inside DTOs.
+//
+//   ISODateString.create(str)      — validates external input and returns an
+//                                    Effect-compatible Result. Use when the
+//                                    string originates from user input.
+// ---------------------------------------------------------------------------
+
+const _ISODateStringRefined = createRefinedType(
+  "ISODateString",
+  z.string().datetime({ offset: true }),
+);
+
+export const ISODateString = Object.assign(_ISODateStringRefined, {
+  /** Safely coerce a Date — toISOString() always produces valid ISO-8601. */
+  fromDate: (date: Date): ISODateString => date.toISOString() as ISODateString,
+});
+
+export type ISODateString = typeof ISODateString.$infer;

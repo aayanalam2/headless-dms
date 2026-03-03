@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia";
+import { Effect, Either, pipe } from "effect";
 import { jwtPlugin } from "../middleware/auth.plugin.ts";
 import { findUserByEmail, createUser } from "../models/user.repository.ts";
 import {
@@ -7,13 +8,30 @@ import {
   buildJwtClaims,
 } from "../services/auth.service.ts";
 import { Email } from "../types/branded.ts";
+import { AppError } from "../types/errors.ts";
 import { toUserDTO } from "../dto/user.dto.ts";
 import { mapErrorToResponse } from "../lib/http.ts";
 import { config } from "../config/env.ts";
 
 // ---------------------------------------------------------------------------
-// Auth controller — thin orchestration only.
-// Business logic lives in services; data access lives in repositories.
+// run — shared Effect executor (same pattern as documents controller).
+// ---------------------------------------------------------------------------
+
+async function run<T>(
+  set: { status?: number | string | undefined },
+  effect: Effect.Effect<T, AppError>,
+): Promise<T | ReturnType<typeof mapErrorToResponse>["body"]> {
+  const either = await Effect.runPromise(Effect.either(effect));
+  if (Either.isLeft(either)) {
+    const mapped = mapErrorToResponse(either.left);
+    set.status = mapped.status;
+    return mapped.body;
+  }
+  return either.right;
+}
+
+// ---------------------------------------------------------------------------
+// Auth controller
 // ---------------------------------------------------------------------------
 
 export const authController = new Elysia({ prefix: "/auth" })
@@ -21,111 +39,93 @@ export const authController = new Elysia({ prefix: "/auth" })
 
   // -------------------------------------------------------------------------
   // POST /auth/register
-  // Creates a new user account and returns a JWT + user DTO.
   // -------------------------------------------------------------------------
   .post(
     "/register",
-    async ({ body, jwt, set }) => {
-      // Validate email as branded type
-      const emailResult = Email.create(body.email);
-      if (emailResult.isErr()) {
-        set.status = 422;
-        return { error: "Invalid email address" };
-      }
+    ({ body, jwt, set }) =>
+      run(set,
+        Effect.gen(function* () {
+          // Validate email as branded type
+          const emailValidation = Email.create(body.email);
+          if (!emailValidation.isOk()) {
+            yield* Effect.fail(AppError.validation("Invalid email address"));
+          }
 
-      // Check for duplicate email
-      const existing = await findUserByEmail(body.email);
-      if (existing.isOk()) {
-        set.status = 409;
-        return { error: "An account with this email already exists" };
-      }
-      // A NotFound error means the email is free — any other error is unexpected
-      if (
-        existing.isErr() &&
-        existing.unwrapErr().tag !== "NotFound"
-      ) {
-        const mapped = mapErrorToResponse(existing.unwrapErr());
-        set.status = mapped.status;
-        return mapped.body;
-      }
+          // Check for duplicate — NotFound means the email is free
+          const existingEither = yield* Effect.either(findUserByEmail(body.email));
+          if (Either.isRight(existingEither)) {
+            yield* Effect.fail(AppError.conflict("An account with this email already exists"));
+          }
+          if (Either.isLeft(existingEither) && existingEither.left.tag !== "NotFound") {
+            yield* Effect.fail(existingEither.left);
+          }
 
-      // Hash password and create user
-      const passwordHash = await hashPassword(body.password, config.bcryptRounds);
-      const createResult = await createUser({
-        email: body.email,
-        passwordHash: passwordHash as string,
-        role: body.role ?? "user",
-      });
+          // Hash password and create user
+          const passwordHash = yield* Effect.promise(() =>
+            hashPassword(body.password, config.bcryptRounds),
+          );
+          const user = yield* createUser({
+            email: body.email,
+            passwordHash: passwordHash as string,
+            role: body.role ?? "user",
+          });
 
-      if (createResult.isErr()) {
-        const mapped = mapErrorToResponse(createResult.unwrapErr());
-        set.status = mapped.status;
-        return mapped.body;
-      }
-
-      const user = createResult.unwrap();
-      const claims = buildJwtClaims(user);
-      const token = await jwt.sign(claims);
-
-      return {
-        token,
-        user: toUserDTO(user),
-      };
-    },
+          const token = yield* Effect.promise(() => jwt.sign(buildJwtClaims(user)));
+          return { token, user: toUserDTO(user) };
+        }),
+      ),
     {
       body: t.Object({
         email: t.String({ format: "email" }),
         password: t.String({ minLength: 8 }),
         role: t.Optional(t.Union([t.Literal("admin"), t.Literal("user")])),
       }),
-      detail: {
-        summary: "Register a new user",
-        tags: ["Auth"],
-      },
+      detail: { summary: "Register a new user", tags: ["Auth"] },
     },
   )
 
   // -------------------------------------------------------------------------
   // POST /auth/login
-  // Verifies credentials and returns a JWT + user DTO.
   // -------------------------------------------------------------------------
   .post(
     "/login",
     async ({ body, jwt, set }) => {
-      // Look up user — return generic 401 to avoid user enumeration
-      const userResult = await findUserByEmail(body.email);
-      if (userResult.isErr()) {
-        set.status = 401;
-        return { error: "Invalid email or password" };
-      }
-
-      const user = userResult.unwrap();
-      const valid = await verifyPassword(
-        body.password,
-        user.passwordHash as Parameters<typeof verifyPassword>[1],
+      // Always 401 for any login failure — avoids user enumeration.
+      const either = await Effect.runPromise(
+        Effect.either(
+          pipe(
+            findUserByEmail(body.email),
+            Effect.flatMap((user) =>
+              Effect.gen(function* () {
+                const valid = yield* Effect.promise(() =>
+                  verifyPassword(
+                    body.password,
+                    user.passwordHash as Parameters<typeof verifyPassword>[1],
+                  ),
+                );
+                if (!valid) {
+                  return yield* Effect.fail("invalid" as const);
+                }
+                const token = yield* Effect.promise(() =>
+                  jwt.sign(buildJwtClaims(user)),
+                );
+                return { token, user: toUserDTO(user) };
+              }),
+            ),
+          ),
+        ),
       );
-
-      if (!valid) {
+      if (Either.isLeft(either)) {
         set.status = 401;
         return { error: "Invalid email or password" };
       }
-
-      const claims = buildJwtClaims(user);
-      const token = await jwt.sign(claims);
-
-      return {
-        token,
-        user: toUserDTO(user),
-      };
+      return either.right;
     },
     {
       body: t.Object({
         email: t.String(),
         password: t.String(),
       }),
-      detail: {
-        summary: "Login with email and password",
-        tags: ["Auth"],
-      },
+      detail: { summary: "Login with email and password", tags: ["Auth"] },
     },
   );

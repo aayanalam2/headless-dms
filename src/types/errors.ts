@@ -1,5 +1,3 @@
-import { Result } from "@carbonteq/fp";
-
 // ---------------------------------------------------------------------------
 // Typed error union — every failure in the system is one of these tags.
 //
@@ -31,13 +29,3 @@ export const AppError = {
   storage: (cause: unknown): AppError => ({ tag: "StorageError", cause }),
   database: (cause: unknown): AppError => ({ tag: "DatabaseError", cause }),
 } as const;
-
-// ---------------------------------------------------------------------------
-// AppResult<T> — the standard return type for any fallible operation.
-// Controllers receive this and decide how to map it to an HTTP response.
-// ---------------------------------------------------------------------------
-
-export type AppResult<T> = Result<T, AppError>;
-
-// Re-export Result for convenience so callers only need one import
-export { Result };

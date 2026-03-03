@@ -1,5 +1,6 @@
+import { Effect, Option } from "effect";
 import type { SearchParams, SortField, SortOrder } from "../models/document.repository.ts";
-import { AppError, type AppResult, Result } from "../types/errors.ts";
+import { AppError } from "../types/errors.ts";
 
 // ---------------------------------------------------------------------------
 // Search service — pure parsing of raw query-string values into a typed
@@ -29,6 +30,34 @@ type RawSearchQuery = {
 };
 
 // ---------------------------------------------------------------------------
+// parseMetadata — extract + validate the metadata JSON query param.
+// ---------------------------------------------------------------------------
+
+function parseMetadata(
+  raw: string | undefined,
+): Effect.Effect<Option.Option<Record<string, string>>, AppError> {
+  if (!raw || raw.trim().length === 0) return Effect.succeed(Option.none());
+  return Effect.try({
+    try: () => {
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        throw AppError.validation("metadata must be a JSON object of string values");
+      }
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        if (typeof v !== "string") {
+          throw AppError.validation(`metadata value for key "${k}" must be a string`);
+        }
+      }
+      return Option.some(parsed as Record<string, string>);
+    },
+    catch: (e) => {
+      if (e !== null && typeof e === "object" && "tag" in e) return e as AppError;
+      return AppError.validation("metadata query parameter must be valid JSON");
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // parseSearchParams
 // Takes the raw query object from the HTTP layer and returns a validated,
 // typed SearchParams or an AppError.ValidationError.
@@ -36,85 +65,56 @@ type RawSearchQuery = {
 
 export function parseSearchParams(
   raw: RawSearchQuery,
-): AppResult<SearchParams> {
-  // --- page ---
-  const page = raw.page !== undefined ? parseInt(raw.page, 10) : DEFAULT_PAGE;
-  if (!Number.isInteger(page) || page < 1) {
-    return Result.Err(AppError.validation("page must be a positive integer"));
-  }
+): Effect.Effect<SearchParams, AppError> {
+  return Effect.gen(function* () {
+    // --- page ---
+    const page = raw.page !== undefined ? parseInt(raw.page, 10) : DEFAULT_PAGE;
+    if (!Number.isInteger(page) || page < 1) {
+      return yield* Effect.fail(AppError.validation("page must be a positive integer"));
+    }
 
-  // --- limit ---
-  const limit =
-    raw.limit !== undefined ? parseInt(raw.limit, 10) : DEFAULT_LIMIT;
-  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
-    return Result.Err(
-      AppError.validation(`limit must be between 1 and ${MAX_LIMIT}`),
-    );
-  }
-
-  // --- sortBy ---
-  const sortBy: SortField =
-    raw.sortBy !== undefined && (VALID_SORT_FIELDS as string[]).includes(raw.sortBy)
-      ? (raw.sortBy as SortField)
-      : "createdAt";
-
-  // --- sortOrder ---
-  const sortOrder: SortOrder =
-    raw.sortOrder !== undefined &&
-    (VALID_SORT_ORDERS as string[]).includes(raw.sortOrder)
-      ? (raw.sortOrder as SortOrder)
-      : "desc";
-
-  // --- tags ---
-  const tags =
-    raw.tags !== undefined && raw.tags.trim().length > 0
-      ? raw.tags
-          .split(",")
-          .map((t) => t.trim())
-          .filter((t) => t.length > 0)
-      : undefined;
-
-  // --- metadata (JSONB containment filter) ---
-  let metadata: Record<string, string> | undefined;
-  if (raw.metadata !== undefined && raw.metadata.trim().length > 0) {
-    try {
-      const parsed: unknown = JSON.parse(raw.metadata);
-      if (
-        typeof parsed !== "object" ||
-        parsed === null ||
-        Array.isArray(parsed)
-      ) {
-        return Result.Err(
-          AppError.validation("metadata must be a JSON object of string values"),
-        );
-      }
-      // Ensure all values are strings
-      const entries = Object.entries(parsed as Record<string, unknown>);
-      for (const [k, v] of entries) {
-        if (typeof v !== "string") {
-          return Result.Err(
-            AppError.validation(`metadata value for key "${k}" must be a string`),
-          );
-        }
-      }
-      metadata = parsed as Record<string, string>;
-    } catch {
-      return Result.Err(
-        AppError.validation("metadata query parameter must be valid JSON"),
+    // --- limit ---
+    const limit =
+      raw.limit !== undefined ? parseInt(raw.limit, 10) : DEFAULT_LIMIT;
+    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
+      return yield* Effect.fail(
+        AppError.validation(`limit must be between 1 and ${MAX_LIMIT}`),
       );
     }
-  }
 
-  const result: SearchParams = {
-    page,
-    limit,
-    sortBy,
-    sortOrder,
-    ...(raw.name?.trim() ? { name: raw.name.trim() } : {}),
-    ...(raw.contentType?.trim() ? { contentType: raw.contentType.trim() } : {}),
-    ...(raw.ownerId?.trim() ? { ownerId: raw.ownerId.trim() } : {}),
-    ...(tags ? { tags } : {}),
-    ...(metadata ? { metadata } : {}),
-  };
-  return Result.Ok(result);
+    // --- sortBy ---
+    const sortBy: SortField =
+      raw.sortBy !== undefined && (VALID_SORT_FIELDS as string[]).includes(raw.sortBy)
+        ? (raw.sortBy as SortField)
+        : "createdAt";
+
+    // --- sortOrder ---
+    const sortOrder: SortOrder =
+      raw.sortOrder !== undefined &&
+      (VALID_SORT_ORDERS as string[]).includes(raw.sortOrder)
+        ? (raw.sortOrder as SortOrder)
+        : "desc";
+
+    // --- metadata (JSONB containment filter) ---
+    const metadata = yield* parseMetadata(raw.metadata);
+
+    return {
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+      ownerId: Option.fromNullable(raw.ownerId?.trim() || undefined),
+      name: Option.fromNullable(raw.name?.trim() || undefined),
+      contentType: Option.fromNullable(raw.contentType?.trim() || undefined),
+      tags: Option.fromNullable(
+        raw.tags !== undefined && raw.tags.trim().length > 0
+          ? raw.tags
+              .split(",")
+              .map((t) => t.trim())
+              .filter((t) => t.length > 0)
+          : undefined,
+      ),
+      metadata,
+    } satisfies SearchParams;
+  });
 }

@@ -7,7 +7,8 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { config } from "../config/env.ts";
 import type { BucketKey } from "../types/branded.ts";
-import { AppError, type AppResult, Result } from "../types/errors.ts";
+import { Effect } from "effect";
+import { AppError } from "../types/errors.ts";
 
 // ---------------------------------------------------------------------------
 // S3 storage adapter — the only place in the codebase that talks to object
@@ -42,50 +43,47 @@ function getClient(): S3Client {
 // used accidentally.
 // ---------------------------------------------------------------------------
 
-export async function uploadToS3(
+export function uploadToS3(
   key: BucketKey,
   body: ReadableStream | Uint8Array | Buffer | string,
   contentType: string,
-): Promise<AppResult<void>> {
-  try {
-    await getClient().send(
-      new PutObjectCommand({
-        Bucket: config.s3.bucket,
-        Key: key as string,
-        Body: body,
-        ContentType: contentType,
-      }),
-    );
-    return Result.Ok(undefined);
-  } catch (cause) {
-    return Result.Err(AppError.storage(cause));
-  }
+): Effect.Effect<void, AppError> {
+  return Effect.tryPromise({
+    try: () =>
+      getClient().send(
+        new PutObjectCommand({
+          Bucket: config.s3.bucket,
+          Key: key as string,
+          Body: body,
+          ContentType: contentType,
+        }),
+      ),
+    catch: (e) => AppError.storage(e),
+  }).pipe(Effect.as(undefined));
 }
 
 // ---------------------------------------------------------------------------
 // getPresignedDownloadUrl
 // Returns a time-limited pre-signed GET URL for the given object key.
 // The API never streams file bytes — clients download directly from S3.
-// (12-Factor VI: stateless process)
 // ---------------------------------------------------------------------------
 
-export async function getPresignedDownloadUrl(
+export function getPresignedDownloadUrl(
   key: BucketKey,
   expiresInSeconds: number = config.presignTtlSeconds,
-): Promise<AppResult<string>> {
-  try {
-    const url = await getSignedUrl(
-      getClient(),
-      new GetObjectCommand({
-        Bucket: config.s3.bucket,
-        Key: key as string,
-      }),
-      { expiresIn: expiresInSeconds },
-    );
-    return Result.Ok(url);
-  } catch (cause) {
-    return Result.Err(AppError.storage(cause));
-  }
+): Effect.Effect<string, AppError> {
+  return Effect.tryPromise({
+    try: () =>
+      getSignedUrl(
+        getClient(),
+        new GetObjectCommand({
+          Bucket: config.s3.bucket,
+          Key: key as string,
+        }),
+        { expiresIn: expiresInSeconds },
+      ),
+    catch: (e) => AppError.storage(e),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -94,16 +92,15 @@ export async function getPresignedDownloadUrl(
 // Soft-deleted documents intentionally leave their S3 objects intact.
 // ---------------------------------------------------------------------------
 
-export async function deleteFromS3(key: BucketKey): Promise<AppResult<void>> {
-  try {
-    await getClient().send(
-      new DeleteObjectCommand({
-        Bucket: config.s3.bucket,
-        Key: key as string,
-      }),
-    );
-    return Result.Ok(undefined);
-  } catch (cause) {
-    return Result.Err(AppError.storage(cause));
-  }
+export function deleteFromS3(key: BucketKey): Effect.Effect<void, AppError> {
+  return Effect.tryPromise({
+    try: () =>
+      getClient().send(
+        new DeleteObjectCommand({
+          Bucket: config.s3.bucket,
+          Key: key as string,
+        }),
+      ),
+    catch: (e) => AppError.storage(e),
+  }).pipe(Effect.as(undefined));
 }

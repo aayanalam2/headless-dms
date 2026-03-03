@@ -2,7 +2,6 @@ import { Either, Schema } from "effect";
 
 // ---------------------------------------------------------------------------
 // Raw env schema — all values arrive as strings from process.env.
-// Effect Schema validates and fails fast at startup (12-Factor III).
 // ---------------------------------------------------------------------------
 
 const EnvSchema = Schema.Struct({
@@ -21,6 +20,10 @@ const EnvSchema = Schema.Struct({
   NODE_ENV: Schema.optionalWith(Schema.String, {
     default: () => "development",
   }),
+  LOG_LEVEL: Schema.optionalWith(
+    Schema.Literal("trace", "debug", "info", "warn", "error", "fatal"),
+    { default: () => "info" },
+  ),
 });
 
 // ---------------------------------------------------------------------------
@@ -42,6 +45,7 @@ export type AppConfig = {
   readonly presignTtlSeconds: number;
   readonly bcryptRounds: number;
   readonly nodeEnv: string;
+  readonly logLevel: "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 };
 
 function loadConfig(): AppConfig {
@@ -59,12 +63,12 @@ function loadConfig(): AppConfig {
     PRESIGN_TTL_SECONDS: process.env["PRESIGN_TTL_SECONDS"],
     BCRYPT_ROUNDS: process.env["BCRYPT_ROUNDS"],
     NODE_ENV: process.env["NODE_ENV"],
+    LOG_LEVEL: process.env["LOG_LEVEL"],
   };
 
   const result = Schema.decodeUnknownEither(EnvSchema)(raw);
 
   if (Either.isLeft(result)) {
-    // Fail fast — log to stdout (12-Factor XI) then exit
     console.error(
       JSON.stringify({
         level: "error",
@@ -92,6 +96,7 @@ function loadConfig(): AppConfig {
     presignTtlSeconds: parseInt(env.PRESIGN_TTL_SECONDS, 10),
     bcryptRounds: parseInt(env.BCRYPT_ROUNDS, 10),
     nodeEnv: env.NODE_ENV,
+    logLevel: env.LOG_LEVEL,
   });
 }
 

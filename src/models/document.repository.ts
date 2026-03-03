@@ -11,7 +11,8 @@ import {
   documentVersions,
   documents,
 } from "./db/schema.ts";
-import { AppError, type AppResult, Result } from "../types/errors.ts";
+import { Effect, Option } from "effect";
+import { AppError } from "../types/errors.ts";
 
 // ---------------------------------------------------------------------------
 // Search parameters — produced by search.service.ts (pure) and consumed here.
@@ -21,13 +22,13 @@ export type SortField = "name" | "createdAt" | "updatedAt";
 export type SortOrder = "asc" | "desc";
 
 export type SearchParams = {
-  readonly ownerId?: string;
-  readonly name?: string; // ILIKE match
-  readonly contentType?: string; // exact match
-  readonly tags?: string[]; // array containment: doc.tags @> :tags
-  readonly metadata?: Record<string, string>; // JSONB containment
-  readonly page: number; // 1-based
-  readonly limit: number; // max 100
+  readonly ownerId: Option.Option<string>;
+  readonly name: Option.Option<string>;       // ILIKE match
+  readonly contentType: Option.Option<string>; // exact match
+  readonly tags: Option.Option<string[]>;      // array containment: doc.tags @> :tags
+  readonly metadata: Option.Option<Record<string, string>>; // JSONB containment
+  readonly page: number;     // 1-based
+  readonly limit: number;    // max 100
   readonly sortBy: SortField;
   readonly sortOrder: SortOrder;
 };
@@ -43,240 +44,241 @@ export type PaginatedDocuments = {
 // Document repository
 // ---------------------------------------------------------------------------
 
-export async function findDocumentById(
+export function findDocumentById(
   id: string,
-): Promise<AppResult<DocumentRow>> {
-  try {
-    const rows = await db
-      .select()
-      .from(documents)
-      .where(and(eq(documents.id, id), isNull(documents.deletedAt)))
-      .limit(1);
-    const row = rows[0];
-    if (!row) return Result.Err(AppError.notFound(`Document(${id})`));
-    return Result.Ok(row);
-  } catch (cause) {
-    return Result.Err(AppError.database(cause));
-  }
-}
-
-export async function searchDocuments(
-  params: SearchParams,
-): Promise<AppResult<PaginatedDocuments>> {
-  try {
-    const conditions = [isNull(documents.deletedAt)];
-
-    if (params.ownerId) {
-      conditions.push(eq(documents.ownerId, params.ownerId));
-    }
-    if (params.name) {
-      conditions.push(ilike(documents.name, `%${params.name}%`));
-    }
-    if (params.contentType) {
-      conditions.push(eq(documents.contentType, params.contentType));
-    }
-    if (params.tags && params.tags.length > 0) {
-      // PostgreSQL array containment: tags @> ARRAY[...]
-      conditions.push(
-        sql`${documents.tags} @> ${sql.raw(`ARRAY[${params.tags.map((t) => `'${t.replace(/'/g, "''")}'`).join(",")}]`)}`,
-      );
-    }
-    if (params.metadata && Object.keys(params.metadata).length > 0) {
-      // JSONB containment: metadata @> '{"key":"value"}'
-      conditions.push(
-        sql`${documents.metadata} @> ${JSON.stringify(params.metadata)}::jsonb`,
-      );
-    }
-
-    const where = and(...conditions);
-    const offset = (params.page - 1) * params.limit;
-
-    const orderCol =
-      params.sortBy === "name"
-        ? documents.name
-        : params.sortBy === "updatedAt"
-          ? documents.updatedAt
-          : documents.createdAt;
-
-    const orderDir = params.sortOrder === "asc" ? asc(orderCol) : desc(orderCol);
-
-    const [items, countRows] = await Promise.all([
+): Effect.Effect<DocumentRow, AppError> {
+  return Effect.tryPromise({
+    try: () =>
       db
         .select()
         .from(documents)
-        .where(where)
-        .orderBy(orderDir)
-        .limit(params.limit)
-        .offset(offset),
-      db
-        .select({ count: sql<number>`cast(count(*) as integer)` })
-        .from(documents)
-        .where(where),
-    ]);
-
-    const total = countRows[0]?.count ?? 0;
-
-    return Result.Ok({
-      items,
-      total,
-      page: params.page,
-      limit: params.limit,
-    });
-  } catch (cause) {
-    return Result.Err(AppError.database(cause));
-  }
+        .where(and(eq(documents.id, id), isNull(documents.deletedAt)))
+        .limit(1),
+    catch: (e) => AppError.database(e),
+  }).pipe(
+    Effect.flatMap((rows) =>
+      rows[0] ? Effect.succeed(rows[0]) : Effect.fail(AppError.notFound(`Document(${id})`)),
+    ),
+  );
 }
 
-export async function createDocument(
+export function searchDocuments(
+  params: SearchParams,
+): Effect.Effect<PaginatedDocuments, AppError> {
+  return Effect.tryPromise({
+    try: async () => {
+      const conditions = [isNull(documents.deletedAt)];
+
+      if (Option.isSome(params.ownerId)) {
+        conditions.push(eq(documents.ownerId, params.ownerId.value));
+      }
+      if (Option.isSome(params.name)) {
+        conditions.push(ilike(documents.name, `%${params.name.value}%`));
+      }
+      if (Option.isSome(params.contentType)) {
+        conditions.push(eq(documents.contentType, params.contentType.value));
+      }
+      if (Option.isSome(params.tags) && params.tags.value.length > 0) {
+        conditions.push(
+          sql`${documents.tags} @> ${sql.raw(`ARRAY[${params.tags.value.map((t) => `'${t.replace(/'/g, "''")}'`).join(",")}]`)}`,
+        );
+      }
+      if (Option.isSome(params.metadata) && Object.keys(params.metadata.value).length > 0) {
+        conditions.push(
+          sql`${documents.metadata} @> ${JSON.stringify(params.metadata.value)}::jsonb`,
+        );
+      }
+
+      const where = and(...conditions);
+      const offset = (params.page - 1) * params.limit;
+
+      const orderCol =
+        params.sortBy === "name"
+          ? documents.name
+          : params.sortBy === "updatedAt"
+            ? documents.updatedAt
+            : documents.createdAt;
+
+      const orderDir = params.sortOrder === "asc" ? asc(orderCol) : desc(orderCol);
+
+      const [items, countRows] = await Promise.all([
+        db
+          .select()
+          .from(documents)
+          .where(where)
+          .orderBy(orderDir)
+          .limit(params.limit)
+          .offset(offset),
+        db
+          .select({ count: sql<number>`cast(count(*) as integer)` })
+          .from(documents)
+          .where(where),
+      ]);
+
+      return {
+        items,
+        total: countRows[0]?.count ?? 0,
+        page: params.page,
+        limit: params.limit,
+      };
+    },
+    catch: (e) => AppError.database(e),
+  });
+}
+
+export function createDocument(
   data: NewDocumentRow,
-): Promise<AppResult<DocumentRow>> {
-  try {
-    const rows = await db.insert(documents).values(data).returning();
-    const row = rows[0];
-    if (!row) return Result.Err(AppError.database("Insert returned no row"));
-    return Result.Ok(row);
-  } catch (cause) {
-    return Result.Err(AppError.database(cause));
-  }
+): Effect.Effect<DocumentRow, AppError> {
+  return Effect.tryPromise({
+    try: () => db.insert(documents).values(data).returning(),
+    catch: (e) => AppError.database(e),
+  }).pipe(
+    Effect.flatMap((rows) =>
+      rows[0] ? Effect.succeed(rows[0]) : Effect.fail(AppError.database("Insert returned no row")),
+    ),
+  );
 }
 
-export async function updateDocument(
+export function updateDocument(
   id: string,
   data: Partial<
     Pick<DocumentRow, "currentVersionId" | "name" | "tags" | "metadata" | "updatedAt">
   >,
-): Promise<AppResult<DocumentRow>> {
-  try {
-    const rows = await db
-      .update(documents)
-      .set(data)
-      .where(and(eq(documents.id, id), isNull(documents.deletedAt)))
-      .returning();
-    const row = rows[0];
-    if (!row) return Result.Err(AppError.notFound(`Document(${id})`));
-    return Result.Ok(row);
-  } catch (cause) {
-    return Result.Err(AppError.database(cause));
-  }
+): Effect.Effect<DocumentRow, AppError> {
+  return Effect.tryPromise({
+    try: () =>
+      db
+        .update(documents)
+        .set(data)
+        .where(and(eq(documents.id, id), isNull(documents.deletedAt)))
+        .returning(),
+    catch: (e) => AppError.database(e),
+  }).pipe(
+    Effect.flatMap((rows) =>
+      rows[0] ? Effect.succeed(rows[0]) : Effect.fail(AppError.notFound(`Document(${id})`)),
+    ),
+  );
 }
 
-export async function softDeleteDocument(
+export function softDeleteDocument(
   id: string,
-): Promise<AppResult<DocumentRow>> {
-  try {
-    const rows = await db
-      .update(documents)
-      .set({ deletedAt: new Date() })
-      .where(and(eq(documents.id, id), isNull(documents.deletedAt)))
-      .returning();
-    const row = rows[0];
-    if (!row) return Result.Err(AppError.notFound(`Document(${id})`));
-    return Result.Ok(row);
-  } catch (cause) {
-    return Result.Err(AppError.database(cause));
-  }
+): Effect.Effect<DocumentRow, AppError> {
+  return Effect.tryPromise({
+    try: () =>
+      db
+        .update(documents)
+        .set({ deletedAt: new Date() })
+        .where(and(eq(documents.id, id), isNull(documents.deletedAt)))
+        .returning(),
+    catch: (e) => AppError.database(e),
+  }).pipe(
+    Effect.flatMap((rows) =>
+      rows[0] ? Effect.succeed(rows[0]) : Effect.fail(AppError.notFound(`Document(${id})`)),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Version repository
 // ---------------------------------------------------------------------------
 
-export async function createVersion(
+export function createVersion(
   data: NewVersionRow,
-): Promise<AppResult<VersionRow>> {
-  try {
-    const rows = await db.insert(documentVersions).values(data).returning();
-    const row = rows[0];
-    if (!row) return Result.Err(AppError.database("Insert returned no row"));
-    return Result.Ok(row);
-  } catch (cause) {
-    return Result.Err(AppError.database(cause));
-  }
+): Effect.Effect<VersionRow, AppError> {
+  return Effect.tryPromise({
+    try: () => db.insert(documentVersions).values(data).returning(),
+    catch: (e) => AppError.database(e),
+  }).pipe(
+    Effect.flatMap((rows) =>
+      rows[0] ? Effect.succeed(rows[0]) : Effect.fail(AppError.database("Insert returned no row")),
+    ),
+  );
 }
 
-export async function listVersions(
+export function listVersions(
   documentId: string,
-): Promise<AppResult<VersionRow[]>> {
-  try {
-    const rows = await db
-      .select()
-      .from(documentVersions)
-      .where(eq(documentVersions.documentId, documentId))
-      .orderBy(asc(documentVersions.versionNumber));
-    return Result.Ok(rows);
-  } catch (cause) {
-    return Result.Err(AppError.database(cause));
-  }
+): Effect.Effect<VersionRow[], AppError> {
+  return Effect.tryPromise({
+    try: () =>
+      db
+        .select()
+        .from(documentVersions)
+        .where(eq(documentVersions.documentId, documentId))
+        .orderBy(asc(documentVersions.versionNumber)),
+    catch: (e) => AppError.database(e),
+  });
 }
 
-export async function findVersionById(
+export function findVersionById(
   versionId: string,
-): Promise<AppResult<VersionRow>> {
-  try {
-    const rows = await db
-      .select()
-      .from(documentVersions)
-      .where(eq(documentVersions.id, versionId))
-      .limit(1);
-    const row = rows[0];
-    if (!row) return Result.Err(AppError.notFound(`Version(${versionId})`));
-    return Result.Ok(row);
-  } catch (cause) {
-    return Result.Err(AppError.database(cause));
-  }
+): Effect.Effect<VersionRow, AppError> {
+  return Effect.tryPromise({
+    try: () =>
+      db
+        .select()
+        .from(documentVersions)
+        .where(eq(documentVersions.id, versionId))
+        .limit(1),
+    catch: (e) => AppError.database(e),
+  }).pipe(
+    Effect.flatMap((rows) =>
+      rows[0] ? Effect.succeed(rows[0]) : Effect.fail(AppError.notFound(`Version(${versionId})`)),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Audit log repository
 // ---------------------------------------------------------------------------
 
-export async function insertAuditLog(
+export function insertAuditLog(
   data: NewAuditLogRow,
-): Promise<AppResult<AuditLogRow>> {
-  try {
-    const rows = await db.insert(auditLogs).values(data).returning();
-    const row = rows[0];
-    if (!row) return Result.Err(AppError.database("Audit insert returned no row"));
-    return Result.Ok(row);
-  } catch (cause) {
-    return Result.Err(AppError.database(cause));
-  }
+): Effect.Effect<AuditLogRow, AppError> {
+  return Effect.tryPromise({
+    try: () => db.insert(auditLogs).values(data).returning(),
+    catch: (e) => AppError.database(e),
+  }).pipe(
+    Effect.flatMap((rows) =>
+      rows[0] ? Effect.succeed(rows[0]) : Effect.fail(AppError.database("Audit insert returned no row")),
+    ),
+  );
 }
 
-export async function listAuditLogs(params: {
+export function listAuditLogs(params: {
   page: number;
   limit: number;
-  resourceType?: string | undefined;
-  resourceId?: string | undefined;
-}): Promise<AppResult<{ items: AuditLogRow[]; total: number }>> {
-  try {
-    const conditions = [];
-    if (params.resourceType) {
-      conditions.push(eq(auditLogs.resourceType, params.resourceType));
-    }
-    if (params.resourceId) {
-      conditions.push(eq(auditLogs.resourceId, params.resourceId));
-    }
+  resourceType: Option.Option<string>;
+  resourceId: Option.Option<string>;
+}): Effect.Effect<{ items: AuditLogRow[]; total: number }, AppError> {
+  return Effect.tryPromise({
+    try: async () => {
+      const conditions = [];
+      if (Option.isSome(params.resourceType)) {
+        conditions.push(eq(auditLogs.resourceType, params.resourceType.value));
+      }
+      if (Option.isSome(params.resourceId)) {
+        conditions.push(eq(auditLogs.resourceId, params.resourceId.value));
+      }
 
-    const where = conditions.length > 0 ? and(...conditions) : undefined;
-    const offset = (params.page - 1) * params.limit;
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      const offset = (params.page - 1) * params.limit;
 
-    const [items, countRows] = await Promise.all([
-      db
-        .select()
-        .from(auditLogs)
-        .where(where)
-        .orderBy(desc(auditLogs.occurredAt))
-        .limit(params.limit)
-        .offset(offset),
-      db
-        .select({ count: sql<number>`cast(count(*) as integer)` })
-        .from(auditLogs)
-        .where(where),
-    ]);
+      const [items, countRows] = await Promise.all([
+        db
+          .select()
+          .from(auditLogs)
+          .where(where)
+          .orderBy(desc(auditLogs.occurredAt))
+          .limit(params.limit)
+          .offset(offset),
+        db
+          .select({ count: sql<number>`cast(count(*) as integer)` })
+          .from(auditLogs)
+          .where(where),
+      ]);
 
-    return Result.Ok({ items, total: countRows[0]?.count ?? 0 });
-  } catch (cause) {
-    return Result.Err(AppError.database(cause));
-  }
+      return { items, total: countRows[0]?.count ?? 0 };
+    },
+    catch: (e) => AppError.database(e),
+  });
 }

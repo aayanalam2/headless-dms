@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { swagger } from "@elysiajs/swagger";
 import { config } from "./config/env.ts";
+import { logger } from "./lib/logger.ts";
 import { authController } from "./controllers/auth.controller.ts";
 import { documentsController, auditController } from "./controllers/documents.controller.ts";
 
@@ -72,15 +73,9 @@ export function createApp() {
         }
 
         // Unexpected error — log to stdout (12-Factor XI)
-        console.error(
-          JSON.stringify({
-            level: "error",
-            message: "Unhandled server error",
-            code,
-            error: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined,
-            timestamp: new Date().toISOString(),
-          }),
+        logger.error(
+          { err: error, code },
+          "Unhandled server error",
         );
 
         set.status = 500;
@@ -91,14 +86,13 @@ export function createApp() {
       // Structured JSON request log — written to stdout (12-Factor XI).
       // -----------------------------------------------------------------------
       .onAfterResponse(({ request, set }) => {
-        console.log(
-          JSON.stringify({
-            level: "info",
+        logger.info(
+          {
             method: request.method,
             path: new URL(request.url).pathname,
             status: set.status,
-            timestamp: new Date().toISOString(),
-          }),
+          },
+          "request",
         );
       })
   );
@@ -113,15 +107,13 @@ export function createApp() {
 const app = createApp();
 
 app.listen(config.port, () => {
-  console.log(
-    JSON.stringify({
-      level: "info",
-      message: "Server started",
+  logger.info(
+    {
       port: config.port,
       env: config.nodeEnv,
       swagger: `http://localhost:${config.port}/swagger`,
-      timestamp: new Date().toISOString(),
-    }),
+    },
+    "Server started",
   );
 });
 

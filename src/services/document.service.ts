@@ -1,14 +1,8 @@
+import { Effect } from "effect";
 import type { DocumentRow, VersionRow } from "../models/db/schema.ts";
 import type { BucketKey, DocumentId, VersionId } from "../types/branded.ts";
-import { AppError, type AppResult, Result } from "../types/errors.ts";
+import { AppError } from "../types/errors.ts";
 import type { JwtClaims } from "./auth.service.ts";
-
-// ---------------------------------------------------------------------------
-// Document service — pure RBAC policies and domain helpers.
-//
-// None of these functions perform I/O. They take data, apply rules, and return
-// a value or an error. This is the functional core of the document domain.
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // RBAC policies
@@ -21,28 +15,28 @@ import type { JwtClaims } from "./auth.service.ts";
 export function canRead(
   actor: JwtClaims,
   doc: DocumentRow,
-): AppResult<true> {
+): Effect.Effect<true, AppError> {
   if (actor.role === "admin" || doc.ownerId === actor.userId) {
-    return Result.Ok(true as const);
+    return Effect.succeed(true as const);
   }
-  return Result.Err(AppError.accessDenied("You do not have access to this document"));
+  return Effect.fail(AppError.accessDenied("You do not have access to this document"));
 }
 
 export function canWrite(
   actor: JwtClaims,
   doc: DocumentRow,
-): AppResult<true> {
+): Effect.Effect<true, AppError> {
   if (actor.role === "admin" || doc.ownerId === actor.userId) {
-    return Result.Ok(true as const);
+    return Effect.succeed(true as const);
   }
-  return Result.Err(AppError.accessDenied("You cannot modify this document"));
+  return Effect.fail(AppError.accessDenied("You cannot modify this document"));
 }
 
-export function canDelete(actor: JwtClaims): AppResult<true> {
+export function canDelete(actor: JwtClaims): Effect.Effect<true, AppError> {
   if (actor.role === "admin") {
-    return Result.Ok(true as const);
+    return Effect.succeed(true as const);
   }
-  return Result.Err(AppError.accessDenied("Only admins can delete documents"));
+  return Effect.fail(AppError.accessDenied("Only admins can delete documents"));
 }
 
 // ---------------------------------------------------------------------------
@@ -83,9 +77,9 @@ export function nextVersionNumber(versions: VersionRow[]): number {
 // A simple guard — actual MIME validation can be extended in future iterations.
 // ---------------------------------------------------------------------------
 
-export function validateContentType(contentType: string): AppResult<string> {
+export function validateContentType(contentType: string): Effect.Effect<string, AppError> {
   if (!contentType || contentType.trim().length === 0) {
-    return Result.Err(AppError.validation("Content-Type must not be empty"));
+    return Effect.fail(AppError.validation("Content-Type must not be empty"));
   }
-  return Result.Ok(contentType.trim());
+  return Effect.succeed(contentType.trim());
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { Effect, Either } from "effect";
 import {
   canRead,
   canWrite,
@@ -10,6 +11,20 @@ import {
 import type { JwtClaims } from "../../src/services/auth.service.ts";
 import type { DocumentRow } from "../../src/models/db/schema.ts";
 import { DocumentId, VersionId } from "../../src/types/branded.ts";
+
+// ---------------------------------------------------------------------------
+// Test helpers
+// ---------------------------------------------------------------------------
+
+function runOk<T>(effect: Effect.Effect<T, unknown>): T {
+  return Effect.runSync(effect);
+}
+
+function runErr<E>(effect: Effect.Effect<unknown, E>): E {
+  const result = Effect.runSync(Effect.either(effect));
+  if (Either.isRight(result)) throw new Error("Expected failure but got success");
+  return result.left;
+}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -54,19 +69,16 @@ const sampleDoc: DocumentRow = {
 
 describe("canRead", () => {
   it("allows admin to read any document", () => {
-    const result = canRead(adminUser, sampleDoc);
-    expect(result.isOk()).toBe(true);
+    expect(runOk(canRead(adminUser, sampleDoc))).toBe(true);
   });
 
   it("allows the owner to read their own document", () => {
-    const result = canRead(ownerUser, sampleDoc);
-    expect(result.isOk()).toBe(true);
+    expect(runOk(canRead(ownerUser, sampleDoc))).toBe(true);
   });
 
   it("denies a non-owner user read access", () => {
-    const result = canRead(otherUser, sampleDoc);
-    expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr().tag).toBe("AccessDenied");
+    const err = runErr(canRead(otherUser, sampleDoc));
+    expect(err.tag).toBe("AccessDenied");
   });
 });
 
@@ -76,17 +88,16 @@ describe("canRead", () => {
 
 describe("canWrite", () => {
   it("allows admin to write any document", () => {
-    expect(canWrite(adminUser, sampleDoc).isOk()).toBe(true);
+    expect(runOk(canWrite(adminUser, sampleDoc))).toBe(true);
   });
 
   it("allows the owner to write their own document", () => {
-    expect(canWrite(ownerUser, sampleDoc).isOk()).toBe(true);
+    expect(runOk(canWrite(ownerUser, sampleDoc))).toBe(true);
   });
 
   it("denies a non-owner user write access", () => {
-    const result = canWrite(otherUser, sampleDoc);
-    expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr().tag).toBe("AccessDenied");
+    const err = runErr(canWrite(otherUser, sampleDoc));
+    expect(err.tag).toBe("AccessDenied");
   });
 });
 
@@ -96,13 +107,12 @@ describe("canWrite", () => {
 
 describe("canDelete", () => {
   it("allows admin to delete", () => {
-    expect(canDelete(adminUser).isOk()).toBe(true);
+    expect(runOk(canDelete(adminUser))).toBe(true);
   });
 
   it("denies owner (non-admin) from deleting", () => {
-    const result = canDelete(ownerUser);
-    expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr().tag).toBe("AccessDenied");
+    const err = runErr(canDelete(ownerUser));
+    expect(err.tag).toBe("AccessDenied");
   });
 });
 
@@ -154,20 +164,15 @@ describe("nextVersionNumber", () => {
 
 describe("validateContentType", () => {
   it("accepts a valid content type", () => {
-    const result = validateContentType("application/pdf");
-    expect(result.isOk()).toBe(true);
-    expect(result.unwrap()).toBe("application/pdf");
+    expect(runOk(validateContentType("application/pdf"))).toBe("application/pdf");
   });
 
   it("trims surrounding whitespace", () => {
-    const result = validateContentType("  image/png  ");
-    expect(result.isOk()).toBe(true);
-    expect(result.unwrap()).toBe("image/png");
+    expect(runOk(validateContentType("  image/png  "))).toBe("image/png");
   });
 
   it("rejects an empty content type", () => {
-    const result = validateContentType("");
-    expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr().tag).toBe("ValidationError");
+    const err = runErr(validateContentType(""));
+    expect(err.tag).toBe("ValidationError");
   });
 });

@@ -1,4 +1,5 @@
 import type { DocumentRow, VersionRow } from "../models/db/schema.ts";
+import { ISODateString } from "../types/branded.ts";
 
 // ---------------------------------------------------------------------------
 // Document DTOs — outbound shapes for the documents API.
@@ -13,7 +14,7 @@ export type VersionDTO = {
   readonly sizeBytes: number;
   readonly uploadedBy: string;
   readonly checksum: string;
-  readonly createdAt: string; // ISO-8601
+  readonly createdAt: ISODateString;
 };
 
 export type DocumentDTO = {
@@ -24,8 +25,8 @@ export type DocumentDTO = {
   readonly currentVersionId: string | null;
   readonly tags: string[];
   readonly metadata: Record<string, string>;
-  readonly createdAt: string;
-  readonly updatedAt: string;
+  readonly createdAt: ISODateString;
+  readonly updatedAt: ISODateString;
 };
 
 export type PaginatedDocumentsDTO = {
@@ -51,7 +52,7 @@ export function toVersionDTO(row: VersionRow): VersionDTO {
     sizeBytes: row.sizeBytes,
     uploadedBy: row.uploadedBy,
     checksum: row.checksum,
-    createdAt: row.createdAt.toISOString(),
+    createdAt: ISODateString.fromDate(row.createdAt),
   };
 }
 
@@ -68,8 +69,8 @@ export function toDocumentDTO(row: DocumentRow): DocumentDTO {
     currentVersionId: row.currentVersionId ?? null,
     tags: row.tags,
     metadata: row.metadata,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
+    createdAt: ISODateString.fromDate(row.createdAt),
+    updatedAt: ISODateString.fromDate(row.updatedAt),
   };
 }
 

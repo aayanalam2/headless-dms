@@ -26,7 +26,6 @@ export async function hashPassword(
   rounds: number,
 ): Promise<HashedPassword> {
   const hash = await bcrypt.hash(plaintext, rounds);
-  // Safe cast: bcrypt always returns a non-empty string
   return hash as HashedPassword;
 }
 
