@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, isNull, sql } from "drizzle-orm";
+import { and, arrayContains, asc, desc, eq, ilike, isNull, sql } from "drizzle-orm";
 import { db } from "./db/connection.ts";
 import {
   type AuditLogRow,
@@ -83,9 +83,7 @@ export function searchDocuments(params: SearchParams): Effect.Effect<PaginatedDo
         conditions.push(eq(documents.contentType, params.contentType.value));
       }
       if (Option.isSome(params.tags) && params.tags.value.length > 0) {
-        conditions.push(
-          sql`${documents.tags} @> ${sql.raw(`ARRAY[${params.tags.value.map((t) => `'${t.replace(/'/g, "''")}'`).join(",")}]`)}`,
-        );
+        conditions.push(arrayContains(documents.tags, params.tags.value));
       }
       if (Option.isSome(params.metadata) && Object.keys(params.metadata.value).length > 0) {
         conditions.push(
