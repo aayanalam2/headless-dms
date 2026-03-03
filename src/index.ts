@@ -5,7 +5,8 @@ import { StatusCode } from "status-code-enum";
 import { config } from "./config/env.ts";
 import { logger } from "./lib/logger.ts";
 import { authController } from "./controllers/auth.controller.ts";
-import { documentsController, auditController } from "./controllers/documents.controller.ts";
+import { documentsController } from "./controllers/documents.controller.ts";
+import { auditController } from "./controllers/audit.controller.ts";
 
 // ---------------------------------------------------------------------------
 // Application factory — wires together all controllers, middleware, and

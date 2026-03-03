@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
 import { Effect, Option, pipe } from "effect";
-import { authPlugin, adminPlugin } from "../middleware/auth.plugin.ts";
+import { authPlugin } from "../middleware/auth.plugin.ts";
 import {
   findDocumentById,
   searchDocuments,
@@ -8,7 +8,6 @@ import {
   findVersionById,
   listVersions,
   insertAuditLog,
-  listAuditLogs,
 } from "../models/document.repository.ts";
 import { getPresignedDownloadUrl } from "../models/storage.ts";
 import { canRead, canWrite, canDelete } from "../services/document.service.ts";
@@ -17,7 +16,6 @@ import { parseSearchParams } from "../services/search.service.ts";
 import { BucketKey } from "../types/branded.ts";
 import { toDocumentDTO, toVersionDTO, toPaginatedDocumentsDTO } from "../dto/document.dto.ts";
 import { run } from "../lib/http.ts";
-import { StatusCode } from "status-code-enum";
 import { AppError } from "../types/errors.ts";
 import { Role, AuditAction, AuditResourceType } from "../types/enums.ts";
 import type { VersionRow } from "../models/db/schema.ts";
@@ -263,48 +261,3 @@ export const documentsController = new Elysia({ prefix: "/documents" })
     },
   );
 
-// ---------------------------------------------------------------------------
-// Audit controller — separate Elysia instance, admin-only
-// ---------------------------------------------------------------------------
-
-export const auditController = new Elysia({ prefix: "/audit" }).use(adminPlugin).get(
-  "/",
-  async ({ query, set }) => {
-    const page = query.page ? parseInt(query.page, 10) : 1;
-    const limit = query.limit ? parseInt(query.limit, 10) : 20;
-
-    if (!Number.isInteger(page) || page < 1) {
-      set.status = StatusCode.ClientErrorUnprocessableEntity;
-      return { error: "page must be a positive integer" };
-    }
-    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-      set.status = StatusCode.ClientErrorUnprocessableEntity;
-      return { error: "limit must be between 1 and 100" };
-    }
-
-    return run(
-      set,
-      pipe(
-        listAuditLogs({
-          page,
-          limit,
-          resourceType: Option.fromNullable(query.resourceType),
-          resourceId: Option.fromNullable(query.resourceId),
-        }),
-        Effect.map(({ items, total }) => ({
-          items,
-          pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
-        })),
-      ),
-    );
-  },
-  {
-    query: t.Object({
-      page: t.Optional(t.String()),
-      limit: t.Optional(t.String()),
-      resourceType: t.Optional(t.String()),
-      resourceId: t.Optional(t.String()),
-    }),
-    detail: { summary: "List audit logs (admin only)", tags: ["Audit"] },
-  },
-);
