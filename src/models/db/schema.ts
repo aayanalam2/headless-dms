@@ -29,9 +29,7 @@ export const users = pgTable(
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
     role: roleEnum("role").notNull().default(Role.User).$type<Role>(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("users_email_idx").on(t.email)],
 );
@@ -58,12 +56,8 @@ export const documents = pgTable(
     tags: text("tags").array().notNull().default([]),
     // Arbitrary key/value metadata stored as JSONB
     metadata: jsonb("metadata").$type<Record<string, string>>().notNull().default({}),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     // Soft-delete — null means the document is active
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
@@ -95,15 +89,11 @@ export const documentVersions = pgTable(
     uploadedBy: uuid("uploaded_by")
       .notNull()
       .references(() => users.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // SHA-256 hex digest of the uploaded file
     checksum: text("checksum").notNull(),
   },
-  (t) => [
-    index("document_versions_document_idx").on(t.documentId),
-  ],
+  (t) => [index("document_versions_document_idx").on(t.documentId)],
 );
 
 export type VersionRow = typeof documentVersions.$inferSelect;
@@ -123,9 +113,7 @@ export const auditLogs = pgTable(
     resourceType: text("resource_type").notNull(),
     resourceId: text("resource_id").notNull(),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
-    occurredAt: timestamp("occurred_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("audit_logs_actor_idx").on(t.actorId),

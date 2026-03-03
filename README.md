@@ -6,17 +6,17 @@ A headless REST API for uploading, versioning, searching, and securely downloadi
 
 ## Features
 
-| Capability | Details |
-|---|---|
-| **File upload** | Multipart upload with SHA-256 checksum, MIME-type validation, and automatic S3 key generation |
-| **Immutable versioning** | Every upload creates a new version; existing objects in S3 are never overwritten |
-| **Presigned downloads** | Time-limited (default 5 min) pre-signed URLs — files never pass through the API server |
+| Capability                    | Details                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **File upload**               | Multipart upload with SHA-256 checksum, MIME-type validation, and automatic S3 key generation           |
+| **Immutable versioning**      | Every upload creates a new version; existing objects in S3 are never overwritten                        |
+| **Presigned downloads**       | Time-limited (default 5 min) pre-signed URLs — files never pass through the API server                  |
 | **Role-based access control** | `admin` can do everything; `user` can only read/write their own documents; only `admin` can hard-delete |
-| **Rich search** | Filter by name (ILIKE), content-type, owner, tags (array containment), and arbitrary JSONB metadata |
-| **Soft delete** | Documents are marked `deleted_at`; all queries exclude them without physically removing data |
-| **Audit log** | Append-only record of every significant action (upload, version, delete) |
-| **Structured logging** | pino NDJSON to stdout in production; pretty-printed in development |
-| **Swagger UI** | Auto-generated at `/swagger` for interactive exploration |
+| **Rich search**               | Filter by name (ILIKE), content-type, owner, tags (array containment), and arbitrary JSONB metadata     |
+| **Soft delete**               | Documents are marked `deleted_at`; all queries exclude them without physically removing data            |
+| **Audit log**                 | Append-only record of every significant action (upload, version, delete)                                |
+| **Structured logging**        | pino NDJSON to stdout in production; pretty-printed in development                                      |
+| **Swagger UI**                | Auto-generated at `/swagger` for interactive exploration                                                |
 
 ---
 
@@ -53,12 +53,12 @@ HTTP Request
 
 ### Layer responsibilities
 
-| Layer | Directory | Responsibility |
-|---|---|---|
-| **Controller** | `src/controllers/` | Parse HTTP input, call services, return DTOs or error responses |
-| **Service** | `src/services/` | Business rules, permission checks, upload orchestration, search parsing |
-| **Model** | `src/models/` | Database schema (Drizzle), repository queries, S3 storage operations |
-| **View** | `src/dto/` | DTO types and mapper functions — the outbound JSON shape of every response |
+| Layer          | Directory          | Responsibility                                                             |
+| -------------- | ------------------ | -------------------------------------------------------------------------- |
+| **Controller** | `src/controllers/` | Parse HTTP input, call services, return DTOs or error responses            |
+| **Service**    | `src/services/`    | Business rules, permission checks, upload orchestration, search parsing    |
+| **Model**      | `src/models/`      | Database schema (Drizzle), repository queries, S3 storage operations       |
+| **View**       | `src/dto/`         | DTO types and mapper functions — the outbound JSON shape of every response |
 
 Services are pure functions that return `Effect<T, AppError>` — no I/O, no HTTP, tested in isolation without mocking. Repositories and storage are the only places where side effects occur.
 
@@ -66,19 +66,19 @@ Services are pure functions that return `Effect<T, AppError>` — no I/O, no HTT
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Runtime | [Bun](https://bun.sh) v1.x |
-| HTTP framework | [Elysia](https://elysiajs.com) v1.4 |
-| Effect system | [Effect](https://effect.website) v3 |
-| ORM | [Drizzle ORM](https://orm.drizzle.team) |
-| Database | PostgreSQL 16 |
-| Object storage | MinIO (dev) / AWS S3 (prod) |
-| Auth | HS256 JWT via `@elysiajs/jwt` |
-| Password hashing | bcryptjs |
-| Schema validation | Zod v4 + `@carbonteq/refined-type` |
-| Logging | pino v10 + pino-pretty (dev) |
-| Testing | Bun test runner + `@faker-js/faker` |
+| Layer             | Technology                              |
+| ----------------- | --------------------------------------- |
+| Runtime           | [Bun](https://bun.sh) v1.x              |
+| HTTP framework    | [Elysia](https://elysiajs.com) v1.4     |
+| Effect system     | [Effect](https://effect.website) v3     |
+| ORM               | [Drizzle ORM](https://orm.drizzle.team) |
+| Database          | PostgreSQL 16                           |
+| Object storage    | MinIO (dev) / AWS S3 (prod)             |
+| Auth              | HS256 JWT via `@elysiajs/jwt`           |
+| Password hashing  | bcryptjs                                |
+| Schema validation | Zod v4 + `@carbonteq/refined-type`      |
+| Logging           | pino v10 + pino-pretty (dev)            |
+| Testing           | Bun test runner + `@faker-js/faker`     |
 
 ---
 
@@ -104,6 +104,7 @@ docker compose up postgres minio minio_init -d
 ```
 
 This starts:
+
 - **PostgreSQL** on `localhost:5432`
 - **MinIO** S3 API on `localhost:9000` and the web console on `localhost:9001`
 - **minio_init** — a one-shot container that creates the `documents` bucket then exits
@@ -137,20 +138,20 @@ The API is available at `http://localhost:3000`. Swagger UI is at `http://localh
 
 Copy `.env.example` to `.env`. All variables are validated at startup — the server exits immediately if a required variable is missing.
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `DATABASE_URL` | ✅ | — | PostgreSQL connection string |
-| `JWT_SECRET` | ✅ | — | Secret for signing JWTs (≥32 chars in production) |
-| `S3_ENDPOINT` | ✅ | — | S3 or MinIO endpoint URL |
-| `S3_BUCKET` | ✅ | — | Bucket name |
-| `S3_ACCESS_KEY_ID` | ✅ | — | S3 access key |
-| `S3_SECRET_ACCESS_KEY` | ✅ | — | S3 secret key |
-| `S3_REGION` | — | `us-east-1` | S3 region |
-| `PORT` | — | `3000` | HTTP server port |
-| `NODE_ENV` | — | `development` | `development` → pretty logs; `production` → NDJSON |
-| `LOG_LEVEL` | — | `info` | `trace` \| `debug` \| `info` \| `warn` \| `error` \| `fatal` |
-| `PRESIGN_TTL_SECONDS` | — | `300` | Pre-signed URL lifetime (seconds) |
-| `BCRYPT_ROUNDS` | — | `12` | bcrypt cost factor |
+| Variable               | Required | Default       | Description                                                  |
+| ---------------------- | -------- | ------------- | ------------------------------------------------------------ |
+| `DATABASE_URL`         | ✅       | —             | PostgreSQL connection string                                 |
+| `JWT_SECRET`           | ✅       | —             | Secret for signing JWTs (≥32 chars in production)            |
+| `S3_ENDPOINT`          | ✅       | —             | S3 or MinIO endpoint URL                                     |
+| `S3_BUCKET`            | ✅       | —             | Bucket name                                                  |
+| `S3_ACCESS_KEY_ID`     | ✅       | —             | S3 access key                                                |
+| `S3_SECRET_ACCESS_KEY` | ✅       | —             | S3 secret key                                                |
+| `S3_REGION`            | —        | `us-east-1`   | S3 region                                                    |
+| `PORT`                 | —        | `3000`        | HTTP server port                                             |
+| `NODE_ENV`             | —        | `development` | `development` → pretty logs; `production` → NDJSON           |
+| `LOG_LEVEL`            | —        | `info`        | `trace` \| `debug` \| `info` \| `warn` \| `error` \| `fatal` |
+| `PRESIGN_TTL_SECONDS`  | —        | `300`         | Pre-signed URL lifetime (seconds)                            |
+| `BCRYPT_ROUNDS`        | —        | `12`          | bcrypt cost factor                                           |
 
 ---
 
@@ -160,43 +161,43 @@ All document endpoints require an `Authorization: Bearer <token>` header. Obtain
 
 ### Auth
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/auth/register` | None | Register a new user. Body: `{ email, password, role? }` |
-| `POST` | `/auth/login` | None | Login. Returns `{ token, user }`. Always 401 on any failure (no user enumeration) |
+| Method | Path             | Auth | Description                                                                       |
+| ------ | ---------------- | ---- | --------------------------------------------------------------------------------- |
+| `POST` | `/auth/register` | None | Register a new user. Body: `{ email, password, role? }`                           |
+| `POST` | `/auth/login`    | None | Login. Returns `{ token, user }`. Always 401 on any failure (no user enumeration) |
 
 ### Documents
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/documents` | Any | Upload a new document (multipart: `file`, optional `name`, `tags`, `metadata`) |
-| `GET` | `/documents` | Any | Search / list documents with pagination |
-| `GET` | `/documents/:id` | Any | Get a document by ID |
-| `GET` | `/documents/:id/download` | Any | Pre-signed URL for the current version |
-| `DELETE` | `/documents/:id` | Admin | Soft-delete a document |
-| `POST` | `/documents/:id/versions` | Owner or Admin | Upload a new version of an existing document |
-| `GET` | `/documents/:id/versions` | Any | List all versions of a document |
-| `GET` | `/documents/:id/versions/:versionId/download` | Any | Pre-signed URL for a specific version |
+| Method   | Path                                          | Auth           | Description                                                                    |
+| -------- | --------------------------------------------- | -------------- | ------------------------------------------------------------------------------ |
+| `POST`   | `/documents`                                  | Any            | Upload a new document (multipart: `file`, optional `name`, `tags`, `metadata`) |
+| `GET`    | `/documents`                                  | Any            | Search / list documents with pagination                                        |
+| `GET`    | `/documents/:id`                              | Any            | Get a document by ID                                                           |
+| `GET`    | `/documents/:id/download`                     | Any            | Pre-signed URL for the current version                                         |
+| `DELETE` | `/documents/:id`                              | Admin          | Soft-delete a document                                                         |
+| `POST`   | `/documents/:id/versions`                     | Owner or Admin | Upload a new version of an existing document                                   |
+| `GET`    | `/documents/:id/versions`                     | Any            | List all versions of a document                                                |
+| `GET`    | `/documents/:id/versions/:versionId/download` | Any            | Pre-signed URL for a specific version                                          |
 
 #### Search query parameters (`GET /documents`)
 
-| Parameter | Type | Description |
-|---|---|---|
-| `name` | string | Case-insensitive substring match |
-| `contentType` | string | Exact MIME type match |
-| `tags` | string | Comma-separated list; returns docs containing **all** provided tags |
-| `metadata` | string | URL-encoded JSON object; JSONB containment filter |
-| `ownerId` | string | Filter by owner (admin only; regular users always see their own) |
-| `page` | number | 1-based page number (default: 1) |
-| `limit` | number | Items per page, 1–100 (default: 20) |
-| `sortBy` | string | `createdAt` \| `updatedAt` \| `name` (default: `createdAt`) |
-| `sortOrder` | string | `asc` \| `desc` (default: `desc`) |
+| Parameter     | Type   | Description                                                         |
+| ------------- | ------ | ------------------------------------------------------------------- |
+| `name`        | string | Case-insensitive substring match                                    |
+| `contentType` | string | Exact MIME type match                                               |
+| `tags`        | string | Comma-separated list; returns docs containing **all** provided tags |
+| `metadata`    | string | URL-encoded JSON object; JSONB containment filter                   |
+| `ownerId`     | string | Filter by owner (admin only; regular users always see their own)    |
+| `page`        | number | 1-based page number (default: 1)                                    |
+| `limit`       | number | Items per page, 1–100 (default: 20)                                 |
+| `sortBy`      | string | `createdAt` \| `updatedAt` \| `name` (default: `createdAt`)         |
+| `sortOrder`   | string | `asc` \| `desc` (default: `desc`)                                   |
 
 ### Audit
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/audit` | Admin | List audit log entries. Optional `?resourceType=` and `?resourceId=` filters |
+| Method | Path     | Auth  | Description                                                                  |
+| ------ | -------- | ----- | ---------------------------------------------------------------------------- |
+| `GET`  | `/audit` | Admin | List audit log entries. Optional `?resourceType=` and `?resourceId=` filters |
 
 ---
 
@@ -279,10 +280,10 @@ Anywhere the domain has a value that may or may not be present, the type is `Opt
 
 ```typescript
 // HTTP boundary: nullable query param → Option
-Option.fromNullable(query.name)
+Option.fromNullable(query.name);
 
 // Domain: consume safely without null checks
-Option.getOrElse(input.name, () => file.name)
+Option.getOrElse(input.name, () => file.name);
 ```
 
 ### Branded primitives
@@ -319,14 +320,14 @@ Tests are **pure unit tests** — no database, no S3, no HTTP server. The domain
 
 All test data is generated with [`@faker-js/faker`](https://fakerjs.dev), making every test run against different realistic inputs and avoiding the false confidence of hardcoded fixture values.
 
-| File | Coverage |
-|---|---|
-| `auth.service.test.ts` | `hashPassword`, `verifyPassword`, `buildJwtClaims` |
-| `document.service.test.ts` | RBAC (`canRead/Write/Delete`), `buildBucketKey`, `nextVersionNumber`, `validateContentType` |
-| `document.upload.service.test.ts` | `parseOptionalJson`, `parseTags` |
-| `search.service.test.ts` | `parseSearchParams` — all pagination, sorting, filtering, and validation edge cases |
-| `http.test.ts` | `mapErrorToResponse` — all 6 `AppError` variants, body shape invariants |
-| `dto.test.ts` | `toUserDTO`, `toDocumentDTO`, `toVersionDTO`, `toPaginatedDocumentsDTO` |
+| File                              | Coverage                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------- |
+| `auth.service.test.ts`            | `hashPassword`, `verifyPassword`, `buildJwtClaims`                                          |
+| `document.service.test.ts`        | RBAC (`canRead/Write/Delete`), `buildBucketKey`, `nextVersionNumber`, `validateContentType` |
+| `document.upload.service.test.ts` | `parseOptionalJson`, `parseTags`                                                            |
+| `search.service.test.ts`          | `parseSearchParams` — all pagination, sorting, filtering, and validation edge cases         |
+| `http.test.ts`                    | `mapErrorToResponse` — all 6 `AppError` variants, body shape invariants                     |
+| `dto.test.ts`                     | `toUserDTO`, `toDocumentDTO`, `toVersionDTO`, `toPaginatedDocumentsDTO`                     |
 
 ---
 

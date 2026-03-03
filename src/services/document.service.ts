@@ -13,20 +13,14 @@ import type { JwtClaims } from "./auth.service.ts";
 //   user   → can read/write only their own documents; cannot hard-delete
 // ---------------------------------------------------------------------------
 
-export function canRead(
-  actor: JwtClaims,
-  doc: DocumentRow,
-): Effect.Effect<true, AppError> {
+export function canRead(actor: JwtClaims, doc: DocumentRow): Effect.Effect<true, AppError> {
   if (actor.role === Role.Admin || doc.ownerId === actor.userId) {
     return Effect.succeed(true as const);
   }
   return Effect.fail(AppError.accessDenied("You do not have access to this document"));
 }
 
-export function canWrite(
-  actor: JwtClaims,
-  doc: DocumentRow,
-): Effect.Effect<true, AppError> {
+export function canWrite(actor: JwtClaims, doc: DocumentRow): Effect.Effect<true, AppError> {
   if (actor.role === Role.Admin || doc.ownerId === actor.userId) {
     return Effect.succeed(true as const);
   }
@@ -65,10 +59,7 @@ export function buildBucketKey(
 
 export function nextVersionNumber(versions: VersionRow[]): number {
   if (versions.length === 0) return 1;
-  const max = versions.reduce(
-    (m, v) => Math.max(m, v.versionNumber),
-    0,
-  );
+  const max = versions.reduce((m, v) => Math.max(m, v.versionNumber), 0);
   return max + 1;
 }
 

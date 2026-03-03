@@ -52,8 +52,7 @@ export function mapErrorToResponse(err: AppError): HttpErrorResponse {
         status: StatusCode.ServerErrorBadGateway,
         body: {
           error: "Storage Error",
-          detail:
-            err.cause instanceof Error ? err.cause.message : "Unknown storage error",
+          detail: err.cause instanceof Error ? err.cause.message : "Unknown storage error",
         },
       };
 
@@ -62,10 +61,7 @@ export function mapErrorToResponse(err: AppError): HttpErrorResponse {
         status: StatusCode.ServerErrorInternal,
         body: {
           error: "Internal Server Error",
-          detail:
-            err.cause instanceof Error
-              ? err.cause.message
-              : "Database operation failed",
+          detail: err.cause instanceof Error ? err.cause.message : "Database operation failed",
         },
       };
 

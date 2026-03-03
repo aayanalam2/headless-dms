@@ -22,10 +22,7 @@ export type JwtClaims = {
 // The result is typed as HashedPassword to prevent it being used as plain text.
 // ---------------------------------------------------------------------------
 
-export async function hashPassword(
-  plaintext: string,
-  rounds: number,
-): Promise<HashedPassword> {
+export async function hashPassword(plaintext: string, rounds: number): Promise<HashedPassword> {
   const hash = await bcrypt.hash(plaintext, rounds);
   return hash as HashedPassword;
 }
@@ -35,10 +32,7 @@ export async function hashPassword(
 // Pure predicate — returns true when plaintext matches the stored hash.
 // ---------------------------------------------------------------------------
 
-export async function verifyPassword(
-  plaintext: string,
-  hashed: HashedPassword,
-): Promise<boolean> {
+export async function verifyPassword(plaintext: string, hashed: HashedPassword): Promise<boolean> {
   return bcrypt.compare(plaintext, hashed as string);
 }
 

@@ -10,11 +10,7 @@ import {
   insertAuditLog,
 } from "../models/document.repository.ts";
 import { uploadToS3 } from "../models/storage.ts";
-import {
-  buildBucketKey,
-  nextVersionNumber,
-  validateContentType,
-} from "./document.service.ts";
+import { buildBucketKey, nextVersionNumber, validateContentType } from "./document.service.ts";
 import {
   toDocumentDTO,
   toVersionDTO,
@@ -88,9 +84,7 @@ export function uploadDocument(
   input: UploadDocumentInput,
 ): Effect.Effect<UploadDocumentResult, AppError> {
   return Effect.gen(function* () {
-    const contentType = yield* validateContentType(
-      input.file.type || "application/octet-stream",
-    );
+    const contentType = yield* validateContentType(input.file.type || "application/octet-stream");
     const metadata = yield* parseOptionalJson(input.rawMetadata);
 
     const docId = yield* fromRefined(DocumentId.create(crypto.randomUUID()));
@@ -99,9 +93,7 @@ export function uploadDocument(
     const bucketKey = buildBucketKey(docId, verId, filename);
 
     const fileBuffer = yield* Effect.promise(() => input.file.arrayBuffer());
-    const hashBuffer = yield* Effect.promise(() =>
-      crypto.subtle.digest("SHA-256", fileBuffer),
-    );
+    const hashBuffer = yield* Effect.promise(() => crypto.subtle.digest("SHA-256", fileBuffer));
     const checksum = Buffer.from(hashBuffer).toString("hex");
 
     yield* uploadToS3(bucketKey, Buffer.from(fileBuffer), contentType);
@@ -174,9 +166,7 @@ export function uploadNewVersion(
     const bucketKey = buildBucketKey(docId, verId, filename);
 
     const fileBuffer = yield* Effect.promise(() => file.arrayBuffer());
-    const hashBuffer = yield* Effect.promise(() =>
-      crypto.subtle.digest("SHA-256", fileBuffer),
-    );
+    const hashBuffer = yield* Effect.promise(() => crypto.subtle.digest("SHA-256", fileBuffer));
     const checksum = Buffer.from(hashBuffer).toString("hex");
 
     yield* uploadToS3(bucketKey, Buffer.from(fileBuffer), contentType);

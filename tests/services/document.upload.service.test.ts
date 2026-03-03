@@ -1,10 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { faker } from "@faker-js/faker";
 import { Option } from "effect";
-import {
-  parseOptionalJson,
-  parseTags,
-} from "../../src/services/document.upload.service.ts";
+import { parseOptionalJson, parseTags } from "../../src/services/document.upload.service.ts";
 import { runOk, runErr } from "../helpers/factories.ts";
 
 // ---------------------------------------------------------------------------
@@ -106,11 +103,7 @@ describe("parseTags", () => {
   });
 
   it("splits on commas and trims each tag", () => {
-    expect(parseTags(Option.some(" finance , q1 , report "))).toEqual([
-      "finance",
-      "q1",
-      "report",
-    ]);
+    expect(parseTags(Option.some(" finance , q1 , report "))).toEqual(["finance", "q1", "report"]);
   });
 
   it("filters out blank entries between consecutive commas", () => {

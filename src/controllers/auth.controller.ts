@@ -2,11 +2,7 @@ import { Elysia, t } from "elysia";
 import { Effect, Either, pipe } from "effect";
 import { jwtPlugin } from "../middleware/auth.plugin.ts";
 import { findUserByEmail, createUser } from "../models/user.repository.ts";
-import {
-  hashPassword,
-  verifyPassword,
-  buildJwtClaims,
-} from "../services/auth.service.ts";
+import { hashPassword, verifyPassword, buildJwtClaims } from "../services/auth.service.ts";
 import { StatusCode } from "status-code-enum";
 import { Email } from "../types/branded.ts";
 import { AppError, ErrorTag } from "../types/errors.ts";
@@ -45,7 +41,8 @@ export const authController = new Elysia({ prefix: "/auth" })
   .post(
     "/register",
     ({ body, jwt, set }) =>
-      run(set,
+      run(
+        set,
         Effect.gen(function* () {
           // Validate email as branded type
           const emailValidation = Email.create(body.email);
@@ -108,9 +105,7 @@ export const authController = new Elysia({ prefix: "/auth" })
                 if (!valid) {
                   return yield* Effect.fail("invalid" as const);
                 }
-                const token = yield* Effect.promise(() =>
-                  jwt.sign(buildJwtClaims(user)),
-                );
+                const token = yield* Effect.promise(() => jwt.sign(buildJwtClaims(user)));
                 return { token, user: toUserDTO(user) };
               }),
             ),

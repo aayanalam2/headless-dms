@@ -15,16 +15,9 @@ export function findUserById(id: string): Effect.Effect<UserRow, AppError> {
   );
 }
 
-export function findUserByEmail(
-  email: string,
-): Effect.Effect<UserRow, AppError> {
+export function findUserByEmail(email: string): Effect.Effect<UserRow, AppError> {
   return Effect.tryPromise({
-    try: () =>
-      db
-        .select()
-        .from(users)
-        .where(eq(users.email, email))
-        .limit(1),
+    try: () => db.select().from(users).where(eq(users.email, email)).limit(1),
     catch: (e) => AppError.database(e),
   }).pipe(
     Effect.flatMap((rows) =>
@@ -33,9 +26,7 @@ export function findUserByEmail(
   );
 }
 
-export function createUser(
-  data: NewUserRow,
-): Effect.Effect<UserRow, AppError> {
+export function createUser(data: NewUserRow): Effect.Effect<UserRow, AppError> {
   return Effect.tryPromise({
     try: () => db.insert(users).values(data).returning(),
     catch: (e) => AppError.database(e),
@@ -51,12 +42,7 @@ export function updateUser(
   data: Partial<Pick<UserRow, "role">>,
 ): Effect.Effect<UserRow, AppError> {
   return Effect.tryPromise({
-    try: () =>
-      db
-        .update(users)
-        .set(data)
-        .where(eq(users.id, id))
-        .returning(),
+    try: () => db.update(users).set(data).where(eq(users.id, id)).returning(),
     catch: (e) => AppError.database(e),
   }).pipe(
     Effect.flatMap((rows) =>

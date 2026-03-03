@@ -1,10 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { faker } from "@faker-js/faker";
-import {
-  buildJwtClaims,
-  hashPassword,
-  verifyPassword,
-} from "../../src/services/auth.service.ts";
+import { buildJwtClaims, hashPassword, verifyPassword } from "../../src/services/auth.service.ts";
 import { Role } from "../../src/types/enums.ts";
 import { makeUserRow } from "../helpers/factories.ts";
 

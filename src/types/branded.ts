@@ -35,10 +35,7 @@ export type Email = typeof Email.$infer;
 
 // Non-empty string that has already been hashed — prevents accidentally
 // storing a plaintext password where a hash is expected.
-export const HashedPassword = createRefinedType(
-  "HashedPassword",
-  z.string().min(1),
-);
+export const HashedPassword = createRefinedType("HashedPassword", z.string().min(1));
 export type HashedPassword = typeof HashedPassword.$infer;
 
 // S3 object key — must be non-empty
@@ -46,10 +43,7 @@ export const BucketKey = createRefinedType("BucketKey", z.string().min(1));
 export type BucketKey = typeof BucketKey.$infer;
 
 // Document filename — 1..255 chars
-export const FileName = createRefinedType(
-  "FileName",
-  z.string().min(1).max(255),
-);
+export const FileName = createRefinedType("FileName", z.string().min(1).max(255));
 export type FileName = typeof FileName.$infer;
 
 // ---------------------------------------------------------------------------
@@ -65,10 +59,7 @@ export type FileName = typeof FileName.$infer;
 //                                    string originates from user input.
 // ---------------------------------------------------------------------------
 
-const _ISODateStringRefined = createRefinedType(
-  "ISODateString",
-  z.iso.datetime({ offset: true }),
-);
+const _ISODateStringRefined = createRefinedType("ISODateString", z.iso.datetime({ offset: true }));
 
 export const ISODateString = Object.assign(_ISODateStringRefined, {
   /** Safely coerce a Date — toISOString() always produces valid ISO-8601. */

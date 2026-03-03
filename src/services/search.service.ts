@@ -63,9 +63,7 @@ function parseMetadata(
 // typed SearchParams or an AppError.ValidationError.
 // ---------------------------------------------------------------------------
 
-export function parseSearchParams(
-  raw: RawSearchQuery,
-): Effect.Effect<SearchParams, AppError> {
+export function parseSearchParams(raw: RawSearchQuery): Effect.Effect<SearchParams, AppError> {
   return Effect.gen(function* () {
     // --- page ---
     const page = raw.page !== undefined ? parseInt(raw.page, 10) : DEFAULT_PAGE;
@@ -74,12 +72,9 @@ export function parseSearchParams(
     }
 
     // --- limit ---
-    const limit =
-      raw.limit !== undefined ? parseInt(raw.limit, 10) : DEFAULT_LIMIT;
+    const limit = raw.limit !== undefined ? parseInt(raw.limit, 10) : DEFAULT_LIMIT;
     if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
-      return yield* Effect.fail(
-        AppError.validation(`limit must be between 1 and ${MAX_LIMIT}`),
-      );
+      return yield* Effect.fail(AppError.validation(`limit must be between 1 and ${MAX_LIMIT}`));
     }
 
     // --- sortBy ---
@@ -90,8 +85,7 @@ export function parseSearchParams(
 
     // --- sortOrder ---
     const sortOrder: SortOrder =
-      raw.sortOrder !== undefined &&
-      (VALID_SORT_ORDERS as string[]).includes(raw.sortOrder)
+      raw.sortOrder !== undefined && (VALID_SORT_ORDERS as string[]).includes(raw.sortOrder)
         ? (raw.sortOrder as SortOrder)
         : SortOrder.Desc;
 

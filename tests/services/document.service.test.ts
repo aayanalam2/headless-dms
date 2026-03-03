@@ -150,9 +150,7 @@ describe("buildBucketKey", () => {
 
   it("generates a unique key for each unique versionId", () => {
     const docId = validDocId();
-    const keys = Array.from({ length: 5 }, () =>
-      buildBucketKey(docId, validVerId(), "file.pdf"),
-    );
+    const keys = Array.from({ length: 5 }, () => buildBucketKey(docId, validVerId(), "file.pdf"));
     expect(new Set(keys).size).toBe(5);
   });
 
@@ -232,8 +230,12 @@ describe("validateContentType", () => {
 
   it("accepts a variety of real MIME types", () => {
     const types = [
-      "text/plain", "image/jpeg", "image/svg+xml",
-      "application/json", "application/octet-stream", "video/mp4",
+      "text/plain",
+      "image/jpeg",
+      "image/svg+xml",
+      "application/json",
+      "application/octet-stream",
+      "video/mp4",
     ];
     types.forEach((t) => expect(runOk(validateContentType(t))).toBe(t));
   });

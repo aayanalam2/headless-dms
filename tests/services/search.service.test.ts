@@ -111,9 +111,7 @@ describe("parseSearchParams", () => {
   });
 
   it("trims whitespace from name", () => {
-    expect(runOk(parseSearchParams({ name: "  report  " })).name).toEqual(
-      Option.some("report"),
-    );
+    expect(runOk(parseSearchParams({ name: "  report  " })).name).toEqual(Option.some("report"));
   });
 
   it("treats a whitespace-only name as Option.none", () => {
@@ -138,9 +136,7 @@ describe("parseSearchParams", () => {
   // ── Tags ──────────────────────────────────────────────────────────────────
 
   it("parses a single tag", () => {
-    expect(runOk(parseSearchParams({ tags: "finance" })).tags).toEqual(
-      Option.some(["finance"]),
-    );
+    expect(runOk(parseSearchParams({ tags: "finance" })).tags).toEqual(Option.some(["finance"]));
   });
 
   it("parses comma-separated tags and trims each entry", () => {
@@ -203,9 +199,9 @@ describe("parseSearchParams", () => {
   });
 
   it("rejects metadata where a value is a nested object", () => {
-    expect(
-      runErr(parseSearchParams({ metadata: '{"nested":{"a":"b"}}' })),
-    ).toMatchObject({ tag: "ValidationError" });
+    expect(runErr(parseSearchParams({ metadata: '{"nested":{"a":"b"}}' }))).toMatchObject({
+      tag: "ValidationError",
+    });
   });
 
   it("rejects null as top-level metadata value", () => {

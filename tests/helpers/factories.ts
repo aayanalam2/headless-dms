@@ -2,11 +2,7 @@ import { faker } from "@faker-js/faker";
 import { Effect, Either } from "effect";
 import type { AppError } from "../../src/types/errors.ts";
 import { Role } from "../../src/types/enums.ts";
-import type {
-  DocumentRow,
-  UserRow,
-  VersionRow,
-} from "../../src/models/db/schema.ts";
+import type { DocumentRow, UserRow, VersionRow } from "../../src/models/db/schema.ts";
 import type { JwtClaims } from "../../src/services/auth.service.ts";
 
 // ---------------------------------------------------------------------------
@@ -112,9 +108,6 @@ export function makeUserClaims(overrides: Partial<JwtClaims> = {}): JwtClaims {
 
 export function isAppError(e: unknown): e is AppError {
   return (
-    typeof e === "object" &&
-    e !== null &&
-    "tag" in e &&
-    typeof (e as AppError).tag === "string"
+    typeof e === "object" && e !== null && "tag" in e && typeof (e as AppError).tag === "string"
   );
 }

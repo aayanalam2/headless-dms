@@ -31,12 +31,12 @@ export enum SortOrder {
 
 export type SearchParams = {
   readonly ownerId: Option.Option<string>;
-  readonly name: Option.Option<string>;       // ILIKE match
+  readonly name: Option.Option<string>; // ILIKE match
   readonly contentType: Option.Option<string>; // exact match
-  readonly tags: Option.Option<string[]>;      // array containment: doc.tags @> :tags
+  readonly tags: Option.Option<string[]>; // array containment: doc.tags @> :tags
   readonly metadata: Option.Option<Record<string, string>>; // JSONB containment
-  readonly page: number;     // 1-based
-  readonly limit: number;    // max 100
+  readonly page: number; // 1-based
+  readonly limit: number; // max 100
   readonly sortBy: SortField;
   readonly sortOrder: SortOrder;
 };
@@ -52,9 +52,7 @@ export type PaginatedDocuments = {
 // Document repository
 // ---------------------------------------------------------------------------
 
-export function findDocumentById(
-  id: string,
-): Effect.Effect<DocumentRow, AppError> {
+export function findDocumentById(id: string): Effect.Effect<DocumentRow, AppError> {
   return Effect.tryPromise({
     try: () =>
       db
@@ -70,9 +68,7 @@ export function findDocumentById(
   );
 }
 
-export function searchDocuments(
-  params: SearchParams,
-): Effect.Effect<PaginatedDocuments, AppError> {
+export function searchDocuments(params: SearchParams): Effect.Effect<PaginatedDocuments, AppError> {
   return Effect.tryPromise({
     try: async () => {
       const conditions = [isNull(documents.deletedAt)];
@@ -134,9 +130,7 @@ export function searchDocuments(
   });
 }
 
-export function createDocument(
-  data: NewDocumentRow,
-): Effect.Effect<DocumentRow, AppError> {
+export function createDocument(data: NewDocumentRow): Effect.Effect<DocumentRow, AppError> {
   return Effect.tryPromise({
     try: () => db.insert(documents).values(data).returning(),
     catch: (e) => AppError.database(e),
@@ -149,9 +143,7 @@ export function createDocument(
 
 export function updateDocument(
   id: string,
-  data: Partial<
-    Pick<DocumentRow, "currentVersionId" | "name" | "tags" | "metadata" | "updatedAt">
-  >,
+  data: Partial<Pick<DocumentRow, "currentVersionId" | "name" | "tags" | "metadata" | "updatedAt">>,
 ): Effect.Effect<DocumentRow, AppError> {
   return Effect.tryPromise({
     try: () =>
@@ -168,9 +160,7 @@ export function updateDocument(
   );
 }
 
-export function softDeleteDocument(
-  id: string,
-): Effect.Effect<DocumentRow, AppError> {
+export function softDeleteDocument(id: string): Effect.Effect<DocumentRow, AppError> {
   return Effect.tryPromise({
     try: () =>
       db
@@ -190,9 +180,7 @@ export function softDeleteDocument(
 // Version repository
 // ---------------------------------------------------------------------------
 
-export function createVersion(
-  data: NewVersionRow,
-): Effect.Effect<VersionRow, AppError> {
+export function createVersion(data: NewVersionRow): Effect.Effect<VersionRow, AppError> {
   return Effect.tryPromise({
     try: () => db.insert(documentVersions).values(data).returning(),
     catch: (e) => AppError.database(e),
@@ -203,9 +191,7 @@ export function createVersion(
   );
 }
 
-export function listVersions(
-  documentId: string,
-): Effect.Effect<VersionRow[], AppError> {
+export function listVersions(documentId: string): Effect.Effect<VersionRow[], AppError> {
   return Effect.tryPromise({
     try: () =>
       db
@@ -217,16 +203,10 @@ export function listVersions(
   });
 }
 
-export function findVersionById(
-  versionId: string,
-): Effect.Effect<VersionRow, AppError> {
+export function findVersionById(versionId: string): Effect.Effect<VersionRow, AppError> {
   return Effect.tryPromise({
     try: () =>
-      db
-        .select()
-        .from(documentVersions)
-        .where(eq(documentVersions.id, versionId))
-        .limit(1),
+      db.select().from(documentVersions).where(eq(documentVersions.id, versionId)).limit(1),
     catch: (e) => AppError.database(e),
   }).pipe(
     Effect.flatMap((rows) =>
@@ -239,15 +219,15 @@ export function findVersionById(
 // Audit log repository
 // ---------------------------------------------------------------------------
 
-export function insertAuditLog(
-  data: NewAuditLogRow,
-): Effect.Effect<AuditLogRow, AppError> {
+export function insertAuditLog(data: NewAuditLogRow): Effect.Effect<AuditLogRow, AppError> {
   return Effect.tryPromise({
     try: () => db.insert(auditLogs).values(data).returning(),
     catch: (e) => AppError.database(e),
   }).pipe(
     Effect.flatMap((rows) =>
-      rows[0] ? Effect.succeed(rows[0]) : Effect.fail(AppError.database("Audit insert returned no row")),
+      rows[0]
+        ? Effect.succeed(rows[0])
+        : Effect.fail(AppError.database("Audit insert returned no row")),
     ),
   );
 }

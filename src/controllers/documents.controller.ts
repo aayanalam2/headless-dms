@@ -74,13 +74,17 @@ export const documentsController = new Elysia({ prefix: "/documents" })
   .post(
     "/",
     ({ body, user, set }) =>
-      run(set, uploadDocument({
-        file: body.file,
-        name: Option.fromNullable(body.name),
-        rawTags: Option.fromNullable(body.tags),
-        rawMetadata: Option.fromNullable(body.metadata),
-        userId: user.userId,
-      })),    {
+      run(
+        set,
+        uploadDocument({
+          file: body.file,
+          name: Option.fromNullable(body.name),
+          rawTags: Option.fromNullable(body.tags),
+          rawMetadata: Option.fromNullable(body.metadata),
+          userId: user.userId,
+        }),
+      ),
+    {
       body: t.Object({
         file: t.File(),
         name: t.Optional(t.String({ maxLength: 255 })),
@@ -95,7 +99,8 @@ export const documentsController = new Elysia({ prefix: "/documents" })
   .get(
     "/",
     ({ query, user, set }) =>
-      run(set,
+      run(
+        set,
         pipe(
           parseSearchParams({
             ...query,
@@ -127,7 +132,8 @@ export const documentsController = new Elysia({ prefix: "/documents" })
   .get(
     "/:id",
     ({ params, user, set }) =>
-      run(set,
+      run(
+        set,
         pipe(
           findDocumentById(params.id),
           Effect.flatMap((doc) => pipe(canRead(user, doc), Effect.as(doc))),
@@ -144,7 +150,8 @@ export const documentsController = new Elysia({ prefix: "/documents" })
   .get(
     "/:id/download",
     ({ params, user, set }) =>
-      run(set,
+      run(
+        set,
         pipe(
           findDocumentById(params.id),
           Effect.flatMap((doc) => pipe(canRead(user, doc), Effect.as(doc))),
@@ -167,7 +174,8 @@ export const documentsController = new Elysia({ prefix: "/documents" })
   .delete(
     "/:id",
     ({ params, user, set }) =>
-      run(set,
+      run(
+        set,
         pipe(
           canDelete(user),
           Effect.flatMap(() => softDeleteDocument(params.id)),
@@ -195,12 +203,18 @@ export const documentsController = new Elysia({ prefix: "/documents" })
   .post(
     "/:id/versions",
     ({ params, body, user, set }) =>
-      run(set,
+      run(
+        set,
         pipe(
           findDocumentById(params.id),
           Effect.flatMap((doc) => pipe(canWrite(user, doc), Effect.as(doc))),
           Effect.flatMap((doc) =>
-            uploadNewVersion({ doc, file: body.file, name: Option.fromNullable(body.name), actor: user }),
+            uploadNewVersion({
+              doc,
+              file: body.file,
+              name: Option.fromNullable(body.name),
+              actor: user,
+            }),
           ),
         ),
       ),
@@ -218,7 +232,8 @@ export const documentsController = new Elysia({ prefix: "/documents" })
   .get(
     "/:id/versions",
     ({ params, user, set }) =>
-      run(set,
+      run(
+        set,
         pipe(
           findDocumentById(params.id),
           Effect.flatMap((doc) => pipe(canRead(user, doc), Effect.as(doc))),
@@ -236,7 +251,8 @@ export const documentsController = new Elysia({ prefix: "/documents" })
   .get(
     "/:id/versions/:versionId/download",
     ({ params, user, set }) =>
-      run(set,
+      run(
+        set,
         pipe(
           findDocumentById(params.id),
           Effect.flatMap((doc) => pipe(canRead(user, doc), Effect.as(doc))),
@@ -263,46 +279,44 @@ export const documentsController = new Elysia({ prefix: "/documents" })
 // Audit controller — separate Elysia instance, admin-only
 // ---------------------------------------------------------------------------
 
-export const auditController = new Elysia({ prefix: "/audit" })
-  .use(adminPlugin)
-  .get(
-    "/",
-    async ({ query, set }) => {
-      const page = query.page ? parseInt(query.page, 10) : 1;
-      const limit = query.limit ? parseInt(query.limit, 10) : 20;
+export const auditController = new Elysia({ prefix: "/audit" }).use(adminPlugin).get(
+  "/",
+  async ({ query, set }) => {
+    const page = query.page ? parseInt(query.page, 10) : 1;
+    const limit = query.limit ? parseInt(query.limit, 10) : 20;
 
-      if (!Number.isInteger(page) || page < 1) {
-        set.status = StatusCode.ClientErrorUnprocessableEntity;
-        return { error: "page must be a positive integer" };
-      }
-      if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-        set.status = StatusCode.ClientErrorUnprocessableEntity;
-        return { error: "limit must be between 1 and 100" };
-      }
+    if (!Number.isInteger(page) || page < 1) {
+      set.status = StatusCode.ClientErrorUnprocessableEntity;
+      return { error: "page must be a positive integer" };
+    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      set.status = StatusCode.ClientErrorUnprocessableEntity;
+      return { error: "limit must be between 1 and 100" };
+    }
 
-      return run(set,
-        pipe(
-          listAuditLogs({
-            page,
-            limit,
-            resourceType: Option.fromNullable(query.resourceType),
-            resourceId: Option.fromNullable(query.resourceId),
-          }),
-          Effect.map(({ items, total }) => ({
-            items,
-            pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
-          })),
-        ),
-      );
-    },
-    {
-      query: t.Object({
-        page: t.Optional(t.String()),
-        limit: t.Optional(t.String()),
-        resourceType: t.Optional(t.String()),
-        resourceId: t.Optional(t.String()),
-      }),
-      detail: { summary: "List audit logs (admin only)", tags: ["Audit"] },
-    },
-  );
-
+    return run(
+      set,
+      pipe(
+        listAuditLogs({
+          page,
+          limit,
+          resourceType: Option.fromNullable(query.resourceType),
+          resourceId: Option.fromNullable(query.resourceId),
+        }),
+        Effect.map(({ items, total }) => ({
+          items,
+          pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        })),
+      ),
+    );
+  },
+  {
+    query: t.Object({
+      page: t.Optional(t.String()),
+      limit: t.Optional(t.String()),
+      resourceType: t.Optional(t.String()),
+      resourceId: t.Optional(t.String()),
+    }),
+    detail: { summary: "List audit logs (admin only)", tags: ["Audit"] },
+  },
+);

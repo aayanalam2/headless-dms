@@ -12,6 +12,7 @@ import { documentsController, auditController } from "./controllers/documents.co
 // cross-cutting concerns (CORS, Swagger, error handling, request logging).
 // ---------------------------------------------------------------------------
 
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createApp() {
   return (
     new Elysia()
@@ -74,10 +75,7 @@ export function createApp() {
         }
 
         // Unexpected error — log to stdout (12-Factor XI)
-        logger.error(
-          { err: error, code },
-          "Unhandled server error",
-        );
+        logger.error({ err: error, code }, "Unhandled server error");
 
         set.status = StatusCode.ServerErrorInternal;
         return { error: "Internal Server Error" };

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import { faker } from "@faker-js/faker";
-import { toDocumentDTO, toVersionDTO, toPaginatedDocumentsDTO } from "../../src/dto/document.dto.ts";
+import {
+  toDocumentDTO,
+  toVersionDTO,
+  toPaginatedDocumentsDTO,
+} from "../../src/dto/document.dto.ts";
 import { toUserDTO } from "../../src/dto/user.dto.ts";
 import { ISODateString } from "../../src/types/branded.ts";
 import { Role } from "../../src/types/enums.ts";

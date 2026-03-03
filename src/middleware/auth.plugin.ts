@@ -45,32 +45,29 @@ export const jwtPlugin = new Elysia({ name: "jwt" }).use(
 
 export const authPlugin = new Elysia({ name: "auth" })
   .use(jwtPlugin)
-  .resolve(
-    { as: "scoped" },
-    async ({ jwt, request, set }): Promise<{ user: JwtClaims }> => {
-      const authHeader = request.headers.get("authorization");
-      if (!authHeader?.startsWith("Bearer ")) {
-        set.status = StatusCode.ClientErrorUnauthorized;
-        throw new Error("Unauthorized: missing or malformed token");
-      }
+  .resolve({ as: "scoped" }, async ({ jwt, request, set }): Promise<{ user: JwtClaims }> => {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      set.status = StatusCode.ClientErrorUnauthorized;
+      throw new Error("Unauthorized: missing or malformed token");
+    }
 
-      const token = authHeader.slice(7);
-      const payload = await jwt.verify(token);
+    const token = authHeader.slice(7);
+    const payload = await jwt.verify(token);
 
-      if (!payload) {
-        set.status = StatusCode.ClientErrorUnauthorized;
-        throw new Error("Unauthorized: invalid or expired token");
-      }
+    if (!payload) {
+      set.status = StatusCode.ClientErrorUnauthorized;
+      throw new Error("Unauthorized: invalid or expired token");
+    }
 
-      return {
-        user: {
-          userId: payload.userId,
-          email: payload.email,
-          role: payload.role,
-        } satisfies JwtClaims,
-      };
-    },
-  );
+    return {
+      user: {
+        userId: payload.userId,
+        email: payload.email,
+        role: payload.role,
+      } satisfies JwtClaims,
+    };
+  });
 
 // ---------------------------------------------------------------------------
 // adminPlugin — extends authPlugin with an additional guard that rejects
