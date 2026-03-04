@@ -25,10 +25,7 @@ export type JwtClaims = {
 // Composes directly into any effect pipeline — no controller boilerplate.
 // ---------------------------------------------------------------------------
 
-export function requireRole(
-  actor: JwtClaims,
-  ...allowed: Role[]
-): Effect.Effect<void, AppError> {
+export function requireRole(actor: JwtClaims, ...allowed: Role[]): Effect.Effect<void, AppError> {
   return allowed.includes(actor.role)
     ? Effect.void
     : Effect.fail(AppError.accessDenied(`requires role: ${allowed.join(" | ")}`));

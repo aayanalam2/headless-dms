@@ -1,52 +1,10 @@
-import { eq } from "drizzle-orm";
-import { db } from "./db/connection.ts";
-import { type NewUserRow, type UserRow, users } from "./db/schema.ts";
-import { Effect } from "effect";
-import { AppError } from "../types/errors.ts";
+import type { Effect } from "effect";
+import type { NewUserRow, UserRow } from "./db/schema.ts";
+import type { AppError } from "../types/errors.ts";
 
-export function findUserById(id: string): Effect.Effect<UserRow, AppError> {
-  return Effect.tryPromise({
-    try: () => db.select().from(users).where(eq(users.id, id)).limit(1),
-    catch: (e) => AppError.database(e),
-  }).pipe(
-    Effect.flatMap((rows) =>
-      rows[0] ? Effect.succeed(rows[0]) : Effect.fail(AppError.notFound(`User(${id})`)),
-    ),
-  );
-}
-
-export function findUserByEmail(email: string): Effect.Effect<UserRow, AppError> {
-  return Effect.tryPromise({
-    try: () => db.select().from(users).where(eq(users.email, email)).limit(1),
-    catch: (e) => AppError.database(e),
-  }).pipe(
-    Effect.flatMap((rows) =>
-      rows[0] ? Effect.succeed(rows[0]) : Effect.fail(AppError.notFound(`User(email:${email})`)),
-    ),
-  );
-}
-
-export function createUser(data: NewUserRow): Effect.Effect<UserRow, AppError> {
-  return Effect.tryPromise({
-    try: () => db.insert(users).values(data).returning(),
-    catch: (e) => AppError.database(e),
-  }).pipe(
-    Effect.flatMap((rows) =>
-      rows[0] ? Effect.succeed(rows[0]) : Effect.fail(AppError.database("Insert returned no row")),
-    ),
-  );
-}
-
-export function updateUser(
-  id: string,
-  data: Partial<Pick<UserRow, "role">>,
-): Effect.Effect<UserRow, AppError> {
-  return Effect.tryPromise({
-    try: () => db.update(users).set(data).where(eq(users.id, id)).returning(),
-    catch: (e) => AppError.database(e),
-  }).pipe(
-    Effect.flatMap((rows) =>
-      rows[0] ? Effect.succeed(rows[0]) : Effect.fail(AppError.notFound(`User(${id})`)),
-    ),
-  );
-}
+export type IUserRepository = {
+  findUserById(id: string): Effect.Effect<UserRow, AppError>;
+  findUserByEmail(email: string): Effect.Effect<UserRow, AppError>;
+  createUser(data: NewUserRow): Effect.Effect<UserRow, AppError>;
+  updateUser(id: string, data: Partial<Pick<UserRow, "role">>): Effect.Effect<UserRow, AppError>;
+};

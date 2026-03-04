@@ -4,15 +4,32 @@ import { swagger } from "@elysiajs/swagger";
 import { StatusCode } from "status-code-enum";
 import { config } from "./config/env.ts";
 import { logger } from "./lib/logger.ts";
-import { authController } from "./controllers/auth.controller.ts";
-import { documentsController } from "./controllers/documents.controller.ts";
-import { auditController } from "./controllers/audit.controller.ts";
-import { registerAuditListeners } from "./services/audit.listener.ts";
+import { db } from "./models/db/connection.ts";
+import { createDrizzleDocumentRepository } from "./models/adapters/drizzle.document.repository.ts";
+import { createDrizzleUserRepository } from "./models/adapters/drizzle.user.repository.ts";
+import { createS3Storage } from "./models/adapters/s3.storage.ts";
+import { createDocumentUploadService } from "./services/document.upload.service.ts";
+import { createAuditListeners } from "./services/audit.listener.ts";
+import { createAuthController } from "./controllers/auth.controller.ts";
+import { createDocumentsController } from "./controllers/documents.controller.ts";
+import { createAuditController } from "./controllers/audit.controller.ts";
 
 // ---------------------------------------------------------------------------
 // Application factory — wires together all controllers, middleware, and
 // cross-cutting concerns (CORS, Swagger, error handling, request logging).
 // ---------------------------------------------------------------------------
+
+const docRepo = createDrizzleDocumentRepository(db);
+const userRepo = createDrizzleUserRepository(db);
+const storageService = createS3Storage(config.s3, config.s3.bucket, config.presignTtlSeconds);
+
+// Build services
+const uploadService = createDocumentUploadService(docRepo, storageService);
+
+// Build controllers
+const authController = createAuthController(userRepo);
+const documentsController = createDocumentsController(docRepo, storageService, uploadService);
+const auditController = createAuditController(docRepo);
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createApp() {
@@ -105,7 +122,7 @@ export function createApp() {
 // before any other module initialises.
 // ---------------------------------------------------------------------------
 
-registerAuditListeners();
+createAuditListeners(docRepo).register();
 const app = createApp();
 
 app.listen(config.port, () => {

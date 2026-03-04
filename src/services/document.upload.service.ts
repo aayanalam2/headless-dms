@@ -1,15 +1,10 @@
 import { Effect, Option } from "effect";
 import { AppError } from "../types/errors.ts";
 import { DocumentId, VersionId, BucketKey } from "../types/branded.ts";
-import {
-  createDocument,
-  createVersion,
-  updateDocument,
-  listVersions,
-} from "../models/document.repository.ts";
+import type { IDocumentRepository } from "../models/document.repository.ts";
+import type { IStorage } from "../models/storage.ts";
 import { eventBus } from "../lib/event-bus.ts";
 import { DocumentEvent } from "../events/document.events.ts";
-import { uploadToS3 } from "../models/storage.ts";
 import { buildBucketKey, nextVersionNumber, validateContentType } from "./document.service.ts";
 import {
   toDocumentDTO,
@@ -80,66 +75,6 @@ export type UploadDocumentResult = {
   version: VersionDTO;
 };
 
-export function uploadDocument(
-  input: UploadDocumentInput,
-): Effect.Effect<UploadDocumentResult, AppError> {
-  return Effect.gen(function* () {
-    const contentType = yield* validateContentType(input.file.type || "application/octet-stream");
-    const metadata = yield* parseOptionalJson(input.rawMetadata);
-
-    const docId = yield* fromRefined(DocumentId.create(crypto.randomUUID()));
-    const verId = yield* fromRefined(VersionId.create(crypto.randomUUID()));
-    const filename = Option.getOrElse(input.name, () => input.file.name ?? "untitled");
-    const bucketKey = buildBucketKey(docId, verId, filename);
-
-    const fileBuffer = yield* Effect.promise(() => input.file.arrayBuffer());
-    const hashBuffer = yield* Effect.promise(() => crypto.subtle.digest("SHA-256", fileBuffer));
-    const checksum = Buffer.from(hashBuffer).toString("hex");
-
-    yield* uploadToS3(bucketKey, Buffer.from(fileBuffer), contentType);
-
-    const rawDocId = DocumentId.primitive(docId);
-    const doc = yield* createDocument({
-      id: rawDocId,
-      ownerId: input.userId,
-      name: filename,
-      contentType,
-      tags: parseTags(input.rawTags),
-      metadata,
-    });
-
-    const rawVerId = VersionId.primitive(verId);
-    const version = yield* createVersion({
-      id: rawVerId,
-      documentId: rawDocId,
-      versionNumber: 1,
-      bucketKey: BucketKey.primitive(bucketKey),
-      sizeBytes: fileBuffer.byteLength,
-      uploadedBy: input.userId,
-      checksum,
-    });
-
-    yield* Effect.ignoreLogged(
-      updateDocument(rawDocId, { currentVersionId: rawVerId, updatedAt: new Date() }),
-    );
-    yield* Effect.sync(() =>
-      eventBus.emit(DocumentEvent.Uploaded, {
-        actorId: input.userId,
-        resourceId: rawDocId,
-        versionId: rawVerId,
-        filename,
-        contentType,
-      }),
-    );
-
-    return { document: toDocumentDTO(doc), version: toVersionDTO(version) };
-  });
-}
-
-// ---------------------------------------------------------------------------
-// uploadNewVersion
-// ---------------------------------------------------------------------------
-
 export type UploadNewVersionInput = {
   doc: DocumentRow;
   file: File;
@@ -151,53 +86,121 @@ export type UploadNewVersionResult = {
   version: VersionDTO;
 };
 
-export function uploadNewVersion(
-  input: UploadNewVersionInput,
-): Effect.Effect<UploadNewVersionResult, AppError> {
-  const { doc, file, name, actor } = input;
+export type DocumentUploadService = {
+  uploadDocument(input: UploadDocumentInput): Effect.Effect<UploadDocumentResult, AppError>;
+  uploadNewVersion(input: UploadNewVersionInput): Effect.Effect<UploadNewVersionResult, AppError>;
+};
 
-  return Effect.gen(function* () {
-    const contentType = yield* validateContentType(file.type || doc.contentType);
-    const versions = yield* listVersions(doc.id);
+export function createDocumentUploadService(
+  repo: IDocumentRepository,
+  storage: IStorage,
+): DocumentUploadService {
+  return {
+    uploadDocument(input: UploadDocumentInput): Effect.Effect<UploadDocumentResult, AppError> {
+      return Effect.gen(function* () {
+        const contentType = yield* validateContentType(
+          input.file.type || "application/octet-stream",
+        );
+        const metadata = yield* parseOptionalJson(input.rawMetadata);
 
-    const docId = yield* fromRefined(DocumentId.create(doc.id));
-    const verId = yield* fromRefined(VersionId.create(crypto.randomUUID()));
-    const filename = Option.getOrElse(name, () => file.name ?? doc.name);
-    const bucketKey = buildBucketKey(docId, verId, filename);
+        const docId = yield* fromRefined(DocumentId.create(crypto.randomUUID()));
+        const verId = yield* fromRefined(VersionId.create(crypto.randomUUID()));
+        const filename = Option.getOrElse(input.name, () => input.file.name ?? "untitled");
+        const bucketKey = buildBucketKey(docId, verId, filename);
 
-    const fileBuffer = yield* Effect.promise(() => file.arrayBuffer());
-    const hashBuffer = yield* Effect.promise(() => crypto.subtle.digest("SHA-256", fileBuffer));
-    const checksum = Buffer.from(hashBuffer).toString("hex");
+        const fileBuffer = yield* Effect.promise(() => input.file.arrayBuffer());
+        const hashBuffer = yield* Effect.promise(() => crypto.subtle.digest("SHA-256", fileBuffer));
+        const checksum = Buffer.from(hashBuffer).toString("hex");
 
-    yield* uploadToS3(bucketKey, Buffer.from(fileBuffer), contentType);
+        yield* storage.uploadFile(bucketKey, Buffer.from(fileBuffer), contentType);
 
-    const rawVerId = VersionId.primitive(verId);
-    const rawDocId = DocumentId.primitive(docId);
-    const versionNumber = nextVersionNumber(versions);
+        const rawDocId = DocumentId.primitive(docId);
+        const doc = yield* repo.createDocument({
+          id: rawDocId,
+          ownerId: input.userId,
+          name: filename,
+          contentType,
+          tags: parseTags(input.rawTags),
+          metadata,
+        });
 
-    const version = yield* createVersion({
-      id: rawVerId,
-      documentId: rawDocId,
-      versionNumber,
-      bucketKey: BucketKey.primitive(bucketKey),
-      sizeBytes: fileBuffer.byteLength,
-      uploadedBy: actor.userId,
-      checksum,
-    });
+        const rawVerId = VersionId.primitive(verId);
+        const version = yield* repo.createVersion({
+          id: rawVerId,
+          documentId: rawDocId,
+          versionNumber: 1,
+          bucketKey: BucketKey.primitive(bucketKey),
+          sizeBytes: fileBuffer.byteLength,
+          uploadedBy: input.userId,
+          checksum,
+        });
 
-    yield* Effect.ignoreLogged(
-      updateDocument(rawDocId, { currentVersionId: rawVerId, updatedAt: new Date() }),
-    );
-    yield* Effect.sync(() =>
-      eventBus.emit(DocumentEvent.VersionCreated, {
-        actorId: actor.userId,
-        resourceId: rawDocId,
-        versionId: rawVerId,
-        versionNumber,
-        filename,
-      }),
-    );
+        yield* Effect.ignoreLogged(
+          repo.updateDocument(rawDocId, { currentVersionId: rawVerId, updatedAt: new Date() }),
+        );
+        yield* Effect.sync(() =>
+          eventBus.emit(DocumentEvent.Uploaded, {
+            actorId: input.userId,
+            resourceId: rawDocId,
+            versionId: rawVerId,
+            filename,
+            contentType,
+          }),
+        );
 
-    return { version: toVersionDTO(version) };
-  });
+        return { document: toDocumentDTO(doc), version: toVersionDTO(version) };
+      });
+    },
+
+    uploadNewVersion(
+      input: UploadNewVersionInput,
+    ): Effect.Effect<UploadNewVersionResult, AppError> {
+      const { doc, file, name, actor } = input;
+
+      return Effect.gen(function* () {
+        const contentType = yield* validateContentType(file.type || doc.contentType);
+        const versions = yield* repo.listVersions(doc.id);
+
+        const docId = yield* fromRefined(DocumentId.create(doc.id));
+        const verId = yield* fromRefined(VersionId.create(crypto.randomUUID()));
+        const filename = Option.getOrElse(name, () => file.name ?? doc.name);
+        const bucketKey = buildBucketKey(docId, verId, filename);
+
+        const fileBuffer = yield* Effect.promise(() => file.arrayBuffer());
+        const hashBuffer = yield* Effect.promise(() => crypto.subtle.digest("SHA-256", fileBuffer));
+        const checksum = Buffer.from(hashBuffer).toString("hex");
+
+        yield* storage.uploadFile(bucketKey, Buffer.from(fileBuffer), contentType);
+
+        const rawVerId = VersionId.primitive(verId);
+        const rawDocId = DocumentId.primitive(docId);
+        const versionNumber = nextVersionNumber(versions);
+
+        const version = yield* repo.createVersion({
+          id: rawVerId,
+          documentId: rawDocId,
+          versionNumber,
+          bucketKey: BucketKey.primitive(bucketKey),
+          sizeBytes: fileBuffer.byteLength,
+          uploadedBy: actor.userId,
+          checksum,
+        });
+
+        yield* Effect.ignoreLogged(
+          repo.updateDocument(rawDocId, { currentVersionId: rawVerId, updatedAt: new Date() }),
+        );
+        yield* Effect.sync(() =>
+          eventBus.emit(DocumentEvent.VersionCreated, {
+            actorId: actor.userId,
+            resourceId: rawDocId,
+            versionId: rawVerId,
+            versionNumber,
+            filename,
+          }),
+        );
+
+        return { version: toVersionDTO(version) };
+      });
+    },
+  };
 }
