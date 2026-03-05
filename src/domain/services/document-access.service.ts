@@ -1,4 +1,4 @@
-import { Option } from "effect";
+import { Option, pipe } from "effect";
 import type { IDocument } from "@domain/document/document.entity.ts";
 import type { IUser } from "@domain/user/user.entity.ts";
 import type { IAccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
@@ -23,7 +23,26 @@ import { isAdmin } from "@domain/user/user.guards.ts";
 //   3. Role policies         → policies targeting the user's role.
 //      Within tier: a single DENY overrides all ALLOWs.
 //   4. Default               → DENY.
+//
+// The tiered evaluation is modelled as an Option<boolean> pipeline:
+//   • Some(true)  — the tier reached an ALLOW decision.
+//   • Some(false) — the tier reached a DENY decision.
+//   • None        — the tier was undecided; fall through to the next.
 // ---------------------------------------------------------------------------
+
+/**
+ * Evaluates a single tier of the access control decision.
+ *
+ * Returns `Some(false)` if any policy denies,
+ * `Some(true)` if any policy allows and none denies,
+ * or `None` if no matching policies exist (undecided — try next tier).
+ */
+const decideTier = (tierPolicies: readonly IAccessPolicy[]): Option.Option<boolean> => {
+  if (tierPolicies.length === 0) return Option.none();
+  if (tierPolicies.some((p) => p.effect === PolicyEffect.Deny)) return Option.some(false);
+  if (tierPolicies.some((p) => p.effect === PolicyEffect.Allow)) return Option.some(true);
+  return Option.none();
+};
 
 export class DocumentAccessService {
   /**
@@ -44,53 +63,36 @@ export class DocumentAccessService {
     document: IDocument,
     action: PermissionAction,
   ): boolean {
-    // -----------------------------------------------------------------------
-    // Tier 1 — Admin bypass
-    // Admins have unrestricted access to every document regardless of policies.
-    // -----------------------------------------------------------------------
+    // Tier 1 — Admin bypass: short-circuit before any policy evaluation.
     if (isAdmin(user)) return true;
 
-    // Narrow the full policy list to only those relevant to this action
-    // on this document.  Policies for other documents or other actions are
-    // irrelevant and should not influence the result.
-    const relevant = policies.filter((p) => p.documentId === document.id && p.action === action);
-
-    // -----------------------------------------------------------------------
-    // Tier 2 — Subject policies (user-specific)
-    // An explicit policy targeting this exact user takes precedence over role
-    // policies.  Within this tier, any single DENY overrides all ALLOWs.
-    // -----------------------------------------------------------------------
-    const subjectPolicies = relevant.filter(
-      (p) => Option.isSome(p.subjectId) && p.subjectId.value === user.id,
+    // Narrow to policies governing this specific action on this document.
+    const relevant = policies.filter(
+      (p) => p.documentId === document.id && p.action === action,
     );
 
-    if (subjectPolicies.length > 0) {
-      if (subjectPolicies.some((p) => p.effect === PolicyEffect.Deny)) return false;
-      if (subjectPolicies.some((p) => p.effect === PolicyEffect.Allow)) return true;
-    }
-
-    // -----------------------------------------------------------------------
-    // Tier 3 — Role policies
-    // Policies targeting the user's role.  Same deny-wins logic as tier 2.
-    // -----------------------------------------------------------------------
-    const rolePolicies = relevant.filter(
-      (p) => Option.isSome(p.subjectRole) && p.subjectRole.value === user.role,
+    // Tier 2 — Subject policies: explicitly target this user by ID.
+    const subjectPolicies = relevant.filter((p) =>
+      Option.exists(p.subjectId, (id) => id === user.id),
     );
 
-    if (rolePolicies.length > 0) {
-      if (rolePolicies.some((p) => p.effect === PolicyEffect.Deny)) return false;
-      if (rolePolicies.some((p) => p.effect === PolicyEffect.Allow)) return true;
-    }
+    // Tier 3 — Role policies: target the user's role.
+    const rolePolicies = relevant.filter((p) =>
+      Option.exists(p.subjectRole, (role) => role === user.role),
+    );
 
-    // -----------------------------------------------------------------------
-    // Tier 4 — Default deny
-    // No matching policy granted access.
-    // -----------------------------------------------------------------------
-    return false;
+    // Chain tiers via Option<boolean>.  The first tier that reaches a decision
+    // (Some) short-circuits; None passes control to the next tier.
+    // getOrElse provides the default-deny fallback.
+    return pipe(
+      decideTier(subjectPolicies),
+      Option.orElse(() => decideTier(rolePolicies)),
+      Option.getOrElse(() => false),
+    );
   }
 
   /**
-   * Convenience overload that evaluates all four standard actions at once.
+   * Evaluates all four standard actions in one call.
    * Useful for building permission summaries in read-model queries.
    */
   static evaluateAll(
@@ -98,31 +100,15 @@ export class DocumentAccessService {
     policies: readonly IAccessPolicy[],
     document: IDocument,
   ): Record<PermissionAction, boolean> {
+    const check = (action: PermissionAction) =>
+      DocumentAccessService.evaluate(user, policies, document, action);
+
     return {
-      [PermissionAction.Read]: DocumentAccessService.evaluate(
-        user,
-        policies,
-        document,
-        PermissionAction.Read,
-      ),
-      [PermissionAction.Write]: DocumentAccessService.evaluate(
-        user,
-        policies,
-        document,
-        PermissionAction.Write,
-      ),
-      [PermissionAction.Delete]: DocumentAccessService.evaluate(
-        user,
-        policies,
-        document,
-        PermissionAction.Delete,
-      ),
-      [PermissionAction.Share]: DocumentAccessService.evaluate(
-        user,
-        policies,
-        document,
-        PermissionAction.Share,
-      ),
+      [PermissionAction.Read]: check(PermissionAction.Read),
+      [PermissionAction.Write]: check(PermissionAction.Write),
+      [PermissionAction.Delete]: check(PermissionAction.Delete),
+      [PermissionAction.Share]: check(PermissionAction.Share),
     };
   }
 }
+
