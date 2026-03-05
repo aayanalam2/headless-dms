@@ -5,17 +5,19 @@ import type { IStorage } from "../../src/infra/repositories/storage.port.ts";
 import type { Document } from "../../src/domain/document/document.entity.ts";
 import type { DocumentVersion } from "../../src/domain/document/document-version.entity.ts";
 import type { User } from "../../src/domain/user/user.entity.ts";
-import type { DocumentId, UserId, VersionId, BucketKey } from "../../src/domain/utils/refined.types.ts";
+import type {
+  DocumentId,
+  UserId,
+  VersionId,
+  BucketKey,
+} from "../../src/domain/utils/refined.types.ts";
 import type { PaginationParams } from "../../src/domain/utils/pagination.ts";
 import { buildPageInfo } from "../../src/domain/utils/pagination.ts";
 import {
   DocumentNotFoundError,
   DocumentVersionNotFoundError,
 } from "../../src/domain/document/document.errors.ts";
-import {
-  UserNotFoundError,
-  UserAlreadyExistsError,
-} from "../../src/domain/user/user.errors.ts";
+import { UserNotFoundError, UserAlreadyExistsError } from "../../src/domain/user/user.errors.ts";
 
 // ---------------------------------------------------------------------------
 // createInMemoryDocumentRepository
@@ -43,13 +45,14 @@ export function createInMemoryDocumentRepository(initial?: {
     },
 
     findByOwner(ownerId: UserId, pagination: PaginationParams) {
-      const filtered = docs.filter(
-        (d) => d.ownerId === ownerId && Option.isNone(d.deletedAt),
-      );
+      const filtered = docs.filter((d) => d.ownerId === ownerId && Option.isNone(d.deletedAt));
       const total = filtered.length;
       const offset = (pagination.page - 1) * pagination.limit;
       const items = filtered.slice(offset, offset + pagination.limit);
-      return Effect.succeed({ items, pageInfo: buildPageInfo(total, pagination.page, pagination.limit) });
+      return Effect.succeed({
+        items,
+        pageInfo: buildPageInfo(total, pagination.page, pagination.limit),
+      });
     },
 
     search(query: string, pagination: PaginationParams) {
@@ -60,7 +63,10 @@ export function createInMemoryDocumentRepository(initial?: {
       const total = filtered.length;
       const offset = (pagination.page - 1) * pagination.limit;
       const items = filtered.slice(offset, offset + pagination.limit);
-      return Effect.succeed({ items, pageInfo: buildPageInfo(total, pagination.page, pagination.limit) });
+      return Effect.succeed({
+        items,
+        pageInfo: buildPageInfo(total, pagination.page, pagination.limit),
+      });
     },
 
     findVersionsByDocument(documentId: DocumentId) {
@@ -156,4 +162,3 @@ export function createInMemoryStorage(): IStorage {
     },
   };
 }
-

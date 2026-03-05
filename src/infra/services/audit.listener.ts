@@ -15,9 +15,7 @@ function fire(effect: Effect.Effect<unknown, unknown>): void {
   Effect.runFork(Effect.ignoreLogged(effect));
 }
 
-export function createAuditListeners(
-  auditRepo: IAuditRepository,
-): { register(): void } {
+export function createAuditListeners(auditRepo: IAuditRepository): { register(): void } {
   return {
     register() {
       eventBus.on(DocumentEvent.Uploaded, (e) =>
