@@ -14,7 +14,6 @@ import { AccessDeniedError } from "../../src/app/domain/utils/base.errors.ts";
 import { DocumentAlreadyDeletedError } from "../../src/app/domain/document/document.errors.ts";
 import {
   DocumentIdSchema,
-  VersionIdSchema,
   UserIdSchema,
   AccessPolicyIdSchema,
   EmailSchema,
@@ -39,14 +38,30 @@ function makeUser(overrides: { role?: Role; id?: ReturnType<typeof makeUserId> }
   const email = Schema.decodeSync(EmailSchema)(`${id.slice(0, 8)}@test.com`);
   const passwordHash = Schema.decodeSync(HashedPasswordSchema)("$2b$10$hash");
   const now = new Date();
-  return User.create({ id, email, passwordHash, role: overrides.role ?? Role.User, createdAt: now, updatedAt: now });
+  return User.create({
+    id,
+    email,
+    passwordHash,
+    role: overrides.role ?? Role.User,
+    createdAt: now,
+    updatedAt: now,
+  });
 }
 
 function makeDocument(ownerId: ReturnType<typeof makeUserId>) {
   const id = makeDocId();
   const contentType = Schema.decodeSync(ContentTypeSchema)("application/pdf");
   const now = new Date();
-  const result = Document.create({ id, ownerId, name: "file.pdf", contentType, tags: [], metadata: {}, createdAt: now, updatedAt: now });
+  const result = Document.create({
+    id,
+    ownerId,
+    name: "file.pdf",
+    contentType,
+    tags: [],
+    metadata: {},
+    createdAt: now,
+    updatedAt: now,
+  });
   if (result instanceof InvalidContentTypeError) throw result;
   return result;
 }
@@ -58,7 +73,15 @@ function makePolicy(
   permission: Permission,
 ) {
   const id = Schema.decodeSync(AccessPolicyIdSchema)(crypto.randomUUID());
-  return AccessPolicy.create({ id, documentId, userId, grantedBy, permission, createdAt: new Date(), updatedAt: new Date() });
+  return AccessPolicy.create({
+    id,
+    documentId,
+    userId,
+    grantedBy,
+    permission,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
 }
 
 async function runOk<T>(effect: Effect.Effect<T, unknown>) {
@@ -82,13 +105,17 @@ describe("DocumentAccessService", () => {
     it("allows admin to read any document", async () => {
       const admin = makeUser({ role: Role.Admin });
       const doc = makeDocument(makeUserId());
-      await expect(runOk(service.assertCanRead(admin, doc, Option.none()))).resolves.toBeUndefined();
+      await expect(
+        runOk(service.assertCanRead(admin, doc, Option.none())),
+      ).resolves.toBeUndefined();
     });
 
     it("allows document owner to read", async () => {
       const owner = makeUser();
       const doc = makeDocument(owner.id);
-      await expect(runOk(service.assertCanRead(owner, doc, Option.none()))).resolves.toBeUndefined();
+      await expect(
+        runOk(service.assertCanRead(owner, doc, Option.none())),
+      ).resolves.toBeUndefined();
     });
 
     it("allows user with Read policy to read", async () => {
@@ -125,7 +152,9 @@ describe("DocumentAccessService", () => {
     it("allows owner to write", async () => {
       const owner = makeUser();
       const doc = makeDocument(owner.id);
-      await expect(runOk(service.assertCanWrite(owner, doc, Option.none()))).resolves.toBeUndefined();
+      await expect(
+        runOk(service.assertCanWrite(owner, doc, Option.none())),
+      ).resolves.toBeUndefined();
     });
 
     it("allows user with Write policy", async () => {
@@ -152,13 +181,17 @@ describe("DocumentAccessService", () => {
     it("allows admin to delete", async () => {
       const admin = makeUser({ role: Role.Admin });
       const doc = makeDocument(makeUserId());
-      await expect(runOk(service.assertCanDelete(admin, doc, Option.none()))).resolves.toBeUndefined();
+      await expect(
+        runOk(service.assertCanDelete(admin, doc, Option.none())),
+      ).resolves.toBeUndefined();
     });
 
     it("allows owner to delete", async () => {
       const owner = makeUser();
       const doc = makeDocument(owner.id);
-      await expect(runOk(service.assertCanDelete(owner, doc, Option.none()))).resolves.toBeUndefined();
+      await expect(
+        runOk(service.assertCanDelete(owner, doc, Option.none())),
+      ).resolves.toBeUndefined();
     });
 
     it("denies non-owner with only Write policy (delete requires Admin permission)", async () => {

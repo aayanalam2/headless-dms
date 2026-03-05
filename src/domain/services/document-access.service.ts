@@ -67,9 +67,7 @@ export class DocumentAccessService {
     if (isAdmin(user)) return true;
 
     // Narrow to policies governing this specific action on this document.
-    const relevant = policies.filter(
-      (p) => p.documentId === document.id && p.action === action,
-    );
+    const relevant = policies.filter((p) => p.documentId === document.id && p.action === action);
 
     // Tier 2 — Subject policies: explicitly target this user by ID.
     const subjectPolicies = relevant.filter((p) =>
@@ -111,4 +109,3 @@ export class DocumentAccessService {
     };
   }
 }
-

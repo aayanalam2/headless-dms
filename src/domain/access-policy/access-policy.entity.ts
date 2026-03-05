@@ -14,7 +14,6 @@ import {
 } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { PolicyTargetRequiredError } from "@domain/access-policy/access-policy.errors.ts";
 
-
 export interface IAccessPolicy extends IEntity<AccessPolicyId> {
   /** The document this policy controls access to. */
   readonly documentId: DocumentId;
