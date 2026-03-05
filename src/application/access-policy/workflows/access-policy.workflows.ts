@@ -17,10 +17,7 @@ import {
   AccessPolicyWorkflowError,
   type AccessPolicyWorkflowError as WorkflowError,
 } from "../access-policy-workflow.errors.ts";
-import {
-  toAccessPolicyDTO,
-  type AccessPolicyDTO,
-} from "../dtos/access-policy.dto.ts";
+import { toAccessPolicyDTO, type AccessPolicyDTO } from "../dtos/access-policy.dto.ts";
 import {
   GrantAccessCommandSchema,
   UpdateAccessCommandSchema,
@@ -328,9 +325,7 @@ export class AccessPolicyWorkflows {
               );
             }
             if (Option.isNone(userOpt)) {
-              return Effect.fail(
-                AccessPolicyWorkflowError.notFound(`User '${cmd.actor.userId}'`),
-              );
+              return Effect.fail(AccessPolicyWorkflowError.notFound(`User '${cmd.actor.userId}'`));
             }
             const document = docOpt.value;
             const user = userOpt.value;

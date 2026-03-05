@@ -34,11 +34,7 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
 
   findById(id: AccessPolicyId) {
     return fetchSingle(
-      () =>
-        this.db
-          .select()
-          .from(accessPoliciesTable)
-          .where(eq(accessPoliciesTable.id, id)),
+      () => this.db.select().from(accessPoliciesTable).where(eq(accessPoliciesTable.id, id)),
       DrizzleAccessPolicyRepository.fromRow,
     );
   }

@@ -15,9 +15,7 @@ import type { PaginatedAuditLogsDTO } from "./dtos/audit-log.dto.ts";
 
 @injectable()
 export class AuditWorkflows {
-  constructor(
-    @inject(TOKENS.AuditRepository) private readonly auditRepo: IAuditRepository,
-  ) {}
+  constructor(@inject(TOKENS.AuditRepository) private readonly auditRepo: IAuditRepository) {}
 
   listAuditLogs(
     raw: ListAuditLogsQueryEncoded,

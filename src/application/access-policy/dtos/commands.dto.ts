@@ -1,6 +1,9 @@
 import { Schema as S } from "effect";
 import { Role } from "@domain/utils/enums.ts";
-import { PermissionAction, PolicyEffect } from "@domain/access-policy/value-objects/permission-action.vo.ts";
+import {
+  PermissionAction,
+  PolicyEffect,
+} from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { ActorCommandSchema } from "@application/documents/dtos/commands.dto.ts";
 
 // Re-export ActorCommandSchema for convenience
@@ -80,5 +83,7 @@ export const ListDocumentPoliciesQuerySchema = S.Struct({
   actor: ActorCommandSchema,
   documentId: S.String,
 });
-export type ListDocumentPoliciesQueryEncoded = S.Schema.Encoded<typeof ListDocumentPoliciesQuerySchema>;
+export type ListDocumentPoliciesQueryEncoded = S.Schema.Encoded<
+  typeof ListDocumentPoliciesQuerySchema
+>;
 export type ListDocumentPoliciesQuery = S.Schema.Type<typeof ListDocumentPoliciesQuerySchema>;

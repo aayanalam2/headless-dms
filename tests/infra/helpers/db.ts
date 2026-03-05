@@ -16,6 +16,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import { Wait } from "testcontainers";
 import * as schema from "@infra/database/schema.ts";
 
 export type TestDb = ReturnType<typeof drizzle<typeof schema>>;
@@ -35,7 +36,9 @@ let _db: TestDb;
  * Call from `beforeAll` in each integration test file.
  */
 export async function startTestDb(): Promise<TestDb> {
-  container = await new PostgreSqlContainer("postgres:16-alpine").start();
+  container = await new PostgreSqlContainer("postgres:16-alpine")
+    .withWaitStrategy(Wait.forHealthCheck())
+    .start();
 
   // Use max:1 for the migration client to avoid connection pool cleanup issues
   const migrationSql = postgres(container.getConnectionUri(), { max: 1 });

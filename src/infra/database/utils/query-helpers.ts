@@ -42,5 +42,7 @@ export function fetchMultiple<TRow, TEntity>(
 // Returns true for Postgres SQLSTATE 23505 (unique constraint violation).
 // ---------------------------------------------------------------------------
 export function isUniqueViolation(e: unknown): boolean {
-  return e instanceof Error && "code" in e && (e as { code: string }).code === "23505";
+  if (!(e instanceof Error)) return false;
+  if ("code" in e && (e as { code: string }).code === "23505") return true;
+  return e.cause !== undefined && isUniqueViolation(e.cause);
 }

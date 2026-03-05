@@ -66,19 +66,27 @@ export class DocumentWorkflows {
     return getDocument({ documentRepo: this.documentRepo }, raw);
   }
 
-  list(raw: ListDocumentsQueryEncoded): Effect.Effect<PaginatedDocumentsDTO, DocumentWorkflowError> {
+  list(
+    raw: ListDocumentsQueryEncoded,
+  ): Effect.Effect<PaginatedDocumentsDTO, DocumentWorkflowError> {
     return listDocuments({ documentRepo: this.documentRepo }, raw);
   }
 
-  download(raw: DownloadDocumentQueryEncoded): Effect.Effect<PresignedDownloadDTO, DocumentWorkflowError> {
+  download(
+    raw: DownloadDocumentQueryEncoded,
+  ): Effect.Effect<PresignedDownloadDTO, DocumentWorkflowError> {
     return downloadDocument(this.deps, raw);
   }
 
-  downloadVersion(raw: DownloadVersionQueryEncoded): Effect.Effect<PresignedDownloadDTO, DocumentWorkflowError> {
+  downloadVersion(
+    raw: DownloadVersionQueryEncoded,
+  ): Effect.Effect<PresignedDownloadDTO, DocumentWorkflowError> {
     return downloadVersion(this.deps, raw);
   }
 
-  listVersions(raw: ListVersionsQueryEncoded): Effect.Effect<readonly VersionDTO[], DocumentWorkflowError> {
+  listVersions(
+    raw: ListVersionsQueryEncoded,
+  ): Effect.Effect<readonly VersionDTO[], DocumentWorkflowError> {
     return listVersions({ documentRepo: this.documentRepo }, raw);
   }
 

@@ -8,7 +8,10 @@ import {
   type AccessPolicyWorkflowError,
 } from "@application/access-policy/access-policy-workflow.errors.ts";
 import type { AccessPolicyWorkflows } from "@application/access-policy/workflows/access-policy.workflows.ts";
-import { PermissionAction, PolicyEffect } from "@domain/access-policy/value-objects/permission-action.vo.ts";
+import {
+  PermissionAction,
+  PolicyEffect,
+} from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { Role } from "@domain/utils/enums.ts";
 
 // ---------------------------------------------------------------------------
@@ -55,7 +58,7 @@ export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
                 actor: user,
                 documentId: body.documentId,
                 subjectId: body.subjectId,
-                subjectRole: body.subjectRole as Role | undefined,
+                subjectRole: body.subjectRole,
                 action: body.action as PermissionAction,
                 effect: body.effect as PolicyEffect,
               }),
@@ -66,9 +69,7 @@ export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
           body: t.Object({
             documentId: t.String({ format: "uuid" }),
             subjectId: t.Optional(t.String({ format: "uuid" })),
-            subjectRole: t.Optional(
-              t.Union([t.Literal(Role.Admin), t.Literal(Role.User)]),
-            ),
+            subjectRole: t.Optional(t.Union([t.Literal(Role.Admin), t.Literal(Role.User)])),
             action: t.Union(
               Object.values(PermissionAction).map((v) => t.Literal(v)) as [
                 ReturnType<typeof t.Literal>,
