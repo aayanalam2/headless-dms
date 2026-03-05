@@ -22,7 +22,13 @@
     "esModuleInterop": true,
 
     // Bun types
-    "types": ["bun-types"]
+    "types": ["bun-types"],
+
+    // Path aliases — Bun respects these for both src and test files
+    "baseUrl": ".",
+    "paths": {
+      "@domain/*": ["src/domain/*"]
+    }
   },
-  "include": ["src/**/*", "drizzle.config.ts", "index.ts"]
+  "include": ["src/**/*", "tests/**/*", "drizzle.config.ts", "index.ts"]
 }
