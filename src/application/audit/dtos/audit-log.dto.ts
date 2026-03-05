@@ -31,9 +31,7 @@ export const PaginatedAuditLogsDTOSchema = S.Struct({
     totalPages: S.Number,
   }),
 });
-export type PaginatedAuditLogsDTO = S.Schema.Type<
-  typeof PaginatedAuditLogsDTOSchema
->;
+export type PaginatedAuditLogsDTO = S.Schema.Type<typeof PaginatedAuditLogsDTOSchema>;
 
 // ---------------------------------------------------------------------------
 // Mappers

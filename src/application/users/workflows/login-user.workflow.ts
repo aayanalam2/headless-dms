@@ -2,10 +2,7 @@ import { Effect, Option, pipe } from "effect";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
 import { Email } from "@domain/utils/refined.types.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
-import {
-  LoginCommandSchema,
-  type LoginCommandEncoded,
-} from "../dtos/commands.dto.ts";
+import { LoginCommandSchema, type LoginCommandEncoded } from "../dtos/commands.dto.ts";
 import { toUserDTO, toJwtClaims, type UserDTO, type JwtClaims } from "../dtos/user.dto.ts";
 import {
   UserWorkflowError,
@@ -58,9 +55,7 @@ export function loginUser(
         // ── 2. Look up user by email ────────────────────────────────────────
         const userOpt = yield* pipe(
           deps.userRepo.findByEmail(emailResult.unwrap()),
-          Effect.mapError((e) =>
-            UserWorkflowError.unavailable("repo.findByEmail", e),
-          ),
+          Effect.mapError((e) => UserWorkflowError.unavailable("repo.findByEmail", e)),
         );
         if (Option.isNone(userOpt)) {
           return yield* Effect.fail(UserWorkflowError.unauthorized());

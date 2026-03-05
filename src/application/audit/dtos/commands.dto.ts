@@ -15,7 +15,5 @@ export const ListAuditLogsQuerySchema = S.Struct({
   resourceType: S.optional(S.Enums(AuditResourceType)),
   resourceId: S.optional(S.String),
 });
-export type ListAuditLogsQueryEncoded = S.Schema.Encoded<
-  typeof ListAuditLogsQuerySchema
->;
+export type ListAuditLogsQueryEncoded = S.Schema.Encoded<typeof ListAuditLogsQuerySchema>;
 export type ListAuditLogsQuery = S.Schema.Type<typeof ListAuditLogsQuerySchema>;

@@ -50,7 +50,8 @@ export function createAuthController(userRepo: IUserRepository) {
     userRepo,
     // Wrap to satisfy LoginUserDeps — the workflow expects `(string, string)` but
     // the service function takes a branded HashedPassword as the second argument.
-    verifyPassword: (p: string, h: string) => verifyPassword(p, h as Parameters<typeof verifyPassword>[1]),
+    verifyPassword: (p: string, h: string) =>
+      verifyPassword(p, h as Parameters<typeof verifyPassword>[1]),
   };
 
   return (

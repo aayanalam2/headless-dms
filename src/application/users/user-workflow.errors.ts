@@ -22,8 +22,7 @@ export const UserWorkflowErrorTag = {
   Unavailable: "UserWorkflow.Unavailable",
 } as const;
 
-export type UserWorkflowErrorTag =
-  (typeof UserWorkflowErrorTag)[keyof typeof UserWorkflowErrorTag];
+export type UserWorkflowErrorTag = (typeof UserWorkflowErrorTag)[keyof typeof UserWorkflowErrorTag];
 
 // ---------------------------------------------------------------------------
 // Discriminated union

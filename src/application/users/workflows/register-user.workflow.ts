@@ -48,31 +48,23 @@ export function registerUser(
         // ── 1. Validate email as branded type ──────────────────────────────
         const emailResult = Email.create(cmd.email);
         if (!emailResult.isOk()) {
-          return yield* Effect.fail(
-            UserWorkflowError.invalidInput("Invalid email address"),
-          );
+          return yield* Effect.fail(UserWorkflowError.invalidInput("Invalid email address"));
         }
         const email = emailResult.unwrap();
 
         // ── 2. Duplicate check ─────────────────────────────────────────────
         const existing = yield* pipe(
           deps.userRepo.findByEmail(email),
-          Effect.mapError((e) =>
-            UserWorkflowError.unavailable("repo.findByEmail", e),
-          ),
+          Effect.mapError((e) => UserWorkflowError.unavailable("repo.findByEmail", e)),
         );
         if (Option.isSome(existing)) {
           return yield* Effect.fail(
-            UserWorkflowError.duplicate(
-              `An account with email '${cmd.email}' already exists`,
-            ),
+            UserWorkflowError.duplicate(`An account with email '${cmd.email}' already exists`),
           );
         }
 
         // ── 3. Hash password ───────────────────────────────────────────────
-        const raw_hash = yield* Effect.promise(() =>
-          deps.hashPassword(cmd.password),
-        );
+        const raw_hash = yield* Effect.promise(() => deps.hashPassword(cmd.password));
         const passwordHash = HashedPassword.create(raw_hash).unwrap();
 
         // ── 4. Construct entity ────────────────────────────────────────────

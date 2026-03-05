@@ -13,9 +13,7 @@ export const RegisterUserCommandSchema = S.Struct({
   password: S.String,
   role: S.optional(S.Enums(Role)),
 });
-export type RegisterUserCommandEncoded = S.Schema.Encoded<
-  typeof RegisterUserCommandSchema
->;
+export type RegisterUserCommandEncoded = S.Schema.Encoded<typeof RegisterUserCommandSchema>;
 export type RegisterUserCommand = S.Schema.Type<typeof RegisterUserCommandSchema>;
 
 // ---------------------------------------------------------------------------

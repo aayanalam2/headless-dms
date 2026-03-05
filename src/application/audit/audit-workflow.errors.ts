@@ -18,7 +18,11 @@ export type AuditWorkflowErrorTag =
 
 export type AuditWorkflowError =
   | { readonly _tag: typeof AuditWorkflowErrorTag.InvalidInput; readonly message: string }
-  | { readonly _tag: typeof AuditWorkflowErrorTag.Unavailable; readonly operation: string; readonly cause?: unknown };
+  | {
+      readonly _tag: typeof AuditWorkflowErrorTag.Unavailable;
+      readonly operation: string;
+      readonly cause?: unknown;
+    };
 
 export const AuditWorkflowError = {
   invalidInput: (message: string): AuditWorkflowError => ({

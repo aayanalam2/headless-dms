@@ -38,12 +38,15 @@ export function createAuditController(auditRepo: IAuditRepository) {
       run(
         set,
         pipe(
-          listAuditLogs({ auditRepo }, {
-            ...query,
-            // The Elysia schema validates `resourceType` as a raw string; the
-            // workflow's decodeCommand will validate it against AuditResourceType enum.
-            resourceType: query.resourceType as AuditResourceType | undefined,
-          }),
+          listAuditLogs(
+            { auditRepo },
+            {
+              ...query,
+              // The Elysia schema validates `resourceType` as a raw string; the
+              // workflow's decodeCommand will validate it against AuditResourceType enum.
+              resourceType: query.resourceType as AuditResourceType | undefined,
+            },
+          ),
           Effect.mapError(toAppError),
         ),
       ),

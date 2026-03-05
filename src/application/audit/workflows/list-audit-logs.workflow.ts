@@ -1,14 +1,8 @@
 import { Effect, pipe } from "effect";
 import type { IAuditRepository } from "../audit.repository.port.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
-import {
-  ListAuditLogsQuerySchema,
-  type ListAuditLogsQueryEncoded,
-} from "../dtos/commands.dto.ts";
-import {
-  toPaginatedAuditLogsDTO,
-  type PaginatedAuditLogsDTO,
-} from "../dtos/audit-log.dto.ts";
+import { ListAuditLogsQuerySchema, type ListAuditLogsQueryEncoded } from "../dtos/commands.dto.ts";
+import { toPaginatedAuditLogsDTO, type PaginatedAuditLogsDTO } from "../dtos/audit-log.dto.ts";
 import {
   AuditWorkflowError,
   type AuditWorkflowError as WorkflowError,
@@ -50,10 +44,7 @@ export function listAuditLogs(
     Effect.flatMap((query) =>
       Effect.gen(function* () {
         const page = Math.max(1, Math.floor(query.page ?? DEFAULT_PAGE));
-        const limit = Math.min(
-          MAX_LIMIT,
-          Math.max(1, Math.floor(query.limit ?? DEFAULT_LIMIT)),
-        );
+        const limit = Math.min(MAX_LIMIT, Math.max(1, Math.floor(query.limit ?? DEFAULT_LIMIT)));
 
         // Build params conditionally — exactOptionalPropertyTypes forbids
         // passing `undefined` for properties declared as optional (no-undefined).
@@ -66,9 +57,7 @@ export function listAuditLogs(
 
         const paginated = yield* pipe(
           deps.auditRepo.listAuditLogs(params),
-          Effect.mapError((e) =>
-            AuditWorkflowError.unavailable("repo.listAuditLogs", e),
-          ),
+          Effect.mapError((e) => AuditWorkflowError.unavailable("repo.listAuditLogs", e)),
         );
 
         return toPaginatedAuditLogsDTO(paginated);

@@ -38,7 +38,5 @@ export type AuditQueryParams = PaginationParams & {
 // ---------------------------------------------------------------------------
 
 export interface IAuditRepository {
-  listAuditLogs(
-    params: AuditQueryParams,
-  ): RepositoryEffect<Paginated<AuditLogEntry>>;
+  listAuditLogs(params: AuditQueryParams): RepositoryEffect<Paginated<AuditLogEntry>>;
 }
