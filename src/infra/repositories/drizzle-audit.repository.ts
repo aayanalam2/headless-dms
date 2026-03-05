@@ -4,6 +4,7 @@ import type {
   IAuditRepository,
   AuditLogEntry,
   AuditQueryParams,
+  NewAuditLogInput,
 } from "@application/audit/audit.repository.port.ts";
 import type { AuditLogRow } from "@infra/database/schema.ts";
 import { auditLogsTable } from "@infra/database/models/audit-log.table.ts";
@@ -13,9 +14,7 @@ import { executeQuery } from "@infra/database/utils/query-helpers.ts";
 // ---------------------------------------------------------------------------
 // DrizzleAuditRepository
 //
-// Read-only persistence adapter for audit log queries.  The write side
-// (insertAuditLog) is handled by the event-bus listener which uses the
-// models-layer repository directly — it is intentionally omitted here.
+// Persistence adapter for audit log reads and writes.
 // ---------------------------------------------------------------------------
 
 export class DrizzleAuditRepository implements IAuditRepository {
@@ -38,6 +37,26 @@ export class DrizzleAuditRepository implements IAuditRepository {
   // -------------------------------------------------------------------------
   // Queries
   // -------------------------------------------------------------------------
+
+  // -------------------------------------------------------------------------
+  // Writes
+  // -------------------------------------------------------------------------
+
+  insertAuditLog(input: NewAuditLogInput) {
+    const now = new Date();
+    return executeQuery(() =>
+      this.db.insert(auditLogsTable).values({
+        id: crypto.randomUUID(),
+        actorId: input.actorId,
+        action: input.action,
+        resourceType: input.resourceType,
+        resourceId: input.resourceId,
+        metadata: input.metadata,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    );
+  }
 
   listAuditLogs(params: AuditQueryParams) {
     const { page, limit, resourceType, resourceId } = params;

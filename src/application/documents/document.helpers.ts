@@ -1,6 +1,5 @@
 import { Effect, Option } from "effect";
 import { BucketKey, type DocumentId, type VersionId } from "@domain/utils/refined.types.ts";
-import { AppError } from "@shared/errors.ts";
 
 // ---------------------------------------------------------------------------
 // buildBucketKey
@@ -38,25 +37,22 @@ export function parseTags(raw: Option.Option<string>): string[] {
 
 export function parseOptionalJson(
   raw: Option.Option<string>,
-): Effect.Effect<Record<string, string>, AppError> {
+): Effect.Effect<Record<string, string>, Error> {
   if (Option.isNone(raw) || raw.value.trim().length === 0) return Effect.succeed({});
   const str = raw.value;
   return Effect.try({
     try: () => {
       const parsed: unknown = JSON.parse(str);
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-        throw AppError.validation("metadata must be a JSON object of string values");
+        throw new Error("metadata must be a JSON object of string values");
       }
       for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
         if (typeof v !== "string") {
-          throw AppError.validation(`metadata value for "${k}" must be a string`);
+          throw new Error(`metadata value for "${k}" must be a string`);
         }
       }
       return parsed as Record<string, string>;
     },
-    catch: (e) => {
-      if (e !== null && typeof e === "object" && "tag" in e) return e as AppError;
-      return AppError.validation("metadata must be valid JSON");
-    },
+    catch: (e) => (e instanceof Error ? e : new Error("metadata must be valid JSON")),
   });
 }

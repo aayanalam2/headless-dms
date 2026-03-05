@@ -1,14 +1,9 @@
 // ---------------------------------------------------------------------------
-// Typed error union — every failure in the system is one of these tags.
+// AppError — typed error union shared by the infrastructure and presentation
+// layers.
 //
-// Discriminating on `tag` in controllers maps cleanly to HTTP status codes
-// without any `instanceof` checks or hidden control flow via exceptions.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// ErrorTag — closed enum of all error kinds the system can produce.
-// Using an enum here (rather than a plain string union) means any future
-// exhaustiveness check via assertNever will be caught by the compiler.
+// Infra repositories surface these error tags; the HTTP presentation layer
+// maps them to HTTP status codes without any instanceof checks.
 // ---------------------------------------------------------------------------
 
 export enum ErrorTag {

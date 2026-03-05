@@ -1,6 +1,6 @@
 import { Effect, Either } from "effect";
 import { StatusCode } from "status-code-enum";
-import { type AppError, ErrorTag } from "../types/errors.ts";
+import { type AppError, ErrorTag } from "@infra/errors.ts";
 import { logger } from "./logger.ts";
 
 // ---------------------------------------------------------------------------

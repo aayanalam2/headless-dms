@@ -5,10 +5,10 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import type { AppConfig } from "@config/env.ts";
+import type { AppConfig } from "@infra/config/env.ts";
 import type { BucketKey } from "@domain/utils/refined.types.ts";
 import { Effect } from "effect";
-import { AppError } from "@shared/errors.ts";
+import { AppError } from "@infra/errors.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
 
 // ---------------------------------------------------------------------------

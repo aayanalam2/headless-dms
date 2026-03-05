@@ -4,8 +4,8 @@ import type { IDocumentRepository } from "@domain/document/document.repository.t
 import { DocumentId, VersionId, Checksum, UserId } from "@domain/utils/refined.types.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
 import { buildBucketKey } from "../document.helpers.ts";
-import { eventBus } from "../../../lib/event-bus.ts";
-import { DocumentEvent } from "../../../events/document.events.ts";
+import { eventBus } from "@infra/event-bus.ts";
+import { DocumentEvent } from "@domain/events/document.events.ts";
 import { toVersionDTO, type VersionDTO } from "../dtos/document.dto.ts";
 import { UploadVersionMetaSchema, type UploadVersionMetaEncoded } from "../dtos/commands.dto.ts";
 import { decodeCommand, pipe as p } from "@application/shared/decode.ts";

@@ -2,28 +2,24 @@ import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { swagger } from "@elysiajs/swagger";
 import { StatusCode } from "status-code-enum";
-import { config } from "./config/env.ts";
-import { logger } from "./lib/logger.ts";
-import { db } from "./models/db/connection.ts";
-// Models-layer adapter — kept for the audit event listener (insertAuditLog).
-import { createDrizzleDocumentRepository } from "./models/adapters/drizzle.document.repository.ts";
-// Infra-layer repos — implement the domain port interfaces.
-import { DrizzleDocumentRepository } from "./infra/repositories/drizzle-document.repository.ts";
-import { DrizzleUserRepository } from "./infra/repositories/drizzle-user.repository.ts";
-import { DrizzleAuditRepository } from "./infra/repositories/drizzle-audit.repository.ts";
-import { createS3Storage } from "./infra/repositories/s3.storage.ts";
-import { createAuditListeners } from "./services/audit.listener.ts";
-import { createAuthController } from "./controllers/auth.controller.ts";
-import { createDocumentsController } from "./controllers/documents.controller.ts";
-import { createAuditController } from "./controllers/audit.controller.ts";
+import { config } from "@infra/config/env.ts";
+import { logger } from "./presentation/http/lib/logger.ts";
+import { createDb } from "@infra/database/utils/connection.ts";
+import { DrizzleDocumentRepository } from "@infra/repositories/drizzle-document.repository.ts";
+import { DrizzleUserRepository } from "@infra/repositories/drizzle-user.repository.ts";
+import { DrizzleAuditRepository } from "@infra/repositories/drizzle-audit.repository.ts";
+import { createS3Storage } from "@infra/repositories/s3.storage.ts";
+import { createAuditListeners } from "@infra/services/audit.listener.ts";
+import { createAuthController } from "./presentation/http/controllers/auth.controller.ts";
+import { createDocumentsController } from "./presentation/http/controllers/documents.controller.ts";
+import { createAuditController } from "./presentation/http/controllers/audit.controller.ts";
 
 // ---------------------------------------------------------------------------
 // Application factory — wires together all controllers, middleware, and
 // cross-cutting concerns (CORS, Swagger, error handling, request logging).
 // ---------------------------------------------------------------------------
 
-// Models-layer doc repo — used only by the audit event listener.
-const legacyDocRepo = createDrizzleDocumentRepository(db);
+const { db } = createDb(config.databaseUrl);
 
 // Infra repos that implement domain port interfaces.
 const documentRepo = new DrizzleDocumentRepository(db);
@@ -127,7 +123,7 @@ export function createApp() {
 // before any other module initialises.
 // ---------------------------------------------------------------------------
 
-createAuditListeners(legacyDocRepo).register();
+createAuditListeners(auditRepo).register();
 const app = createApp();
 
 app.listen(config.port, () => {

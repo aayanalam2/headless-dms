@@ -1,7 +1,11 @@
-import type { DocumentEventMap } from "../events/document.events.ts";
+import type { DocumentEventMap } from "@domain/events/document.events.ts";
 
 // ---------------------------------------------------------------------------
 // Minimal typed in-process event bus.
+//
+// Placed in the infra layer because it is a runtime mechanism (singleton
+// instance) shared by the application workflows (emit) and the infra audit
+// listener (subscribe).
 // ---------------------------------------------------------------------------
 
 type Handler<T> = (payload: T) => void;

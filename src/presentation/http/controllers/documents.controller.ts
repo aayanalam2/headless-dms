@@ -1,22 +1,22 @@
 import { Elysia, t } from "elysia";
 import { Effect, pipe } from "effect";
 import { authPlugin } from "../middleware/auth.plugin.ts";
-import type { IDocumentRepository } from "../domain/document/document.repository.ts";
-import type { IStorage } from "../infra/repositories/storage.port.ts";
+import type { IDocumentRepository } from "@domain/document/document.repository.ts";
+import type { IStorage } from "@infra/repositories/storage.port.ts";
 import { run, assertNever } from "../lib/http.ts";
-import { AppError } from "../types/errors.ts";
+import { AppError } from "@infra/errors.ts";
 import {
   DocumentWorkflowErrorTag,
   type DocumentWorkflowError,
-} from "../application/documents/document-workflow.errors.ts";
-import { uploadDocument } from "../application/documents/workflows/upload-document.workflow.ts";
-import { uploadVersion } from "../application/documents/workflows/upload-version.workflow.ts";
-import { getDocument } from "../application/documents/workflows/get-document.workflow.ts";
-import { listDocuments } from "../application/documents/workflows/list-documents.workflow.ts";
-import { downloadDocument } from "../application/documents/workflows/download-document.workflow.ts";
-import { downloadVersion } from "../application/documents/workflows/download-version.workflow.ts";
-import { listVersions } from "../application/documents/workflows/list-versions.workflow.ts";
-import { deleteDocument } from "../application/documents/workflows/delete-document.workflow.ts";
+} from "@application/documents/document-workflow.errors.ts";
+import { uploadDocument } from "@application/documents/workflows/upload-document.workflow.ts";
+import { uploadVersion } from "@application/documents/workflows/upload-version.workflow.ts";
+import { getDocument } from "@application/documents/workflows/get-document.workflow.ts";
+import { listDocuments } from "@application/documents/workflows/list-documents.workflow.ts";
+import { downloadDocument } from "@application/documents/workflows/download-document.workflow.ts";
+import { downloadVersion } from "@application/documents/workflows/download-version.workflow.ts";
+import { listVersions } from "@application/documents/workflows/list-versions.workflow.ts";
+import { deleteDocument } from "@application/documents/workflows/delete-document.workflow.ts";
 
 // ---------------------------------------------------------------------------
 // Error bridge — maps DocumentWorkflowError to the controller-layer AppError.

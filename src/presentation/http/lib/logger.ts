@@ -1,5 +1,5 @@
 import pino from "pino";
-import { config } from "../config/env.ts";
+import { config } from "@infra/config/env.ts";
 
 // ---------------------------------------------------------------------------
 // Structured logger — pino singleton.

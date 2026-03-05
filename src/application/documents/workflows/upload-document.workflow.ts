@@ -6,8 +6,8 @@ import { InvalidContentTypeError } from "@domain/document/document.errors.ts";
 import { DocumentId, VersionId, Checksum, UserId } from "@domain/utils/refined.types.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
 import { buildBucketKey, parseTags, parseOptionalJson } from "../document.helpers.ts";
-import { eventBus } from "../../../lib/event-bus.ts";
-import { DocumentEvent } from "../../../events/document.events.ts";
+import { eventBus } from "@infra/event-bus.ts";
+import { DocumentEvent } from "@domain/events/document.events.ts";
 import {
   toDocumentDTO,
   toVersionDTO,

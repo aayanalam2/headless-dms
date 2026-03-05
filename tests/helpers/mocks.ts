@@ -1,152 +1,102 @@
 import { Effect, Option } from "effect";
-import { AppError } from "../../src/types/errors.ts";
-import type {
-  AuditLogRow,
-  DocumentRow,
-  NewAuditLogRow,
-  NewDocumentRow,
-  NewVersionRow,
-  VersionRow,
-  NewUserRow,
-  UserRow,
-} from "../../src/models/db/schema.ts";
-import type { IDocumentRepository } from "../../src/models/document.repository.ts";
-import type { IUserRepository } from "../../src/models/user.repository.ts";
+import type { IDocumentRepository } from "../../src/domain/document/document.repository.ts";
+import type { IUserRepository } from "../../src/domain/user/user.repository.ts";
 import type { IStorage } from "../../src/infra/repositories/storage.port.ts";
-import type { BucketKey } from "../../src/types/branded.ts";
+import type { Document } from "../../src/domain/document/document.entity.ts";
+import type { DocumentVersion } from "../../src/domain/document/document-version.entity.ts";
+import type { User } from "../../src/domain/user/user.entity.ts";
+import type { DocumentId, UserId, VersionId, BucketKey } from "../../src/domain/utils/refined.types.ts";
+import type { PaginationParams } from "../../src/domain/utils/pagination.ts";
+import { buildPageInfo } from "../../src/domain/utils/pagination.ts";
+import {
+  DocumentNotFoundError,
+  DocumentVersionNotFoundError,
+} from "../../src/domain/document/document.errors.ts";
+import {
+  UserNotFoundError,
+  UserAlreadyExistsError,
+} from "../../src/domain/user/user.errors.ts";
 
 // ---------------------------------------------------------------------------
 // createInMemoryDocumentRepository
-// A fully in-memory implementation of IDocumentRepository for use in tests.
-// Pre-populate `docs`, `versions`, and `auditLogs` arrays before running
-// effects, or call the mutation methods from inside test effects.
+// A fully in-memory implementation of the domain IDocumentRepository.
+// Pre-populate `docs` and `versions` arrays before running effects, or call
+// the mutation methods from inside test effects.
 // ---------------------------------------------------------------------------
 
 export function createInMemoryDocumentRepository(initial?: {
-  docs?: DocumentRow[];
-  versions?: VersionRow[];
-  logs?: AuditLogRow[];
+  docs?: Document[];
+  versions?: DocumentVersion[];
 }): IDocumentRepository {
-  const docs: DocumentRow[] = [...(initial?.docs ?? [])];
-  const versions: VersionRow[] = [...(initial?.versions ?? [])];
-  const logs: AuditLogRow[] = [...(initial?.logs ?? [])];
+  const docs: Document[] = [...(initial?.docs ?? [])];
+  const versions: DocumentVersion[] = [...(initial?.versions ?? [])];
 
   return {
-    findDocumentById(id, actorId) {
-      const doc = docs.find(
-        (d) =>
-          d.id === id && d.deletedAt === null && (actorId === undefined || d.ownerId === actorId),
+    findById(id: DocumentId) {
+      const doc = docs.find((d) => d.id === id);
+      return Effect.succeed(doc ? Option.some(doc) : Option.none());
+    },
+
+    findActiveById(id: DocumentId) {
+      const doc = docs.find((d) => d.id === id && Option.isNone(d.deletedAt));
+      return Effect.succeed(doc ? Option.some(doc) : Option.none());
+    },
+
+    findByOwner(ownerId: UserId, pagination: PaginationParams) {
+      const filtered = docs.filter(
+        (d) => d.ownerId === ownerId && Option.isNone(d.deletedAt),
       );
-      return doc ? Effect.succeed(doc) : Effect.fail(AppError.notFound(`Document(${id})`));
+      const total = filtered.length;
+      const offset = (pagination.page - 1) * pagination.limit;
+      const items = filtered.slice(offset, offset + pagination.limit);
+      return Effect.succeed({ items, pageInfo: buildPageInfo(total, pagination.page, pagination.limit) });
     },
 
-    searchDocuments(params) {
-      let results = docs.filter((d) => d.deletedAt === null);
-      if (Option.isSome(params.ownerId)) {
-        results = results.filter((d) => d.ownerId === params.ownerId.value);
-      }
-      if (Option.isSome(params.name)) {
-        const needle = params.name.value.toLowerCase();
-        results = results.filter((d) => d.name.toLowerCase().includes(needle));
-      }
-      if (Option.isSome(params.contentType)) {
-        results = results.filter((d) => d.contentType === params.contentType.value);
-      }
-      const total = results.length;
-      const offset = (params.page - 1) * params.limit;
-      const items = results.slice(offset, offset + params.limit);
-      return Effect.succeed({ items, total, page: params.page, limit: params.limit });
-    },
-
-    createDocument(data: NewDocumentRow) {
-      const now = new Date();
-      const row: DocumentRow = {
-        id: data.id ?? crypto.randomUUID(),
-        ownerId: data.ownerId!,
-        name: data.name!,
-        contentType: data.contentType!,
-        currentVersionId: data.currentVersionId ?? null,
-        tags: data.tags ?? [],
-        metadata: (data.metadata ?? {}) as Record<string, string>,
-        createdAt: now,
-        updatedAt: now,
-        deletedAt: null,
-      };
-      docs.push(row);
-      return Effect.succeed(row);
-    },
-
-    updateDocument(id, data) {
-      const idx = docs.findIndex((d) => d.id === id && d.deletedAt === null);
-      if (idx === -1) return Effect.fail(AppError.notFound(`Document(${id})`));
-      docs[idx] = { ...docs[idx], ...data };
-      return Effect.succeed(docs[idx]);
-    },
-
-    softDeleteDocument(id) {
-      const idx = docs.findIndex((d) => d.id === id && d.deletedAt === null);
-      if (idx === -1) return Effect.fail(AppError.notFound(`Document(${id})`));
-      docs[idx] = { ...docs[idx], deletedAt: new Date() };
-      return Effect.succeed(docs[idx]);
-    },
-
-    createVersion(data: NewVersionRow) {
-      const row: VersionRow = {
-        id: data.id ?? crypto.randomUUID(),
-        documentId: data.documentId!,
-        versionNumber: data.versionNumber!,
-        bucketKey: data.bucketKey!,
-        sizeBytes: data.sizeBytes!,
-        uploadedBy: data.uploadedBy!,
-        checksum: data.checksum!,
-        createdAt: new Date(),
-      };
-      versions.push(row);
-      return Effect.succeed(row);
-    },
-
-    listVersions(documentId) {
-      return Effect.succeed(
-        versions
-          .filter((v) => v.documentId === documentId)
-          .sort((a, b) => a.versionNumber - b.versionNumber),
+    search(query: string, pagination: PaginationParams) {
+      const needle = query.toLowerCase();
+      const filtered = docs.filter(
+        (d) => Option.isNone(d.deletedAt) && d.name.toLowerCase().includes(needle),
       );
+      const total = filtered.length;
+      const offset = (pagination.page - 1) * pagination.limit;
+      const items = filtered.slice(offset, offset + pagination.limit);
+      return Effect.succeed({ items, pageInfo: buildPageInfo(total, pagination.page, pagination.limit) });
     },
 
-    findVersionById(versionId) {
+    findVersionsByDocument(documentId: DocumentId) {
+      const result = versions
+        .filter((v) => v.documentId === documentId)
+        .sort((a, b) => a.versionNumber - b.versionNumber);
+      return Effect.succeed(result);
+    },
+
+    findVersionById(versionId: VersionId) {
       const version = versions.find((v) => v.id === versionId);
-      return version
-        ? Effect.succeed(version)
-        : Effect.fail(AppError.notFound(`Version(${versionId})`));
+      return Effect.succeed(version ? Option.some(version) : Option.none());
     },
 
-    insertAuditLog(data: NewAuditLogRow) {
-      const row: AuditLogRow = {
-        id: crypto.randomUUID(),
-        actorId: data.actorId!,
-        action: data.action!,
-        resourceType: data.resourceType!,
-        resourceId: data.resourceId!,
-        metadata: (data.metadata ?? {}) as Record<string, unknown>,
-        occurredAt: new Date(),
-      };
-      logs.push(row);
-      return Effect.succeed(row);
+    save(document: Document) {
+      docs.push(document);
+      return Effect.succeed(undefined);
     },
 
-    listAuditLogs(params) {
-      let results = [...logs];
-      if (Option.isSome(params.resourceType)) {
-        results = results.filter((l) => l.resourceType === params.resourceType.value);
-      }
-      if (Option.isSome(params.resourceId)) {
-        results = results.filter((l) => l.resourceId === params.resourceId.value);
-      }
-      results.sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
-      const total = results.length;
-      const offset = (params.page - 1) * params.limit;
-      const items = results.slice(offset, offset + params.limit);
-      return Effect.succeed({ items, total });
+    saveVersion(version: DocumentVersion) {
+      versions.push(version);
+      return Effect.succeed(undefined);
+    },
+
+    update(document: Document) {
+      const idx = docs.findIndex((d) => d.id === document.id);
+      if (idx === -1) return Effect.fail(new DocumentNotFoundError(document.id));
+      docs[idx] = document;
+      return Effect.succeed(undefined);
+    },
+
+    deleteVersion(versionId: VersionId) {
+      const idx = versions.findIndex((v) => v.id === versionId);
+      if (idx === -1) return Effect.fail(new DocumentVersionNotFoundError(versionId));
+      versions.splice(idx, 1);
+      return Effect.succeed(undefined);
     },
   };
 }
@@ -155,37 +105,32 @@ export function createInMemoryDocumentRepository(initial?: {
 // createInMemoryUserRepository
 // ---------------------------------------------------------------------------
 
-export function createInMemoryUserRepository(initial?: { users?: UserRow[] }): IUserRepository {
-  const users: UserRow[] = [...(initial?.users ?? [])];
+export function createInMemoryUserRepository(initial?: { users?: User[] }): IUserRepository {
+  const users: User[] = [...(initial?.users ?? [])];
 
   return {
-    findUserById(id) {
+    findById(id: UserId) {
       const user = users.find((u) => u.id === id);
-      return user ? Effect.succeed(user) : Effect.fail(AppError.notFound(`User(${id})`));
+      return Effect.succeed(user ? Option.some(user) : Option.none());
     },
 
-    findUserByEmail(email) {
+    findByEmail(email) {
       const user = users.find((u) => u.email === email);
-      return user ? Effect.succeed(user) : Effect.fail(AppError.notFound(`User(email:${email})`));
+      return Effect.succeed(user ? Option.some(user) : Option.none());
     },
 
-    createUser(data: NewUserRow) {
-      const row: UserRow = {
-        id: data.id ?? crypto.randomUUID(),
-        email: data.email!,
-        passwordHash: data.passwordHash!,
-        role: data.role ?? "user",
-        createdAt: new Date(),
-      };
-      users.push(row);
-      return Effect.succeed(row);
+    save(user: User) {
+      const existing = users.find((u) => u.email === user.email);
+      if (existing) return Effect.fail(new UserAlreadyExistsError(user.email));
+      users.push(user);
+      return Effect.succeed(undefined);
     },
 
-    updateUser(id, data) {
-      const idx = users.findIndex((u) => u.id === id);
-      if (idx === -1) return Effect.fail(AppError.notFound(`User(${id})`));
-      users[idx] = { ...users[idx], ...data };
-      return Effect.succeed(users[idx]);
+    update(user: User) {
+      const idx = users.findIndex((u) => u.id === user.id);
+      if (idx === -1) return Effect.fail(new UserNotFoundError(user.id));
+      users[idx] = user;
+      return Effect.succeed(undefined);
     },
   };
 }
@@ -211,3 +156,4 @@ export function createInMemoryStorage(): IStorage {
     },
   };
 }
+

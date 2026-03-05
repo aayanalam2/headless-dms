@@ -1,44 +1,51 @@
 import { Effect } from "effect";
-import { eventBus } from "../lib/event-bus.ts";
-import type { IDocumentRepository } from "../models/document.repository.ts";
-import { AuditAction, AuditResourceType } from "../types/enums.ts";
-import { DocumentEvent } from "../events/document.events.ts";
+import type { IAuditRepository } from "@application/audit/audit.repository.port.ts";
+import { AuditAction, AuditResourceType } from "@domain/utils/enums.ts";
+import { DocumentEvent } from "@domain/events/document.events.ts";
+import { eventBus } from "@infra/event-bus.ts";
 
 // ---------------------------------------------------------------------------
 // createAuditListeners
-// Binds domain events to audit log writes. Call register() once at startup.
-// Accepts IDocumentRepository so tests can inject an in-memory stub.
+//
+// Binds domain events to audit-log writes via the IAuditRepository port.
+// Call register() once at startup.
 // ---------------------------------------------------------------------------
 
 function fire(effect: Effect.Effect<unknown, unknown>): void {
   Effect.runFork(Effect.ignoreLogged(effect));
 }
 
-export function createAuditListeners(repo: IDocumentRepository): { register(): void } {
+export function createAuditListeners(
+  auditRepo: IAuditRepository,
+): { register(): void } {
   return {
     register() {
       eventBus.on(DocumentEvent.Uploaded, (e) =>
         fire(
-          repo.insertAuditLog({
+          auditRepo.insertAuditLog({
             actorId: e.actorId,
             action: AuditAction.DocumentUpload,
             resourceType: AuditResourceType.Document,
             resourceId: e.resourceId,
-            metadata: { versionId: e.versionId, filename: e.filename, contentType: e.contentType },
+            metadata: {
+              versionId: e.versionId,
+              filename: e.filename,
+              contentType: e.contentType,
+            },
           }),
         ),
       );
 
       eventBus.on(DocumentEvent.VersionCreated, (e) =>
         fire(
-          repo.insertAuditLog({
+          auditRepo.insertAuditLog({
             actorId: e.actorId,
             action: AuditAction.DocumentVersionCreate,
             resourceType: AuditResourceType.Document,
             resourceId: e.resourceId,
             metadata: {
               versionId: e.versionId,
-              versionNumber: e.versionNumber,
+              versionNumber: String(e.versionNumber),
               filename: e.filename,
             },
           }),
@@ -47,7 +54,7 @@ export function createAuditListeners(repo: IDocumentRepository): { register(): v
 
       eventBus.on(DocumentEvent.Deleted, (e) =>
         fire(
-          repo.insertAuditLog({
+          auditRepo.insertAuditLog({
             actorId: e.actorId,
             action: AuditAction.DocumentDelete,
             resourceType: AuditResourceType.Document,

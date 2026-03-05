@@ -1,19 +1,19 @@
 import { Elysia, t } from "elysia";
 import { Effect, Either, pipe } from "effect";
 import { jwtPlugin } from "../middleware/auth.plugin.ts";
-import { hashPassword, verifyPassword } from "../services/auth.service.ts";
+import { hashPassword, verifyPassword } from "@infra/services/auth.service.ts";
 import { StatusCode } from "status-code-enum";
-import { Role } from "../domain/utils/enums.ts";
+import { Role } from "@domain/utils/enums.ts";
 import { run, assertNever } from "../lib/http.ts";
-import { config } from "../config/env.ts";
-import { AppError } from "../types/errors.ts";
-import type { IUserRepository } from "../domain/user/user.repository.ts";
-import { registerUser } from "../application/users/workflows/register-user.workflow.ts";
-import { loginUser } from "../application/users/workflows/login-user.workflow.ts";
+import { config } from "@infra/config/env.ts";
+import { AppError } from "@infra/errors.ts";
+import type { IUserRepository } from "@domain/user/user.repository.ts";
+import { registerUser } from "@application/users/workflows/register-user.workflow.ts";
+import { loginUser } from "@application/users/workflows/login-user.workflow.ts";
 import {
   UserWorkflowErrorTag,
   type UserWorkflowError,
-} from "../application/users/user-workflow.errors.ts";
+} from "@application/users/user-workflow.errors.ts";
 
 // ---------------------------------------------------------------------------
 // Error bridge — maps UserWorkflowError to the controller-layer AppError.

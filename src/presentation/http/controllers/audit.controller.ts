@@ -1,14 +1,14 @@
 import { Elysia, t } from "elysia";
 import { Effect, pipe } from "effect";
 import { adminPlugin } from "../middleware/auth.plugin.ts";
-import type { IAuditRepository } from "../application/audit/audit.repository.port.ts";
-import { listAuditLogs } from "../application/audit/workflows/list-audit-logs.workflow.ts";
+import type { IAuditRepository } from "@application/audit/audit.repository.port.ts";
+import { listAuditLogs } from "@application/audit/workflows/list-audit-logs.workflow.ts";
 import {
   AuditWorkflowErrorTag,
   type AuditWorkflowError,
-} from "../application/audit/audit-workflow.errors.ts";
-import { AppError } from "../types/errors.ts";
-import type { AuditResourceType } from "../domain/utils/enums.ts";
+} from "@application/audit/audit-workflow.errors.ts";
+import { AppError } from "@infra/errors.ts";
+import type { AuditResourceType } from "@domain/utils/enums.ts";
 import { run, assertNever } from "../lib/http.ts";
 
 // ---------------------------------------------------------------------------

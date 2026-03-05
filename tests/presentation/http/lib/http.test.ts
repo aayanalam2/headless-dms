@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { faker } from "@faker-js/faker";
-import { mapErrorToResponse } from "../../src/lib/http.ts";
-import { AppError } from "../../src/types/errors.ts";
+import { mapErrorToResponse } from "../../../../src/presentation/http/lib/http.ts";
+import { AppError } from "../../../../src/infra/errors.ts";
 
 // ---------------------------------------------------------------------------
 // mapErrorToResponse — every branch of the discriminated union

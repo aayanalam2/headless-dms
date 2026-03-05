@@ -29,8 +29,8 @@
     "paths": {
       "@domain/*": ["src/domain/*"],
       "@infra/*": ["src/infra/*"],
-      "@config/*": ["src/config/*"],
-      "@shared/*": ["src/types/*"],
+      "@config/*": ["src/infra/config/*"],
+      "@shared/*": ["src/infra/*"],
       "@application/*": ["src/application/*"]
     }
   },

@@ -1,9 +1,9 @@
 import { Elysia, t } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { StatusCode } from "status-code-enum";
-import { config } from "../config/env.ts";
-import type { JwtClaims } from "../services/auth.service.ts";
-import { Role } from "../types/enums.ts";
+import { config } from "@infra/config/env.ts";
+import type { JwtClaims } from "@application/users/dtos/user.dto.ts";
+import { Role } from "@domain/utils/enums.ts";
 
 // ---------------------------------------------------------------------------
 // JWT payload schema — validated at sign and verify time by @elysiajs/jwt.

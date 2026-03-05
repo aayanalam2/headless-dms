@@ -1,6 +1,6 @@
 import type { Effect } from "effect";
 import type { BucketKey } from "@domain/utils/refined.types.ts";
-import type { AppError } from "@shared/errors.ts";
+import type { AppError } from "@infra/errors.ts";
 
 export type IStorage = {
   uploadFile(

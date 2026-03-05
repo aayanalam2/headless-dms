@@ -12,8 +12,8 @@ import {
   DocumentWorkflowError,
   type DocumentWorkflowError as WorkflowError,
 } from "../document-workflow.errors.ts";
-import { eventBus } from "../../../lib/event-bus.ts";
-import { DocumentEvent } from "../../../events/document.events.ts";
+import { eventBus } from "@infra/event-bus.ts";
+import { DocumentEvent } from "@domain/events/document.events.ts";
 
 // keep PermissionAction imported (used in access denied message)
 void (null as unknown as typeof PermissionAction);

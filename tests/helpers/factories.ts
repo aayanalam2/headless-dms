@@ -1,9 +1,9 @@
 import { faker } from "@faker-js/faker";
 import { Effect, Either } from "effect";
-import type { AppError } from "../../src/types/errors.ts";
-import { Role } from "../../src/types/enums.ts";
-import type { DocumentRow, UserRow, VersionRow } from "../../src/models/db/schema.ts";
-import type { JwtClaims } from "../../src/services/auth.service.ts";
+import type { AppError } from "../../src/infra/errors.ts";
+import { Role } from "../../src/domain/utils/enums.ts";
+import type { DocumentRow, UserRow, VersionRow } from "../../src/infra/database/schema.ts";
+import type { JwtClaims } from "../../src/application/users/dtos/user.dto.ts";
 
 // ---------------------------------------------------------------------------
 // Effect runner helpers — shared across all test files.
