@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import type { IAuditRepository } from "@application/audit/audit.repository.port.ts";
+import type { IAuditRepository } from "./audit.repository.port.ts";
 import { AuditAction, AuditResourceType } from "@domain/utils/enums.ts";
 import { DocumentEvent } from "@domain/events/document.events.ts";
 import { eventBus } from "@infra/event-bus.ts";
