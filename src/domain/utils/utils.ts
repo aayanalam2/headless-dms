@@ -1,6 +1,6 @@
 import { Option } from "effect";
 
-export type Maybe<T> = Option.Option<T> | null | undefined;
+export type Maybe<T> = T | Option.Option<T> | null | undefined;
 
 export const normalizeMaybe = <T>(value: Maybe<T>): Option.Option<T> => {
   if (value === null || value === undefined) {
