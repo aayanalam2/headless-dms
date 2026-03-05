@@ -1,6 +1,6 @@
 import { check, index, pgTable, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { SharedColumns } from "../utils/shared-columns.ts";
+import { SharedColumns } from "@infra/database/utils/shared-columns.ts";
 import { documentsTable } from "./document.table.ts";
 import { usersTable } from "./user.table.ts";
 import { permissionActionEnum, policyEffectEnum, roleEnum } from "./enums.ts";

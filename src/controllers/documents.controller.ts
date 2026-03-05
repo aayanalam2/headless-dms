@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { Effect, Option, pipe } from "effect";
 import { authPlugin } from "../middleware/auth.plugin.ts";
 import type { IDocumentRepository } from "../models/document.repository.ts";
-import type { IStorage } from "../models/storage.ts";
+import type { IStorage } from "../infra/repositories/storage.port.ts";
 import type { DocumentUploadService } from "../services/document.upload.service.ts";
 import { parseSearchParams } from "../services/search.service.ts";
 import { BucketKey } from "../types/branded.ts";

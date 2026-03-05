@@ -27,7 +27,10 @@
     // Path aliases — Bun respects these for both src and test files
     "baseUrl": ".",
     "paths": {
-      "@domain/*": ["src/domain/*"]
+      "@domain/*": ["src/domain/*"],
+      "@infra/*": ["src/infra/*"],
+      "@config/*": ["src/config/*"],
+      "@shared/*": ["src/types/*"]
     }
   },
   "include": ["src/**/*", "tests/**/*", "drizzle.config.ts", "index.ts"]

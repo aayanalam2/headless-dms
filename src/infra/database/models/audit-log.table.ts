@@ -1,5 +1,5 @@
 import { index, jsonb, pgTable, uuid } from "drizzle-orm/pg-core";
-import { SharedColumns } from "../utils/shared-columns.ts";
+import { SharedColumns } from "@infra/database/utils/shared-columns.ts";
 import { auditActionEnum, auditResourceTypeEnum } from "./enums.ts";
 import type { AuditAction, AuditResourceType } from "@domain/utils/enums.ts";
 

@@ -2,7 +2,7 @@ import { Effect, Option } from "effect";
 import { AppError } from "../types/errors.ts";
 import { DocumentId, VersionId, BucketKey } from "../types/branded.ts";
 import type { IDocumentRepository } from "../models/document.repository.ts";
-import type { IStorage } from "../models/storage.ts";
+import type { IStorage } from "../infra/repositories/storage.port.ts";
 import { eventBus } from "../lib/event-bus.ts";
 import { DocumentEvent } from "../events/document.events.ts";
 import { buildBucketKey, nextVersionNumber, validateContentType } from "./document.service.ts";

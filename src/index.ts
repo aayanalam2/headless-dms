@@ -7,7 +7,7 @@ import { logger } from "./lib/logger.ts";
 import { db } from "./models/db/connection.ts";
 import { createDrizzleDocumentRepository } from "./models/adapters/drizzle.document.repository.ts";
 import { createDrizzleUserRepository } from "./models/adapters/drizzle.user.repository.ts";
-import { createS3Storage } from "./models/adapters/s3.storage.ts";
+import { createS3Storage } from "./infra/repositories/s3.storage.ts";
 import { createDocumentUploadService } from "./services/document.upload.service.ts";
 import { createAuditListeners } from "./services/audit.listener.ts";
 import { createAuthController } from "./controllers/auth.controller.ts";

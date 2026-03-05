@@ -12,7 +12,7 @@ import type {
 } from "../../src/models/db/schema.ts";
 import type { IDocumentRepository } from "../../src/models/document.repository.ts";
 import type { IUserRepository } from "../../src/models/user.repository.ts";
-import type { IStorage } from "../../src/models/storage.ts";
+import type { IStorage } from "../../src/infra/repositories/storage.port.ts";
 import type { BucketKey } from "../../src/types/branded.ts";
 
 // ---------------------------------------------------------------------------

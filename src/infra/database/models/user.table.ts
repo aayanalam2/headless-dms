@@ -1,5 +1,5 @@
 import { pgTable, text, uniqueIndex, varchar } from "drizzle-orm/pg-core";
-import { SharedColumns } from "../utils/shared-columns.ts";
+import { SharedColumns } from "@infra/database/utils/shared-columns.ts";
 import { roleEnum } from "./enums.ts";
 import type { Role } from "@domain/utils/enums.ts";
 
