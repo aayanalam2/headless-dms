@@ -23,9 +23,13 @@ export enum AuditAction {
   DocumentUpload = "document.upload",
   DocumentVersionCreate = "document.version.create",
   DocumentDelete = "document.delete",
+  AccessPolicyGrant = "access-policy.grant",
+  AccessPolicyUpdate = "access-policy.update",
+  AccessPolicyRevoke = "access-policy.revoke",
 }
 
 /** The kinds of entities that audit events reference. */
 export enum AuditResourceType {
   Document = "document",
+  AccessPolicy = "access-policy",
 }

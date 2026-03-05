@@ -1,8 +1,6 @@
 import { Elysia, t } from "elysia";
 import { Effect, pipe } from "effect";
 import { adminPlugin } from "../middleware/auth.plugin.ts";
-import type { IAuditRepository } from "@application/audit/audit.repository.port.ts";
-import { listAuditLogs } from "@application/audit/workflows/list-audit-logs.workflow.ts";
 import {
   AuditWorkflowErrorTag,
   type AuditWorkflowError,
@@ -10,6 +8,7 @@ import {
 import { AppError } from "@infra/errors.ts";
 import type { AuditResourceType } from "@domain/utils/enums.ts";
 import { run, assertNever } from "../lib/http.ts";
+import type { AuditWorkflows } from "@application/audit/audit.workflows.ts";
 
 // ---------------------------------------------------------------------------
 // Error bridge
@@ -31,22 +30,19 @@ function toAppError(e: AuditWorkflowError): AppError {
 // ---------------------------------------------------------------------------
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-export function createAuditController(auditRepo: IAuditRepository) {
+export function createAuditController(workflows: AuditWorkflows) {
   return new Elysia({ prefix: "/audit" }).use(adminPlugin).get(
     "/",
     ({ query, set }) =>
       run(
         set,
         pipe(
-          listAuditLogs(
-            { auditRepo },
-            {
-              ...query,
-              // The Elysia schema validates `resourceType` as a raw string; the
-              // workflow's decodeCommand will validate it against AuditResourceType enum.
-              resourceType: query.resourceType as AuditResourceType | undefined,
-            },
-          ),
+          workflows.listAuditLogs({
+            ...query,
+            // The Elysia schema validates `resourceType` as a raw string; the
+            // workflow's decodeCommand will validate it against AuditResourceType enum.
+            resourceType: query.resourceType as AuditResourceType | undefined,
+          }),
           Effect.mapError(toAppError),
         ),
       ),

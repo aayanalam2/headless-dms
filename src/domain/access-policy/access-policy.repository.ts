@@ -1,3 +1,4 @@
+import { type Option } from "effect";
 import type { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
 import type { AccessPolicyId, DocumentId, UserId } from "@domain/utils/refined.types.ts";
 import type { AccessPolicyNotFoundError } from "@domain/access-policy/access-policy.errors.ts";
@@ -9,6 +10,8 @@ export interface IAccessPolicyRepository {
   // -------------------------------------------------------------------------
   // Queries
   // -------------------------------------------------------------------------
+
+  findById(id: AccessPolicyId): RepositoryEffect<Option.Option<AccessPolicy>>;
 
   findByDocument(documentId: DocumentId): RepositoryEffect<readonly AccessPolicy[]>;
 

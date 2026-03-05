@@ -1,22 +1,13 @@
 import { Elysia, t } from "elysia";
 import { Effect, pipe } from "effect";
 import { authPlugin } from "../middleware/auth.plugin.ts";
-import type { IDocumentRepository } from "@domain/document/document.repository.ts";
-import type { IStorage } from "@infra/repositories/storage.port.ts";
 import { run, assertNever } from "../lib/http.ts";
 import { AppError } from "@infra/errors.ts";
 import {
   DocumentWorkflowErrorTag,
   type DocumentWorkflowError,
 } from "@application/documents/document-workflow.errors.ts";
-import { uploadDocument } from "@application/documents/workflows/upload-document.workflow.ts";
-import { uploadVersion } from "@application/documents/workflows/upload-version.workflow.ts";
-import { getDocument } from "@application/documents/workflows/get-document.workflow.ts";
-import { listDocuments } from "@application/documents/workflows/list-documents.workflow.ts";
-import { downloadDocument } from "@application/documents/workflows/download-document.workflow.ts";
-import { downloadVersion } from "@application/documents/workflows/download-version.workflow.ts";
-import { listVersions } from "@application/documents/workflows/list-versions.workflow.ts";
-import { deleteDocument } from "@application/documents/workflows/delete-document.workflow.ts";
+import type { DocumentWorkflows } from "@application/documents/document.workflows.ts";
 
 // ---------------------------------------------------------------------------
 // Error bridge — maps DocumentWorkflowError to the controller-layer AppError.
@@ -46,9 +37,7 @@ function toAppError(e: DocumentWorkflowError): AppError {
 // ---------------------------------------------------------------------------
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-export function createDocumentsController(documentRepo: IDocumentRepository, storage: IStorage) {
-  const deps = { documentRepo, storage };
-
+export function createDocumentsController(workflows: DocumentWorkflows) {
   return (
     new Elysia({ prefix: "/documents" })
       .use(authPlugin)
@@ -60,8 +49,7 @@ export function createDocumentsController(documentRepo: IDocumentRepository, sto
           run(
             set,
             pipe(
-              uploadDocument(
-                deps,
+              workflows.upload(
                 { actor: user, name: body.name, rawTags: body.tags, rawMetadata: body.metadata },
                 body.file,
               ),
@@ -87,7 +75,7 @@ export function createDocumentsController(documentRepo: IDocumentRepository, sto
           run(
             set,
             pipe(
-              listDocuments(deps, {
+              workflows.list({
                 actor: user,
                 name: query.name,
                 ownerId: query.ownerId,
@@ -115,7 +103,7 @@ export function createDocumentsController(documentRepo: IDocumentRepository, sto
           run(
             set,
             pipe(
-              getDocument(deps, { documentId: params.id, actor: user }),
+              workflows.get({ documentId: params.id, actor: user }),
               Effect.mapError(toAppError),
             ),
           ),
@@ -132,7 +120,7 @@ export function createDocumentsController(documentRepo: IDocumentRepository, sto
           run(
             set,
             pipe(
-              downloadDocument(deps, { documentId: params.id, actor: user }),
+              workflows.download({ documentId: params.id, actor: user }),
               Effect.mapError(toAppError),
             ),
           ),
@@ -152,8 +140,7 @@ export function createDocumentsController(documentRepo: IDocumentRepository, sto
           run(
             set,
             pipe(
-              uploadVersion(
-                deps,
+              workflows.uploadVersion(
                 { actor: user, documentId: params.id, name: body.name },
                 body.file,
               ),
@@ -178,7 +165,7 @@ export function createDocumentsController(documentRepo: IDocumentRepository, sto
           run(
             set,
             pipe(
-              listVersions(deps, { documentId: params.id, actor: user }),
+              workflows.listVersions({ documentId: params.id, actor: user }),
               Effect.mapError(toAppError),
             ),
           ),
@@ -195,7 +182,7 @@ export function createDocumentsController(documentRepo: IDocumentRepository, sto
           run(
             set,
             pipe(
-              downloadVersion(deps, {
+              workflows.downloadVersion({
                 documentId: params.id,
                 versionId: params.versionId,
                 actor: user,
@@ -222,7 +209,7 @@ export function createDocumentsController(documentRepo: IDocumentRepository, sto
           run(
             set,
             pipe(
-              deleteDocument(deps, { documentId: params.id, actor: user }),
+              workflows.delete({ documentId: params.id, actor: user }),
               Effect.mapError(toAppError),
               Effect.map(() => ({ message: "Document deleted successfully" })),
             ),

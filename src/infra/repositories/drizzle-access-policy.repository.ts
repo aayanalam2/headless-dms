@@ -9,7 +9,7 @@ import { AccessPolicyNotFoundError } from "@domain/access-policy/access-policy.e
 import type { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import type { Role } from "@domain/utils/enums.ts";
 import { accessPoliciesTable } from "@infra/database/models/access-policy.table.ts";
-import { executeQuery, fetchMultiple } from "@infra/database/utils/query-helpers.ts";
+import { executeQuery, fetchMultiple, fetchSingle } from "@infra/database/utils/query-helpers.ts";
 
 export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
   constructor(private readonly db: AppDb) {}
@@ -31,6 +31,17 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
   // -------------------------------------------------------------------------
   // Queries
   // -------------------------------------------------------------------------
+
+  findById(id: AccessPolicyId) {
+    return fetchSingle(
+      () =>
+        this.db
+          .select()
+          .from(accessPoliciesTable)
+          .where(eq(accessPoliciesTable.id, id)),
+      DrizzleAccessPolicyRepository.fromRow,
+    );
+  }
 
   findByDocument(documentId: DocumentId) {
     return fetchMultiple(

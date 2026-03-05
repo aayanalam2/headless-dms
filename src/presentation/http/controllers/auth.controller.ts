@@ -1,15 +1,11 @@
 import { Elysia, t } from "elysia";
 import { Effect, Either, pipe } from "effect";
 import { jwtPlugin } from "../middleware/auth.plugin.ts";
-import { hashPassword, verifyPassword } from "@infra/services/auth.service.ts";
 import { StatusCode } from "status-code-enum";
 import { Role } from "@domain/utils/enums.ts";
 import { run, assertNever } from "../lib/http.ts";
-import { config } from "@infra/config/env.ts";
 import { AppError } from "@infra/errors.ts";
-import type { IUserRepository } from "@domain/user/user.repository.ts";
-import { registerUser } from "@application/users/workflows/register-user.workflow.ts";
-import { loginUser } from "@application/users/workflows/login-user.workflow.ts";
+import type { UserWorkflows } from "@application/users/user.workflows.ts";
 import {
   UserWorkflowErrorTag,
   type UserWorkflowError,
@@ -41,19 +37,7 @@ function toAppError(e: UserWorkflowError): AppError {
 // ---------------------------------------------------------------------------
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-export function createAuthController(userRepo: IUserRepository) {
-  const registerDeps = {
-    userRepo,
-    hashPassword: (p: string) => hashPassword(p, config.bcryptRounds),
-  };
-  const loginDeps = {
-    userRepo,
-    // Wrap to satisfy LoginUserDeps — the workflow expects `(string, string)` but
-    // the service function takes a branded HashedPassword as the second argument.
-    verifyPassword: (p: string, h: string) =>
-      verifyPassword(p, h as Parameters<typeof verifyPassword>[1]),
-  };
-
+export function createAuthController(workflows: UserWorkflows) {
   return (
     new Elysia({ prefix: "/auth" })
       .use(jwtPlugin)
@@ -67,7 +51,7 @@ export function createAuthController(userRepo: IUserRepository) {
           run(
             set,
             pipe(
-              registerUser(registerDeps, body),
+              workflows.register(body),
               Effect.mapError(toAppError),
               Effect.flatMap((user) =>
                 pipe(
@@ -99,7 +83,7 @@ export function createAuthController(userRepo: IUserRepository) {
       .post(
         "/login",
         async ({ body, jwt, set }) => {
-          const either = await Effect.runPromise(Effect.either(loginUser(loginDeps, body)));
+          const either = await Effect.runPromise(Effect.either(workflows.login(body)));
 
           if (Either.isLeft(either)) {
             set.status = StatusCode.ClientErrorUnauthorized;

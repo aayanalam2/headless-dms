@@ -12,6 +12,10 @@
     "verbatimModuleSyntax": true,
     "noEmit": true,
 
+    // Decorator support (required for tsyringe DI)
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
     // Strict type checking
     "strict": true,
     "exactOptionalPropertyTypes": true,

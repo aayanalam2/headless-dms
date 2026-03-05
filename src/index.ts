@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { swagger } from "@elysiajs/swagger";
@@ -5,14 +6,18 @@ import { StatusCode } from "status-code-enum";
 import { config } from "@infra/config/env.ts";
 import { logger } from "./presentation/http/lib/logger.ts";
 import { createDb } from "@infra/database/utils/connection.ts";
-import { DrizzleDocumentRepository } from "@infra/repositories/drizzle-document.repository.ts";
-import { DrizzleUserRepository } from "@infra/repositories/drizzle-user.repository.ts";
-import { DrizzleAuditRepository } from "@infra/repositories/drizzle-audit.repository.ts";
 import { createS3Storage } from "@infra/repositories/s3.storage.ts";
 import { createAuditListeners } from "@infra/services/audit.listener.ts";
+import { buildContainer } from "@infra/di/container.ts";
+import { DocumentWorkflows } from "@application/documents/document.workflows.ts";
+import { UserWorkflows } from "@application/users/user.workflows.ts";
+import { AuditWorkflows } from "@application/audit/audit.workflows.ts";
+import { AccessPolicyWorkflows } from "@application/access-policy/workflows/access-policy.workflows.ts";
 import { createAuthController } from "./presentation/http/controllers/auth.controller.ts";
 import { createDocumentsController } from "./presentation/http/controllers/documents.controller.ts";
 import { createAuditController } from "./presentation/http/controllers/audit.controller.ts";
+import { createAccessPolicyController } from "./presentation/http/controllers/access-policy.controller.ts";
+import { DrizzleAuditRepository } from "@infra/repositories/drizzle-audit.repository.ts";
 
 // ---------------------------------------------------------------------------
 // Application factory — wires together all controllers, middleware, and
@@ -20,17 +25,25 @@ import { createAuditController } from "./presentation/http/controllers/audit.con
 // ---------------------------------------------------------------------------
 
 const { db } = createDb(config.databaseUrl);
-
-// Infra repos that implement domain port interfaces.
-const documentRepo = new DrizzleDocumentRepository(db);
-const userRepo = new DrizzleUserRepository(db);
-const auditRepo = new DrizzleAuditRepository(db);
 const storageService = createS3Storage(config.s3, config.s3.bucket, config.presignTtlSeconds);
 
+// Build and configure the DI container.
+const diContainer = buildContainer(db, storageService);
+
+// Resolve workflow classes from the container.
+const documentWorkflows = diContainer.resolve(DocumentWorkflows);
+const userWorkflows = diContainer.resolve(UserWorkflows);
+const auditWorkflows = diContainer.resolve(AuditWorkflows);
+const accessPolicyWorkflows = diContainer.resolve(AccessPolicyWorkflows);
+
 // Build controllers (thin — all logic lives in application-layer workflows).
-const authController = createAuthController(userRepo);
-const documentsController = createDocumentsController(documentRepo, storageService);
-const auditController = createAuditController(auditRepo);
+const authController = createAuthController(userWorkflows);
+const documentsController = createDocumentsController(documentWorkflows);
+const auditController = createAuditController(auditWorkflows);
+const accessPolicyController = createAccessPolicyController(accessPolicyWorkflows);
+
+// Audit listeners still need the raw repository (event bus doesn't go through DI).
+const auditRepo = new DrizzleAuditRepository(db);
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createApp() {
@@ -60,6 +73,7 @@ export function createApp() {
               { name: "Auth", description: "Authentication endpoints" },
               { name: "Documents", description: "Document management" },
               { name: "Audit", description: "Audit log access (admin)" },
+              { name: "Access Policies", description: "Document access control" },
             ],
           },
         }),
@@ -71,6 +85,7 @@ export function createApp() {
       .use(authController)
       .use(documentsController)
       .use(auditController)
+      .use(accessPolicyController)
 
       // -----------------------------------------------------------------------
       // Global error handler

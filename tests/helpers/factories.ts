@@ -35,12 +35,14 @@ export async function runErrAsync<E>(effect: Effect.Effect<unknown, E>): Promise
 // ---------------------------------------------------------------------------
 
 export function makeUserRow(overrides: Partial<UserRow> = {}): UserRow {
+  const createdAt = faker.date.past();
   return {
     id: faker.string.uuid(),
     email: faker.internet.email(),
     passwordHash: faker.string.alphanumeric(60),
     role: faker.helpers.arrayElement([Role.Admin, Role.User]),
-    createdAt: faker.date.past(),
+    createdAt,
+    updatedAt: createdAt,
     ...overrides,
   };
 }
@@ -71,6 +73,7 @@ export function makeVersionRow(
   documentId: string,
   overrides: Partial<VersionRow> = {},
 ): VersionRow {
+  const createdAt = faker.date.recent();
   return {
     id: faker.string.uuid(),
     documentId,
@@ -79,7 +82,8 @@ export function makeVersionRow(
     sizeBytes: faker.number.int({ min: 512, max: 10_000_000 }),
     uploadedBy: faker.string.uuid(),
     checksum: faker.string.hexadecimal({ length: 64, casing: "lower", prefix: "" }),
-    createdAt: faker.date.recent(),
+    createdAt,
+    updatedAt: createdAt,
     ...overrides,
   };
 }
