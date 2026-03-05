@@ -1,4 +1,9 @@
-import { BaseEntity, type EntityCreateInput, type IEntity, type SerializedEntity } from "@domain/utils/base.entity.ts";
+import {
+  BaseEntity,
+  type EntityCreateInput,
+  type IEntity,
+  type SerializedEntity,
+} from "@domain/utils/base.entity.ts";
 import type {
   BucketKey,
   Checksum,
@@ -25,13 +30,9 @@ export type SerializedDocumentVersion = SerializedEntity<VersionId> & {
   readonly uploadedBy: string;
 };
 
-
 export type CreateDocumentVersionInput = EntityCreateInput<IDocumentVersion>;
 
-export class DocumentVersion
-  extends BaseEntity<VersionId>
-  implements IDocumentVersion
-{
+export class DocumentVersion extends BaseEntity<VersionId> implements IDocumentVersion {
   private constructor(
     id: VersionId,
     createdAt: Date,
@@ -81,7 +82,7 @@ export class DocumentVersion
       uploadedBy: this.data.uploadedBy,
     };
   }
-  
+
   static create(input: CreateDocumentVersionInput): DocumentVersion {
     return new DocumentVersion(input.id, input.createdAt, {
       documentId: input.documentId,
@@ -101,4 +102,3 @@ export class DocumentVersion
     return new DocumentVersion(id, createdAt, props);
   }
 }
-

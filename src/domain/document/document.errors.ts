@@ -2,10 +2,10 @@ import { DomainError } from "@domain/utils/base.errors.ts";
 import type { DocumentId, VersionId } from "@domain/utils/refined.types.ts";
 
 export enum DocumentErrorTags {
-    InvalidContentType = "InvalidContentType",
-    DocumentAlreadyDeleted = "DocumentAlreadyDeleted",
-    DocumentNotFound = "DocumentNotFound",
-    DocumentVersionNotFound = "DocumentVersionNotFound",
+  InvalidContentType = "InvalidContentType",
+  DocumentAlreadyDeleted = "DocumentAlreadyDeleted",
+  DocumentNotFound = "DocumentNotFound",
+  DocumentVersionNotFound = "DocumentVersionNotFound",
 }
 export class InvalidContentTypeError extends DomainError {
   readonly _tag = DocumentErrorTags.InvalidContentType as const;

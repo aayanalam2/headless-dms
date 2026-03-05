@@ -6,19 +6,8 @@ import {
   DocumentAlreadyDeletedError,
   InvalidContentTypeError,
 } from "@domain/document/document.errors.ts";
-import {
-  hasVersion,
-  isActive,
-  isDeleted,
-  isOwner,
-} from "@domain/document/document.guards.ts";
-import {
-  BucketKey,
-  Checksum,
-  DocumentId,
-  UserId,
-  VersionId,
-} from "@domain/utils/refined.types.ts";
+import { hasVersion, isActive, isDeleted, isOwner } from "@domain/document/document.guards.ts";
+import { BucketKey, Checksum, DocumentId, UserId, VersionId } from "@domain/utils/refined.types.ts";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -293,9 +282,7 @@ describe("DocumentVersion entity", () => {
     const id = makeVersionId();
     const documentId = makeDocId();
     const uploadedBy = makeUserId();
-    const bucketKey = BucketKey.create(
-      `${documentId}/${id}/report.pdf`,
-    ).unwrap();
+    const bucketKey = BucketKey.create(`${documentId}/${id}/report.pdf`).unwrap();
     const checksum = Checksum.create("a".repeat(64)).unwrap();
 
     const version = DocumentVersion.create({

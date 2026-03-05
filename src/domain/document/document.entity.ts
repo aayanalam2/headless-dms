@@ -1,8 +1,16 @@
 import { Either, Option, Schema } from "effect";
-import { BaseEntity, type EntityCreateInput, type IEntity, type SerializedEntity } from "@domain/utils/base.entity.ts";
+import {
+  BaseEntity,
+  type EntityCreateInput,
+  type IEntity,
+  type SerializedEntity,
+} from "@domain/utils/base.entity.ts";
 import type { DocumentId, UserId, VersionId } from "@domain/utils/refined.types.ts";
 import { normalizeMaybe, optionToMaybe, type Maybe } from "@domain/utils/utils.ts";
-import { ContentTypeSchema, type ContentType } from "@domain/document/value-objects/content-type.vo.ts";
+import {
+  ContentTypeSchema,
+  type ContentType,
+} from "@domain/document/value-objects/content-type.vo.ts";
 import {
   DocumentAlreadyDeletedError,
   InvalidContentTypeError,
@@ -26,7 +34,7 @@ export type SerializedDocument = SerializedEntity<DocumentId> & {
   readonly tags: readonly string[];
   readonly metadata: Readonly<Record<string, string>>;
   readonly deletedAt: Maybe<string>;
-}
+};
 // ---------------------------------------------------------------------------
 // Factory input
 // ---------------------------------------------------------------------------
@@ -42,12 +50,14 @@ export type SerializedDocument = SerializedEntity<DocumentId> & {
  * can pass whatever shape they naturally have.  `create()` normalizes them to
  * `Option<T>` via `normalizeMaybe` before storing them in the entity.
  */
-export type CreateDocumentInput =
-  Omit<EntityCreateInput<IDocument>, "contentType" | "currentVersionId" | "deletedAt"> & {
-    readonly contentType: string;
-    readonly currentVersionId: Maybe<VersionId>;
-    readonly deletedAt: Maybe<Date>;
-  };
+export type CreateDocumentInput = Omit<
+  EntityCreateInput<IDocument>,
+  "contentType" | "currentVersionId" | "deletedAt"
+> & {
+  readonly contentType: string;
+  readonly currentVersionId: Maybe<VersionId>;
+  readonly deletedAt: Maybe<Date>;
+};
 
 export class Document extends BaseEntity<DocumentId> implements IDocument {
   private constructor(
@@ -136,20 +146,15 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
       return new InvalidContentTypeError(input.contentType);
     }
 
-    return new Document(
-      input.id,
-      input.createdAt,
-      input.createdAt,
-      {
-        ownerId: input.ownerId,
-        name: input.name,
-        contentType: ctResult.right,
-        currentVersionId: normalizeMaybe(input.currentVersionId),
-        tags: input.tags,
-        metadata: input.metadata,
-        deletedAt: normalizeMaybe(input.deletedAt),
-      },
-    );
+    return new Document(input.id, input.createdAt, input.createdAt, {
+      ownerId: input.ownerId,
+      name: input.name,
+      contentType: ctResult.right,
+      currentVersionId: normalizeMaybe(input.currentVersionId),
+      tags: input.tags,
+      metadata: input.metadata,
+      deletedAt: normalizeMaybe(input.deletedAt),
+    });
   }
 
   /**
@@ -197,10 +202,7 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
    * Returns a new Document with the supplied tag list (replaces existing tags).
    * Returns `DocumentAlreadyDeletedError` if the document has been deleted.
    */
-  setTags(
-    tags: readonly string[],
-    now = new Date(),
-  ): Document | DocumentAlreadyDeletedError {
+  setTags(tags: readonly string[], now = new Date()): Document | DocumentAlreadyDeletedError {
     if (this.isDeleted) {
       return new DocumentAlreadyDeletedError(this.id);
     }

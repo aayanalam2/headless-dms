@@ -1,9 +1,9 @@
 export enum BaseErrorTags {
-    NotFound = "NotFound",
-    AlreadyExists = "AlreadyExists",
-    Validation = "Validation",
-    AccessDenied = "AccessDenied",
-    Conflict = "Conflict",
+  NotFound = "NotFound",
+  AlreadyExists = "AlreadyExists",
+  Validation = "Validation",
+  AccessDenied = "AccessDenied",
+  Conflict = "Conflict",
 }
 
 export abstract class DomainError extends Error {

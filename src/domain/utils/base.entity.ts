@@ -89,9 +89,7 @@ export type SerializedEntity<TId extends string = string> = {
  */
 export type EntityCreateInput<T extends IEntity<string>> = Omit<T, "updatedAt">;
 
-export abstract class BaseEntity<TId extends string = string>
-  implements IEntity<TId>
-{
+export abstract class BaseEntity<TId extends string = string> implements IEntity<TId> {
   constructor(
     readonly id: TId,
     readonly createdAt: Date,
