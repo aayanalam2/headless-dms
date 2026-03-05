@@ -5,7 +5,6 @@ import { DomainError } from "@domain/utils/base.errors.ts";
 // Repository-layer error types and Effect alias
 // ---------------------------------------------------------------------------
 
-
 export class RepositoryError extends DomainError {
   readonly _tag = "RepositoryError" as const;
 

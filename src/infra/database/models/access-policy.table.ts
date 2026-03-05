@@ -4,7 +4,10 @@ import { SharedColumns } from "@infra/database/utils/shared-columns.ts";
 import { documentsTable } from "./document.table.ts";
 import { usersTable } from "./user.table.ts";
 import { permissionActionEnum, policyEffectEnum, roleEnum } from "./enums.ts";
-import type { PermissionAction, PolicyEffect } from "@domain/access-policy/value-objects/permission-action.vo.ts";
+import type {
+  PermissionAction,
+  PolicyEffect,
+} from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import type { Role } from "@domain/utils/enums.ts";
 
 // ---------------------------------------------------------------------------

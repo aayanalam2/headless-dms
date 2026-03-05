@@ -6,22 +6,10 @@
  * Each test gets a clean slate via truncateAll() in beforeEach.
  */
 
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  setDefaultTimeout,
-} from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, setDefaultTimeout } from "bun:test";
 import { Effect, Either, Option } from "effect";
 
-import {
-  makeAdminUser,
-  makeUser,
-  makeUserId,
-} from "../domain/factories.ts";
+import { makeAdminUser, makeUser, makeUserId } from "../domain/factories.ts";
 import type { TestDb } from "./helpers/db.ts";
 import { startTestDb, stopTestDb, truncateAll } from "./helpers/db.ts";
 import { DrizzleUserRepository } from "@infra/repositories/drizzle-user.repository.ts";
@@ -187,10 +175,7 @@ describe("round-trip", () => {
   it("two users can be saved and retrieved independently by email", async () => {
     const alice = makeUser();
     const bob = makeAdminUser();
-    await Promise.all([
-      Effect.runPromise(repo.save(alice)),
-      Effect.runPromise(repo.save(bob)),
-    ]);
+    await Promise.all([Effect.runPromise(repo.save(alice)), Effect.runPromise(repo.save(bob))]);
 
     const [foundAlice, foundBob] = await Promise.all([
       Effect.runPromise(repo.findByEmail(alice.email)),

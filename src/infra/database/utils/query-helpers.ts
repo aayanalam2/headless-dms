@@ -5,9 +5,7 @@ import { RepositoryError } from "@domain/utils/repository.types.ts";
 // executeQuery
 // Wraps any DB Promise in an Effect, mapping failures to RepositoryError.
 // ---------------------------------------------------------------------------
-export function executeQuery<T>(
-  query: () => Promise<T>,
-): Effect.Effect<T, RepositoryError> {
+export function executeQuery<T>(query: () => Promise<T>): Effect.Effect<T, RepositoryError> {
   return Effect.tryPromise({
     try: query,
     catch: (e) => new RepositoryError("executeQuery", e),
@@ -44,9 +42,5 @@ export function fetchMultiple<TRow, TEntity>(
 // Returns true for Postgres SQLSTATE 23505 (unique constraint violation).
 // ---------------------------------------------------------------------------
 export function isUniqueViolation(e: unknown): boolean {
-  return (
-    e instanceof Error &&
-    "code" in e &&
-    (e as { code: string }).code === "23505"
-  );
+  return e instanceof Error && "code" in e && (e as { code: string }).code === "23505";
 }

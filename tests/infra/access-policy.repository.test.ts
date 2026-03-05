@@ -8,23 +8,10 @@
  *   • deleteByDocument bulk removal
  */
 
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  setDefaultTimeout,
-} from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, setDefaultTimeout } from "bun:test";
 import { Effect, Either, Option } from "effect";
 
-import {
-  makeDocument,
-  makeRolePolicy,
-  makeSubjectPolicy,
-  makeUser,
-} from "../domain/factories.ts";
+import { makeDocument, makeRolePolicy, makeSubjectPolicy, makeUser } from "../domain/factories.ts";
 import type { TestDb } from "./helpers/db.ts";
 import { startTestDb, stopTestDb, truncateAll } from "./helpers/db.ts";
 import { DrizzleUserRepository } from "@infra/repositories/drizzle-user.repository.ts";
@@ -90,10 +77,7 @@ describe("findByDocument", () => {
       subjectId: owner.id,
       action: PermissionAction.Write,
     });
-    await Promise.all([
-      Effect.runPromise(repo.save(p1)),
-      Effect.runPromise(repo.save(p2)),
-    ]);
+    await Promise.all([Effect.runPromise(repo.save(p1)), Effect.runPromise(repo.save(p2))]);
 
     const policies = await Effect.runPromise(repo.findByDocument(doc.id));
     expect(policies).toHaveLength(2);
@@ -127,9 +111,7 @@ describe("findByDocumentAndSubject", () => {
       Effect.runPromise(repo.save(theirPolicy)),
     ]);
 
-    const result = await Effect.runPromise(
-      repo.findByDocumentAndSubject(doc.id, owner.id),
-    );
+    const result = await Effect.runPromise(repo.findByDocumentAndSubject(doc.id, owner.id));
     expect(result).toHaveLength(1);
     if (Option.isSome(result[0]!.subjectId)) {
       expect(result[0]!.subjectId.value).toBe(owner.id);
@@ -158,9 +140,7 @@ describe("findByDocumentAndRole", () => {
       Effect.runPromise(repo.save(userPolicy)),
     ]);
 
-    const adminPolicies = await Effect.runPromise(
-      repo.findByDocumentAndRole(doc.id, Role.Admin),
-    );
+    const adminPolicies = await Effect.runPromise(repo.findByDocumentAndRole(doc.id, Role.Admin));
     expect(adminPolicies).toHaveLength(1);
     if (Option.isSome(adminPolicies[0]!.subjectRole)) {
       expect(adminPolicies[0]!.subjectRole.value).toBe(Role.Admin);
@@ -168,9 +148,7 @@ describe("findByDocumentAndRole", () => {
   });
 
   it("returns empty when no role policies exist for a role", async () => {
-    const result = await Effect.runPromise(
-      repo.findByDocumentAndRole(doc.id, Role.Admin),
-    );
+    const result = await Effect.runPromise(repo.findByDocumentAndRole(doc.id, Role.Admin));
     expect(result).toHaveLength(0);
   });
 });
@@ -197,11 +175,7 @@ describe("findByDocumentSubjectAndAction", () => {
     ]);
 
     const result = await Effect.runPromise(
-      repo.findByDocumentSubjectAndAction(
-        doc.id,
-        owner.id,
-        PermissionAction.Read,
-      ),
+      repo.findByDocumentSubjectAndAction(doc.id, owner.id, PermissionAction.Read),
     );
     expect(result).toHaveLength(1);
     expect(result[0]!.action).toBe(PermissionAction.Read);
@@ -286,10 +260,7 @@ describe("deleteByDocument", () => {
       subjectRole: Role.User,
       action: PermissionAction.Write,
     });
-    await Promise.all([
-      Effect.runPromise(repo.save(p1)),
-      Effect.runPromise(repo.save(p2)),
-    ]);
+    await Promise.all([Effect.runPromise(repo.save(p1)), Effect.runPromise(repo.save(p2))]);
 
     await Effect.runPromise(repo.deleteByDocument(doc.id));
 
@@ -303,10 +274,7 @@ describe("deleteByDocument", () => {
 
     const p1 = makeSubjectPolicy({ documentId: doc.id, subjectId: owner.id });
     const p2 = makeSubjectPolicy({ documentId: otherDoc.id, subjectId: owner.id });
-    await Promise.all([
-      Effect.runPromise(repo.save(p1)),
-      Effect.runPromise(repo.save(p2)),
-    ]);
+    await Promise.all([Effect.runPromise(repo.save(p1)), Effect.runPromise(repo.save(p2))]);
 
     await Effect.runPromise(repo.deleteByDocument(doc.id));
 

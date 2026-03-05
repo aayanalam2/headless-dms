@@ -30,7 +30,8 @@
       "@domain/*": ["src/domain/*"],
       "@infra/*": ["src/infra/*"],
       "@config/*": ["src/config/*"],
-      "@shared/*": ["src/types/*"]
+      "@shared/*": ["src/types/*"],
+      "@application/*": ["src/application/*"]
     }
   },
   "include": ["src/**/*", "tests/**/*", "drizzle.config.ts", "index.ts"]

@@ -14,9 +14,7 @@ export const usersTable = pgTable(
     passwordHash: text("password_hash").notNull(),
     role: roleEnum("role").notNull().$type<Role>(),
   },
-  (t) => [
-    uniqueIndex("users_email_idx").on(t.email),
-  ],
+  (t) => [uniqueIndex("users_email_idx").on(t.email)],
 );
 export type UserRow = typeof usersTable.$inferSelect;
 export type NewUserRow = typeof usersTable.$inferInsert;

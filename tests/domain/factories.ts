@@ -1,9 +1,15 @@
 import { Option } from "effect";
 import { Document, type CreateDocumentInput } from "@domain/document/document.entity.ts";
-import { DocumentVersion, type CreateDocumentVersionInput } from "@domain/document/document-version.entity.ts";
+import {
+  DocumentVersion,
+  type CreateDocumentVersionInput,
+} from "@domain/document/document-version.entity.ts";
 import { InvalidContentTypeError } from "@domain/document/document.errors.ts";
 import { User, type CreateUserInput } from "@domain/user/user.entity.ts";
-import { AccessPolicy, type CreateAccessPolicyInput } from "@domain/access-policy/access-policy.entity.ts";
+import {
+  AccessPolicy,
+  type CreateAccessPolicyInput,
+} from "@domain/access-policy/access-policy.entity.ts";
 import { PolicyTargetRequiredError } from "@domain/access-policy/access-policy.errors.ts";
 import {
   PermissionAction,
@@ -65,9 +71,7 @@ export function makeAdminUser(overrides: Partial<CreateUserInput> = {}): User {
 // Document factory
 // ---------------------------------------------------------------------------
 
-export function makeDocument(
-  overrides: Partial<CreateDocumentInput> = {},
-): Document {
+export function makeDocument(overrides: Partial<CreateDocumentInput> = {}): Document {
   const result = Document.create({
     id: makeDocId(),
     ownerId: makeUserId(),
@@ -119,9 +123,7 @@ export function makeDocumentVersion(
 // ---------------------------------------------------------------------------
 
 /** Creates a user-specific (subject) policy. */
-export function makeSubjectPolicy(
-  overrides: Partial<CreateAccessPolicyInput> = {},
-): AccessPolicy {
+export function makeSubjectPolicy(overrides: Partial<CreateAccessPolicyInput> = {}): AccessPolicy {
   const result = AccessPolicy.create({
     id: makeAccessPolicyId(),
     documentId: makeDocId(),
@@ -137,9 +139,7 @@ export function makeSubjectPolicy(
 }
 
 /** Creates a role-based policy. */
-export function makeRolePolicy(
-  overrides: Partial<CreateAccessPolicyInput> = {},
-): AccessPolicy {
+export function makeRolePolicy(overrides: Partial<CreateAccessPolicyInput> = {}): AccessPolicy {
   const result = AccessPolicy.create({
     id: makeAccessPolicyId(),
     documentId: makeDocId(),

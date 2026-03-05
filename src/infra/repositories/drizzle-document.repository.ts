@@ -2,13 +2,7 @@ import { Effect, Option } from "effect";
 import { and, asc, desc, eq, ilike, isNull, sql } from "drizzle-orm";
 import type { AppDb } from "@infra/database/utils/connection.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
-import {
-  BucketKey,
-  Checksum,
-  DocumentId,
-  UserId,
-  VersionId,
-} from "@domain/utils/refined.types.ts";
+import { BucketKey, Checksum, DocumentId, UserId, VersionId } from "@domain/utils/refined.types.ts";
 import { Document } from "@domain/document/document.entity.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { DocumentRow, VersionRow } from "@infra/database/schema.ts";
@@ -21,11 +15,7 @@ import { buildPageInfo } from "@domain/utils/pagination.ts";
 import type { ContentType } from "@domain/document/value-objects/content-type.vo.ts";
 import { documentsTable } from "@infra/database/models/document.table.ts";
 import { documentVersionsTable } from "@infra/database/models/document-version.table.ts";
-import {
-  executeQuery,
-  fetchMultiple,
-  fetchSingle,
-} from "@infra/database/utils/query-helpers.ts";
+import { executeQuery, fetchMultiple, fetchSingle } from "@infra/database/utils/query-helpers.ts";
 
 export class DrizzleDocumentRepository implements IDocumentRepository {
   constructor(private readonly db: AppDb) {}
@@ -34,39 +24,30 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
   // Row ↔ entity
   // -------------------------------------------------------------------------
 
-  private static fromDocumentRow(row: DocumentRow): Document {
-    return Document.reconstitute(
-      DocumentId.create(row.id).unwrap(),
-      row.createdAt,
-      row.updatedAt,
-      {
-        ownerId: UserId.create(row.ownerId).unwrap(),
-        name: row.name,
-        contentType: row.contentType as ContentType,
-        currentVersionId: row.currentVersionId
-          ? Option.some(VersionId.create(row.currentVersionId).unwrap())
-          : Option.none(),
-        tags: row.tags,
-        metadata: (row.metadata ?? {}),
-        deletedAt: row.deletedAt ? Option.some(row.deletedAt) : Option.none(),
-      },
-    );
-  }
+  private static readonly fromDocumentRow = (row: DocumentRow): Document => {
+    return Document.reconstitute(DocumentId.create(row.id).unwrap(), row.createdAt, row.updatedAt, {
+      ownerId: UserId.create(row.ownerId).unwrap(),
+      name: row.name,
+      contentType: row.contentType as ContentType,
+      currentVersionId: row.currentVersionId
+        ? Option.some(VersionId.create(row.currentVersionId).unwrap())
+        : Option.none(),
+      tags: row.tags,
+      metadata: row.metadata ?? {},
+      deletedAt: row.deletedAt ? Option.some(row.deletedAt) : Option.none(),
+    });
+  };
 
-  private static fromVersionRow(row: VersionRow): DocumentVersion {
-    return DocumentVersion.reconstitute(
-      VersionId.create(row.id).unwrap(),
-      row.createdAt,
-      {
-        documentId: DocumentId.create(row.documentId).unwrap(),
-        versionNumber: row.versionNumber,
-        bucketKey: BucketKey.create(row.bucketKey).unwrap(),
-        sizeBytes: row.sizeBytes,
-        checksum: Checksum.create(row.checksum).unwrap(),
-        uploadedBy: UserId.create(row.uploadedBy).unwrap(),
-      },
-    );
-  }
+  private static readonly fromVersionRow = (row: VersionRow): DocumentVersion => {
+    return DocumentVersion.reconstitute(VersionId.create(row.id).unwrap(), row.createdAt, {
+      documentId: DocumentId.create(row.documentId).unwrap(),
+      versionNumber: row.versionNumber,
+      bucketKey: BucketKey.create(row.bucketKey).unwrap(),
+      sizeBytes: row.sizeBytes,
+      checksum: Checksum.create(row.checksum).unwrap(),
+      uploadedBy: UserId.create(row.uploadedBy).unwrap(),
+    });
+  };
 
   // -------------------------------------------------------------------------
   // Document queries
@@ -97,8 +78,17 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
 
     return executeQuery(async () => {
       const [countResult, rows] = await Promise.all([
-        this.db.select({ count: sql<number>`cast(count(*) as int)` }).from(documentsTable).where(where),
-        this.db.select().from(documentsTable).where(where).orderBy(desc(documentsTable.createdAt)).limit(limit).offset(offset),
+        this.db
+          .select({ count: sql<number>`cast(count(*) as int)` })
+          .from(documentsTable)
+          .where(where),
+        this.db
+          .select()
+          .from(documentsTable)
+          .where(where)
+          .orderBy(desc(documentsTable.createdAt))
+          .limit(limit)
+          .offset(offset),
       ]);
       return {
         items: rows.map(DrizzleDocumentRepository.fromDocumentRow),
@@ -113,8 +103,17 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
 
     return executeQuery(async () => {
       const [countResult, rows] = await Promise.all([
-        this.db.select({ count: sql<number>`cast(count(*) as int)` }).from(documentsTable).where(where),
-        this.db.select().from(documentsTable).where(where).orderBy(asc(documentsTable.name)).limit(limit).offset(offset),
+        this.db
+          .select({ count: sql<number>`cast(count(*) as int)` })
+          .from(documentsTable)
+          .where(where),
+        this.db
+          .select()
+          .from(documentsTable)
+          .where(where)
+          .orderBy(asc(documentsTable.name))
+          .limit(limit)
+          .offset(offset),
       ]);
       return {
         items: rows.map(DrizzleDocumentRepository.fromDocumentRow),
@@ -189,9 +188,7 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
           .returning({ id: documentsTable.id }),
       ),
       (rows) =>
-        rows.length > 0
-          ? Effect.void
-          : Effect.fail(new DocumentNotFoundError(document.id)),
+        rows.length > 0 ? Effect.void : Effect.fail(new DocumentNotFoundError(document.id)),
     );
   }
 
@@ -224,9 +221,7 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
           .returning({ id: documentVersionsTable.id }),
       ),
       (rows) =>
-        rows.length > 0
-          ? Effect.void
-          : Effect.fail(new DocumentVersionNotFoundError(versionId)),
+        rows.length > 0 ? Effect.void : Effect.fail(new DocumentVersionNotFoundError(versionId)),
     );
   }
 }

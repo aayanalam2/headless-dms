@@ -249,6 +249,7 @@ export function createDrizzleDocumentRepository(db: Db): IDocumentRepository {
               .select()
               .from(auditLogs)
               .where(where)
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
               .orderBy(desc(auditLogs.occurredAt))
               .limit(params.limit)
               .offset(offset),

@@ -1,28 +1,44 @@
 import { Elysia, t } from "elysia";
-import { Effect, Option, pipe } from "effect";
+import { Effect, pipe } from "effect";
 import { authPlugin } from "../middleware/auth.plugin.ts";
-import type { IDocumentRepository } from "../models/document.repository.ts";
+import type { IDocumentRepository } from "../domain/document/document.repository.ts";
 import type { IStorage } from "../infra/repositories/storage.port.ts";
-import type { DocumentUploadService } from "../services/document.upload.service.ts";
-import { parseSearchParams } from "../services/search.service.ts";
-import { BucketKey } from "../types/branded.ts";
-import { toDocumentDTO, toVersionDTO, toPaginatedDocumentsDTO } from "../dto/document.dto.ts";
-import { run } from "../lib/http.ts";
-import { eventBus } from "../lib/event-bus.ts";
-import { DocumentEvent } from "../events/document.events.ts";
+import { run, assertNever } from "../lib/http.ts";
 import { AppError } from "../types/errors.ts";
-import { Role } from "../types/enums.ts";
-import { requireRole } from "../services/auth.service.ts";
-import type { VersionRow } from "../models/db/schema.ts";
+import {
+  DocumentWorkflowErrorTag,
+  type DocumentWorkflowError,
+} from "../application/documents/document-workflow.errors.ts";
+import { uploadDocument } from "../application/documents/workflows/upload-document.workflow.ts";
+import { uploadVersion } from "../application/documents/workflows/upload-version.workflow.ts";
+import { getDocument } from "../application/documents/workflows/get-document.workflow.ts";
+import { listDocuments } from "../application/documents/workflows/list-documents.workflow.ts";
+import { downloadDocument } from "../application/documents/workflows/download-document.workflow.ts";
+import { downloadVersion } from "../application/documents/workflows/download-version.workflow.ts";
+import { listVersions } from "../application/documents/workflows/list-versions.workflow.ts";
+import { deleteDocument } from "../application/documents/workflows/delete-document.workflow.ts";
 
 // ---------------------------------------------------------------------------
-// validateBucketKey — thin bridge from branded-type parse into AppError.
+// Error bridge — maps DocumentWorkflowError to the controller-layer AppError.
 // ---------------------------------------------------------------------------
-function validateBucketKey(raw: string): Effect.Effect<BucketKey, AppError> {
-  const r = BucketKey.create(raw);
-  return r.isOk()
-    ? Effect.succeed(r.unwrap())
-    : Effect.fail(AppError.storage("Invalid stored bucket key"));
+
+function toAppError(e: DocumentWorkflowError): AppError {
+  switch (e._tag) {
+    case DocumentWorkflowErrorTag.InvalidInput:
+      return AppError.validation(e.message);
+    case DocumentWorkflowErrorTag.NotFound:
+      return AppError.notFound(e.resource);
+    case DocumentWorkflowErrorTag.AccessDenied:
+      return AppError.accessDenied(e.reason);
+    case DocumentWorkflowErrorTag.Conflict:
+      return AppError.conflict(e.message);
+    case DocumentWorkflowErrorTag.InvalidContentType:
+      return AppError.validation(`Unsupported content type: ${e.contentType}`);
+    case DocumentWorkflowErrorTag.Unavailable:
+      return AppError.database(e.operation);
+    default:
+      return assertNever(e);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -30,21 +46,8 @@ function validateBucketKey(raw: string): Effect.Effect<BucketKey, AppError> {
 // ---------------------------------------------------------------------------
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-export function createDocumentsController(
-  docRepo: IDocumentRepository,
-  storage: IStorage,
-  uploadService: DocumentUploadService,
-) {
-  const presignedDownload = (version: VersionRow) =>
-    pipe(
-      validateBucketKey(version.bucketKey),
-      Effect.flatMap((key) => storage.getPresignedDownloadUrl(key)),
-      Effect.map((url) => ({
-        url,
-        expiresAt: new Date(Date.now() + 300 * 1000).toISOString(),
-        version: toVersionDTO(version),
-      })),
-    );
+export function createDocumentsController(documentRepo: IDocumentRepository, storage: IStorage) {
+  const deps = { documentRepo, storage };
 
   return (
     new Elysia({ prefix: "/documents" })
@@ -56,13 +59,14 @@ export function createDocumentsController(
         ({ body, user, set }) =>
           run(
             set,
-            uploadService.uploadDocument({
-              file: body.file,
-              name: Option.fromNullable(body.name),
-              rawTags: Option.fromNullable(body.tags),
-              rawMetadata: Option.fromNullable(body.metadata),
-              userId: user.userId,
-            }),
+            pipe(
+              uploadDocument(
+                deps,
+                { actor: user, name: body.name, rawTags: body.tags, rawMetadata: body.metadata },
+                body.file,
+              ),
+              Effect.mapError(toAppError),
+            ),
           ),
         {
           type: "formdata",
@@ -83,26 +87,21 @@ export function createDocumentsController(
           run(
             set,
             pipe(
-              parseSearchParams({
-                ...query,
-                ownerId: user.role === Role.Admin ? query.ownerId : user.userId,
+              listDocuments(deps, {
+                actor: user,
+                name: query.name,
+                ownerId: query.ownerId,
+                page: query.page,
+                limit: query.limit,
               }),
-              Effect.flatMap((params) => docRepo.searchDocuments(params)),
-              Effect.map(({ items, total, page, limit }) =>
-                toPaginatedDocumentsDTO(items, total, page, limit),
-              ),
+              Effect.mapError(toAppError),
             ),
           ),
         {
           query: t.Object({
             name: t.Optional(t.String()),
-            contentType: t.Optional(t.String()),
-            tags: t.Optional(t.String()),
-            metadata: t.Optional(t.String()),
             page: t.Optional(t.String()),
             limit: t.Optional(t.String()),
-            sortBy: t.Optional(t.String()),
-            sortOrder: t.Optional(t.String()),
             ownerId: t.Optional(t.String()),
           }),
           detail: { summary: "Search/list documents", tags: ["Documents"] },
@@ -116,11 +115,8 @@ export function createDocumentsController(
           run(
             set,
             pipe(
-              docRepo.findDocumentById(
-                params.id,
-                user.role === Role.Admin ? undefined : user.userId,
-              ),
-              Effect.map((doc) => ({ document: toDocumentDTO(doc) })),
+              getDocument(deps, { documentId: params.id, actor: user }),
+              Effect.mapError(toAppError),
             ),
           ),
         {
@@ -136,18 +132,8 @@ export function createDocumentsController(
           run(
             set,
             pipe(
-              docRepo.findDocumentById(
-                params.id,
-                user.role === Role.Admin ? undefined : user.userId,
-              ),
-              Effect.flatMap((doc) =>
-                Option.match(Option.fromNullable(doc.currentVersionId), {
-                  onNone: () =>
-                    Effect.fail(AppError.notFound("Document has no uploaded version yet")),
-                  onSome: (id) => docRepo.findVersionById(id),
-                }),
-              ),
-              Effect.flatMap(presignedDownload),
+              downloadDocument(deps, { documentId: params.id, actor: user }),
+              Effect.mapError(toAppError),
             ),
           ),
         {
@@ -166,18 +152,12 @@ export function createDocumentsController(
           run(
             set,
             pipe(
-              docRepo.findDocumentById(
-                params.id,
-                user.role === Role.Admin ? undefined : user.userId,
+              uploadVersion(
+                deps,
+                { actor: user, documentId: params.id, name: body.name },
+                body.file,
               ),
-              Effect.flatMap((doc) =>
-                uploadService.uploadNewVersion({
-                  doc,
-                  file: body.file,
-                  name: Option.fromNullable(body.name),
-                  actor: user,
-                }),
-              ),
+              Effect.mapError(toAppError),
             ),
           ),
         {
@@ -198,12 +178,8 @@ export function createDocumentsController(
           run(
             set,
             pipe(
-              docRepo.findDocumentById(
-                params.id,
-                user.role === Role.Admin ? undefined : user.userId,
-              ),
-              Effect.flatMap((doc) => docRepo.listVersions(doc.id)),
-              Effect.map((versions) => ({ versions: versions.map(toVersionDTO) })),
+              listVersions(deps, { documentId: params.id, actor: user }),
+              Effect.mapError(toAppError),
             ),
           ),
         {
@@ -219,21 +195,12 @@ export function createDocumentsController(
           run(
             set,
             pipe(
-              docRepo.findDocumentById(
-                params.id,
-                user.role === Role.Admin ? undefined : user.userId,
-              ),
-              Effect.flatMap((doc) =>
-                pipe(
-                  docRepo.findVersionById(params.versionId),
-                  Effect.flatMap((version) =>
-                    version.documentId !== doc.id
-                      ? Effect.fail(AppError.notFound("version for this document"))
-                      : Effect.succeed(version),
-                  ),
-                ),
-              ),
-              Effect.flatMap(presignedDownload),
+              downloadVersion(deps, {
+                documentId: params.id,
+                versionId: params.versionId,
+                actor: user,
+              }),
+              Effect.mapError(toAppError),
             ),
           ),
         {
@@ -255,16 +222,8 @@ export function createDocumentsController(
           run(
             set,
             pipe(
-              requireRole(user, Role.Admin),
-              Effect.flatMap(() => docRepo.softDeleteDocument(params.id)),
-              Effect.tap(() =>
-                Effect.sync(() =>
-                  eventBus.emit(DocumentEvent.Deleted, {
-                    actorId: user.userId,
-                    resourceId: params.id,
-                  }),
-                ),
-              ),
+              deleteDocument(deps, { documentId: params.id, actor: user }),
+              Effect.mapError(toAppError),
               Effect.map(() => ({ message: "Document deleted successfully" })),
             ),
           ),

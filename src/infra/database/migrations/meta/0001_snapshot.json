@@ -97,12 +97,8 @@
           "name": "access_policies_document_id_documents_id_fk",
           "tableFrom": "access_policies",
           "tableTo": "documents",
-          "columnsFrom": [
-            "document_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["document_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -110,12 +106,8 @@
           "name": "access_policies_subject_id_users_id_fk",
           "tableFrom": "access_policies",
           "tableTo": "users",
-          "columnsFrom": [
-            "subject_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["subject_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -334,12 +326,8 @@
           "name": "document_versions_document_id_documents_id_fk",
           "tableFrom": "document_versions",
           "tableTo": "documents",
-          "columnsFrom": [
-            "document_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["document_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -347,12 +335,8 @@
           "name": "document_versions_uploaded_by_users_id_fk",
           "tableFrom": "document_versions",
           "tableTo": "users",
-          "columnsFrom": [
-            "uploaded_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["uploaded_by"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -362,9 +346,7 @@
         "document_versions_bucket_key_unique": {
           "name": "document_versions_bucket_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "bucket_key"
-          ]
+          "columns": ["bucket_key"]
         }
       },
       "policies": {},
@@ -480,12 +462,8 @@
           "name": "documents_owner_id_users_id_fk",
           "tableFrom": "documents",
           "tableTo": "users",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -567,44 +545,27 @@
     "public.audit_action": {
       "name": "audit_action",
       "schema": "public",
-      "values": [
-        "document.upload",
-        "document.version.create",
-        "document.delete"
-      ]
+      "values": ["document.upload", "document.version.create", "document.delete"]
     },
     "public.audit_resource_type": {
       "name": "audit_resource_type",
       "schema": "public",
-      "values": [
-        "document"
-      ]
+      "values": ["document"]
     },
     "public.permission_action": {
       "name": "permission_action",
       "schema": "public",
-      "values": [
-        "read",
-        "write",
-        "delete",
-        "share"
-      ]
+      "values": ["read", "write", "delete", "share"]
     },
     "public.policy_effect": {
       "name": "policy_effect",
       "schema": "public",
-      "values": [
-        "allow",
-        "deny"
-      ]
+      "values": ["allow", "deny"]
     },
     "public.role": {
       "name": "role",
       "schema": "public",
-      "values": [
-        "admin",
-        "user"
-      ]
+      "values": ["admin", "user"]
     }
   },
   "schemas": {},

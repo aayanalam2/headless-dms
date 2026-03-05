@@ -1,4 +1,13 @@
-import { bigint, check, index, integer, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { SharedColumns } from "@infra/database/utils/shared-columns.ts";
 import { documentsTable } from "./document.table.ts";

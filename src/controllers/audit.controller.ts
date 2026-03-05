@@ -1,32 +1,52 @@
 import { Elysia, t } from "elysia";
-import { Effect, Option, pipe } from "effect";
+import { Effect, pipe } from "effect";
 import { adminPlugin } from "../middleware/auth.plugin.ts";
-import type { IDocumentRepository } from "../models/document.repository.ts";
-import { run } from "../lib/http.ts";
+import type { IAuditRepository } from "../application/audit/audit.repository.port.ts";
+import { listAuditLogs } from "../application/audit/workflows/list-audit-logs.workflow.ts";
+import {
+  AuditWorkflowErrorTag,
+  type AuditWorkflowError,
+} from "../application/audit/audit-workflow.errors.ts";
+import { AppError } from "../types/errors.ts";
+import type { AuditResourceType } from "../domain/utils/enums.ts";
+import { run, assertNever } from "../lib/http.ts";
+
+// ---------------------------------------------------------------------------
+// Error bridge
+// ---------------------------------------------------------------------------
+
+function toAppError(e: AuditWorkflowError): AppError {
+  switch (e._tag) {
+    case AuditWorkflowErrorTag.InvalidInput:
+      return AppError.validation(e.message);
+    case AuditWorkflowErrorTag.Unavailable:
+      return AppError.database(e.operation);
+    default:
+      return assertNever(e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// createAuditController
+// ---------------------------------------------------------------------------
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-export function createAuditController(repo: IDocumentRepository) {
+export function createAuditController(auditRepo: IAuditRepository) {
   return new Elysia({ prefix: "/audit" }).use(adminPlugin).get(
     "/",
-    ({ query, set }) => {
-      const page = query.page ?? 1;
-      const limit = query.limit ?? 20;
-      return run(
+    ({ query, set }) =>
+      run(
         set,
         pipe(
-          repo.listAuditLogs({
-            page,
-            limit,
-            resourceType: Option.fromNullable(query.resourceType),
-            resourceId: Option.fromNullable(query.resourceId),
+          listAuditLogs({ auditRepo }, {
+            ...query,
+            // The Elysia schema validates `resourceType` as a raw string; the
+            // workflow's decodeCommand will validate it against AuditResourceType enum.
+            resourceType: query.resourceType as AuditResourceType | undefined,
           }),
-          Effect.map(({ items, total }) => ({
-            items,
-            pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
-          })),
+          Effect.mapError(toAppError),
         ),
-      );
-    },
+      ),
     {
       query: t.Object({
         page: t.Optional(t.Numeric({ minimum: 1 })),

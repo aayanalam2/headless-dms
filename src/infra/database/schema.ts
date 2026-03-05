@@ -7,17 +7,9 @@ export {
 } from "./models/enums.ts";
 
 // Tables
-export {
-  usersTable,
-  type UserRow,
-  type NewUserRow,
-} from "./models/user.table.ts";
+export { usersTable, type UserRow, type NewUserRow } from "./models/user.table.ts";
 
-export {
-  documentsTable,
-  type DocumentRow,
-  type NewDocumentRow,
-} from "./models/document.table.ts";
+export { documentsTable, type DocumentRow, type NewDocumentRow } from "./models/document.table.ts";
 
 export {
   documentVersionsTable,
@@ -31,8 +23,4 @@ export {
   type NewAccessPolicyRow,
 } from "./models/access-policy.table.ts";
 
-export {
-  auditLogsTable,
-  type AuditLogRow,
-  type NewAuditLogRow,
-} from "./models/audit-log.table.ts";
+export { auditLogsTable, type AuditLogRow, type NewAuditLogRow } from "./models/audit-log.table.ts";

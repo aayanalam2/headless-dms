@@ -18,10 +18,7 @@ export interface IDocumentRepository {
 
   findActiveById(id: DocumentId): RepositoryEffect<Option.Option<Document>>;
 
-  findByOwner(
-    ownerId: UserId,
-    pagination: PaginationParams,
-  ): RepositoryEffect<Paginated<Document>>;
+  findByOwner(ownerId: UserId, pagination: PaginationParams): RepositoryEffect<Paginated<Document>>;
 
   search(query: string, pagination: PaginationParams): RepositoryEffect<Paginated<Document>>;
 
@@ -37,9 +34,7 @@ export interface IDocumentRepository {
   /**
    * Find a single version by its primary key.
    */
-  findVersionById(
-    versionId: VersionId,
-  ): RepositoryEffect<Option.Option<DocumentVersion>>;
+  findVersionById(versionId: VersionId): RepositoryEffect<Option.Option<DocumentVersion>>;
 
   // -------------------------------------------------------------------------
   // Writes
@@ -64,7 +59,5 @@ export interface IDocumentRepository {
    * Physically remove a document version row (used when an upload is aborted
    * or the version was never committed).
    */
-  deleteVersion(
-    versionId: VersionId,
-  ): RepositoryEffect<void, DocumentVersionNotFoundError>;
+  deleteVersion(versionId: VersionId): RepositoryEffect<void, DocumentVersionNotFoundError>;
 }

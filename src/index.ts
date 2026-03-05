@@ -5,10 +5,13 @@ import { StatusCode } from "status-code-enum";
 import { config } from "./config/env.ts";
 import { logger } from "./lib/logger.ts";
 import { db } from "./models/db/connection.ts";
+// Models-layer adapter — kept for the audit event listener (insertAuditLog).
 import { createDrizzleDocumentRepository } from "./models/adapters/drizzle.document.repository.ts";
-import { createDrizzleUserRepository } from "./models/adapters/drizzle.user.repository.ts";
+// Infra-layer repos — implement the domain port interfaces.
+import { DrizzleDocumentRepository } from "./infra/repositories/drizzle-document.repository.ts";
+import { DrizzleUserRepository } from "./infra/repositories/drizzle-user.repository.ts";
+import { DrizzleAuditRepository } from "./infra/repositories/drizzle-audit.repository.ts";
 import { createS3Storage } from "./infra/repositories/s3.storage.ts";
-import { createDocumentUploadService } from "./services/document.upload.service.ts";
 import { createAuditListeners } from "./services/audit.listener.ts";
 import { createAuthController } from "./controllers/auth.controller.ts";
 import { createDocumentsController } from "./controllers/documents.controller.ts";
@@ -19,17 +22,19 @@ import { createAuditController } from "./controllers/audit.controller.ts";
 // cross-cutting concerns (CORS, Swagger, error handling, request logging).
 // ---------------------------------------------------------------------------
 
-const docRepo = createDrizzleDocumentRepository(db);
-const userRepo = createDrizzleUserRepository(db);
+// Models-layer doc repo — used only by the audit event listener.
+const legacyDocRepo = createDrizzleDocumentRepository(db);
+
+// Infra repos that implement domain port interfaces.
+const documentRepo = new DrizzleDocumentRepository(db);
+const userRepo = new DrizzleUserRepository(db);
+const auditRepo = new DrizzleAuditRepository(db);
 const storageService = createS3Storage(config.s3, config.s3.bucket, config.presignTtlSeconds);
 
-// Build services
-const uploadService = createDocumentUploadService(docRepo, storageService);
-
-// Build controllers
+// Build controllers (thin — all logic lives in application-layer workflows).
 const authController = createAuthController(userRepo);
-const documentsController = createDocumentsController(docRepo, storageService, uploadService);
-const auditController = createAuditController(docRepo);
+const documentsController = createDocumentsController(documentRepo, storageService);
+const auditController = createAuditController(auditRepo);
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createApp() {
@@ -122,7 +127,7 @@ export function createApp() {
 // before any other module initialises.
 // ---------------------------------------------------------------------------
 
-createAuditListeners(docRepo).register();
+createAuditListeners(legacyDocRepo).register();
 const app = createApp();
 
 app.listen(config.port, () => {

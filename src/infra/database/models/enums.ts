@@ -22,6 +22,4 @@ export const auditActionEnum = pgEnum("audit_action", [
   AuditAction.DocumentDelete,
 ]);
 
-export const auditResourceTypeEnum = pgEnum("audit_resource_type", [
-  AuditResourceType.Document,
-]);
+export const auditResourceTypeEnum = pgEnum("audit_resource_type", [AuditResourceType.Document]);

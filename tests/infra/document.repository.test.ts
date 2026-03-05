@@ -11,22 +11,10 @@
  *   • E2E round-trip: create → add versions → update → list
  */
 
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  setDefaultTimeout,
-} from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, setDefaultTimeout } from "bun:test";
 import { Effect, Either, Option } from "effect";
 
-import {
-  makeDocument,
-  makeDocumentVersion,
-  makeUser,
-} from "../domain/factories.ts";
+import { makeDocument, makeDocumentVersion, makeUser } from "../domain/factories.ts";
 import type { TestDb } from "./helpers/db.ts";
 import { startTestDb, stopTestDb, truncateAll } from "./helpers/db.ts";
 import { DrizzleUserRepository } from "@infra/repositories/drizzle-user.repository.ts";
@@ -128,9 +116,7 @@ describe("findActiveById", () => {
 
 describe("findByOwner", () => {
   it("returns empty page when owner has no documents", async () => {
-    const result = await Effect.runPromise(
-      repo.findByOwner(owner.id, { page: 1, limit: 10 }),
-    );
+    const result = await Effect.runPromise(repo.findByOwner(owner.id, { page: 1, limit: 10 }));
     expect(result.items).toHaveLength(0);
     expect(result.pageInfo.total).toBe(0);
     expect(result.pageInfo.totalPages).toBe(0);
@@ -147,26 +133,18 @@ describe("findByOwner", () => {
     if (deleted instanceof Error) throw deleted;
     await Effect.runPromise(repo.update(deleted));
 
-    const result = await Effect.runPromise(
-      repo.findByOwner(owner.id, { page: 1, limit: 10 }),
-    );
+    const result = await Effect.runPromise(repo.findByOwner(owner.id, { page: 1, limit: 10 }));
     expect(result.items).toHaveLength(1);
     expect(result.items[0]!.id).toBe(active.id);
   });
 
   it("paginates correctly: page 1 and page 2", async () => {
     // Create 5 documents for this owner
-    const docs = Array.from({ length: 5 }, () =>
-      makeDocument({ ownerId: owner.id }),
-    );
+    const docs = Array.from({ length: 5 }, () => makeDocument({ ownerId: owner.id }));
     await Promise.all(docs.map((d) => Effect.runPromise(repo.save(d))));
 
-    const page1 = await Effect.runPromise(
-      repo.findByOwner(owner.id, { page: 1, limit: 3 }),
-    );
-    const page2 = await Effect.runPromise(
-      repo.findByOwner(owner.id, { page: 2, limit: 3 }),
-    );
+    const page1 = await Effect.runPromise(repo.findByOwner(owner.id, { page: 1, limit: 3 }));
+    const page2 = await Effect.runPromise(repo.findByOwner(owner.id, { page: 2, limit: 3 }));
 
     expect(page1.items).toHaveLength(3);
     expect(page2.items).toHaveLength(2);
@@ -191,9 +169,7 @@ describe("findByOwner", () => {
       Effect.runPromise(repo.save(theirDoc)),
     ]);
 
-    const result = await Effect.runPromise(
-      repo.findByOwner(owner.id, { page: 1, limit: 10 }),
-    );
+    const result = await Effect.runPromise(repo.findByOwner(owner.id, { page: 1, limit: 10 }));
     expect(result.items).toHaveLength(1);
     expect(result.items[0]!.id).toBe(myDoc.id);
   });
@@ -212,9 +188,7 @@ describe("search", () => {
       Effect.runPromise(repo.save(invoice)),
     ]);
 
-    const result = await Effect.runPromise(
-      repo.search("annual", { page: 1, limit: 10 }),
-    );
+    const result = await Effect.runPromise(repo.search("annual", { page: 1, limit: 10 }));
     expect(result.items).toHaveLength(1);
     expect(result.items[0]!.id).toBe(report.id);
   });
@@ -226,16 +200,12 @@ describe("search", () => {
     if (deleted instanceof Error) throw deleted;
     await Effect.runPromise(repo.update(deleted));
 
-    const result = await Effect.runPromise(
-      repo.search("Deleted", { page: 1, limit: 10 }),
-    );
+    const result = await Effect.runPromise(repo.search("Deleted", { page: 1, limit: 10 }));
     expect(result.items).toHaveLength(0);
   });
 
   it("returns empty result when no documents match", async () => {
-    const result = await Effect.runPromise(
-      repo.search("nonexistent-xyz", { page: 1, limit: 10 }),
-    );
+    const result = await Effect.runPromise(repo.search("nonexistent-xyz", { page: 1, limit: 10 }));
     expect(result.items).toHaveLength(0);
     expect(result.pageInfo.total).toBe(0);
   });
@@ -442,9 +412,7 @@ describe("E2E round-trip", () => {
     if (docDeleted instanceof Error) throw docDeleted;
     await Effect.runPromise(repo.update(docDeleted));
 
-    const afterDeleteResult = await Effect.runPromise(
-      repo.findActiveById(doc.id),
-    );
+    const afterDeleteResult = await Effect.runPromise(repo.findActiveById(doc.id));
     expect(Option.isNone(afterDeleteResult)).toBe(true);
 
     // findById still returns it (with deletedAt set)

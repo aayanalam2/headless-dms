@@ -5,17 +5,14 @@ import type { IUserRepository } from "@domain/user/user.repository.ts";
 import type { Email, UserId } from "@domain/utils/refined.types.ts";
 import { User } from "@domain/user/user.entity.ts";
 import type { UserRow } from "@infra/database/schema.ts";
-import {
-  UserAlreadyExistsError,
-  UserNotFoundError,
-} from "@domain/user/user.errors.ts";
+import { UserAlreadyExistsError, UserNotFoundError } from "@domain/user/user.errors.ts";
 import { RepositoryError } from "@domain/utils/repository.types.ts";
 import {
   Email as EmailBrand,
   HashedPassword,
   UserId as UserIdBrand,
 } from "@domain/utils/refined.types.ts";
-import type { Role } from "@domain/utils/enums.ts";
+
 import { usersTable } from "@infra/database/models/user.table.ts";
 import {
   executeQuery,
@@ -30,13 +27,13 @@ export class DrizzleUserRepository implements IUserRepository {
   // Row ↔ entity
   // -------------------------------------------------------------------------
 
-  private static fromRow(row: UserRow): User {
+  private static readonly fromRow = (row: UserRow): User => {
     return User.reconstitute(UserIdBrand.create(row.id).unwrap(), row.createdAt, {
       email: EmailBrand.create(row.email).unwrap(),
       passwordHash: HashedPassword.create(row.passwordHash).unwrap(),
       role: row.role,
     });
-  }
+  };
 
   // -------------------------------------------------------------------------
   // Queries
@@ -93,10 +90,7 @@ export class DrizzleUserRepository implements IUserRepository {
           .where(eq(usersTable.id, user.id))
           .returning({ id: usersTable.id }),
       ),
-      (rows) =>
-        rows.length > 0
-          ? Effect.void
-          : Effect.fail(new UserNotFoundError(user.id)),
+      (rows) => (rows.length > 0 ? Effect.void : Effect.fail(new UserNotFoundError(user.id))),
     );
   }
 }

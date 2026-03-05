@@ -1,10 +1,16 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { config } from "../../config/env.ts";
-import * as schema from "./schema.ts";
+import { createDb } from "../../infra/database/utils/connection.ts";
+import type { AppDb } from "../../infra/database/utils/connection.ts";
 
-const queryClient = postgres(config.databaseUrl);
+// ---------------------------------------------------------------------------
+// Singleton DB connection — shared across all repositories.
+//
+// We use the centralised createDb factory (infra layer) so that AppDb is the
+// canonical type everywhere.  The old `Db` alias is kept for backward compat.
+// ---------------------------------------------------------------------------
 
-export const db = drizzle(queryClient, { schema, logger: config.nodeEnv === "development" });
+export const { db, sql } = createDb(config.databaseUrl);
 
-export type Db = typeof db;
+/** @deprecated Use AppDb from @infra/database/utils/connection.ts instead. */
+export type Db = AppDb;
+export type { AppDb };
