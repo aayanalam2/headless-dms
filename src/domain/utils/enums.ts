@@ -17,3 +17,15 @@ export enum Role {
   Admin = "admin",
   User = "user",
 }
+
+/** Every distinct operation recorded in the audit log. */
+export enum AuditAction {
+  DocumentUpload = "document.upload",
+  DocumentVersionCreate = "document.version.create",
+  DocumentDelete = "document.delete",
+}
+
+/** The kinds of entities that audit events reference. */
+export enum AuditResourceType {
+  Document = "document",
+}
