@@ -152,59 +152,6 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
     );
   }
 
-  save(document: Document): RepositoryEffect<void> {
-    return executeQuery(() =>
-      this.db.insert(documentsTable).values({
-        id: document.id,
-        ownerId: document.ownerId,
-        name: document.name,
-        contentType: document.contentType,
-        currentVersionId: O.getOrNull(document.currentVersionId),
-        tags: [...document.tags],
-        metadata: document.metadata,
-        createdAt: document.createdAt,
-        updatedAt: document.updatedAt,
-        deletedAt: O.getOrNull(document.deletedAt),
-      }),
-    );
-  }
-
-  update(document: Document): RepositoryEffect<void, DocumentNotFoundError> {
-    return E.flatMap(
-      executeQuery(() =>
-        this.db
-          .update(documentsTable)
-          .set({
-            name: document.name,
-            currentVersionId: O.getOrNull(document.currentVersionId),
-            tags: [...document.tags],
-            metadata: document.metadata,
-            deletedAt: O.getOrNull(document.deletedAt),
-            updatedAt: document.updatedAt,
-          })
-          .where(eq(documentsTable.id, document.id))
-          .returning({ id: documentsTable.id }),
-      ),
-      (rows) => (rows.length > 0 ? E.void : E.fail(new DocumentNotFoundError(document.id))),
-    );
-  }
-
-  saveVersion(version: DocumentVersion): RepositoryEffect<void> {
-    return executeQuery(() =>
-      this.db.insert(documentVersionsTable).values({
-        id: version.id,
-        documentId: version.documentId,
-        versionNumber: version.versionNumber,
-        bucketKey: version.bucketKey,
-        sizeBytes: version.sizeBytes,
-        checksum: version.checksum,
-        uploadedBy: version.uploadedBy,
-        createdAt: version.createdAt,
-        updatedAt: version.createdAt,
-      }),
-    );
-  }
-
   softDelete(document: Document): RepositoryEffect<void, DocumentNotFoundError> {
     return E.flatMap(
       executeQuery(() =>
@@ -232,9 +179,6 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
       (rows) => (rows.length > 0 ? E.void : E.fail(new DocumentVersionNotFoundError(versionId))),
     );
   }
-
-  // ── save / saveVersion / update remain as public methods for infra test fixtures.
-  // They are intentionally absent from IDocumentRepository.
 
   insertVersionAndUpdate(version: DocumentVersion, updatedDoc: Document): RepositoryEffect<void> {
     return executeTransaction(this.db, async (tx) => {

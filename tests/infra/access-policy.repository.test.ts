@@ -11,7 +11,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, setDefaultTimeout } from "bun:test";
 import { Effect as E, Either, Option as O } from "effect";
 
-import { makeDocument, makeRolePolicy, makeSubjectPolicy, makeUser } from "../domain/factories.ts";
+import { makeDocument, makeDocumentVersion, makeRolePolicy, makeSubjectPolicy, makeUser } from "../domain/factories.ts";
 import type { TestDb } from "./helpers/db.ts";
 import { startTestDb, stopTestDb, truncateAll } from "./helpers/db.ts";
 import { DrizzleUserRepository } from "@infra/repositories/drizzle-user.repository.ts";
@@ -52,9 +52,24 @@ beforeEach(async () => {
   // Seed a shared owner + document for every test (FK requirements)
   owner = makeUser();
   await E.runPromise(userRepo.save(owner));
-  doc = makeDocument({ ownerId: owner.id });
-  await E.runPromise(docRepo.save(doc));
+  doc = await seedDoc(makeDocument({ ownerId: owner.id }));
 });
+
+// ---------------------------------------------------------------------------
+// Test helper — inserts a document with an initial version atomically.
+// Returns the persisted document (with currentVersionId set).
+// ---------------------------------------------------------------------------
+
+async function seedDoc(d: Document): Promise<Document> {
+  const version = makeDocumentVersion({
+    documentId: d.id as string,
+    versionNumber: 1,
+    uploadedBy: owner.id as string,
+  });
+  const docWithVersion = E.runSync(d.setCurrentVersion(version.id));
+  await E.runPromise(docRepo.insertDocumentWithVersion(d, version, docWithVersion));
+  return docWithVersion;
+}
 
 // ---------------------------------------------------------------------------
 // findByDocument
@@ -84,8 +99,7 @@ describe("findByDocument", () => {
   });
 
   it("does not return policies for a different document", async () => {
-    const otherDoc = makeDocument({ ownerId: owner.id });
-    await E.runPromise(docRepo.save(otherDoc));
+    const otherDoc = await seedDoc(makeDocument({ ownerId: owner.id }));
 
     const p = makeSubjectPolicy({ documentId: otherDoc.id, subjectId: owner.id });
     await E.runPromise(repo.save(p));
@@ -260,8 +274,7 @@ describe("deleteByDocument", () => {
   });
 
   it("does not affect policies for a different document", async () => {
-    const otherDoc = makeDocument({ ownerId: owner.id });
-    await E.runPromise(docRepo.save(otherDoc));
+    const otherDoc = await seedDoc(makeDocument({ ownerId: owner.id }));
 
     const p1 = makeSubjectPolicy({ documentId: doc.id, subjectId: owner.id });
     const p2 = makeSubjectPolicy({ documentId: otherDoc.id, subjectId: owner.id });
