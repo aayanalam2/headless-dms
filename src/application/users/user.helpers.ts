@@ -1,19 +1,22 @@
-import { Effect, Option, pipe } from "effect";
+import { Effect, pipe } from "effect";
 import { User, type SerializedUser } from "@domain/user/user.entity.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
 import { Email, type UserId } from "@domain/utils/refined.types.ts";
 import { Role } from "@domain/utils/enums.ts";
 import { UserErrorTags } from "@domain/user/user.errors.ts";
 import { UserWorkflowError, type UserWorkflowError as WorkflowError } from "./user-workflow.errors.ts";
+import {
+  makeUnavailable,
+  requireFound,
+  requireAbsent,
+  assertGuard,
+} from "@application/shared/workflow.helpers.ts";
 
 // ---------------------------------------------------------------------------
 // unavailable — uniform infra-error factory used by all repo wrappers.
 // ---------------------------------------------------------------------------
 
-export const unavailable =
-  (op: string) =>
-  (e: unknown): WorkflowError =>
-    UserWorkflowError.unavailable(op, e);
+export const unavailable = makeUnavailable(UserWorkflowError.unavailable);
 
 // ---------------------------------------------------------------------------
 // parseEmail
@@ -39,16 +42,10 @@ export function requireNoEmailConflict(
   email: Email,
   rawEmail: string,
 ): Effect.Effect<void, WorkflowError> {
-  return pipe(
+  return requireAbsent(
     repo.findByEmail(email),
-    Effect.mapError(unavailable("repo.findByEmail")),
-    Effect.flatMap((opt) =>
-      Option.isSome(opt)
-        ? Effect.fail(
-            UserWorkflowError.duplicate(`An account with email '${rawEmail}' already exists`),
-          )
-        : Effect.void,
-    ),
+    unavailable("repo.findByEmail"),
+    () => UserWorkflowError.duplicate(`An account with email '${rawEmail}' already exists`),
   );
 }
 
@@ -62,14 +59,10 @@ export function requireUserByEmail(
   repo: IUserRepository,
   email: Email,
 ): Effect.Effect<User, WorkflowError> {
-  return pipe(
+  return requireFound(
     repo.findByEmail(email),
-    Effect.mapError(unavailable("repo.findByEmail")),
-    Effect.flatMap((opt) =>
-      Option.isNone(opt)
-        ? Effect.fail(UserWorkflowError.unauthorized())
-        : Effect.succeed(opt.value),
-    ),
+    unavailable("repo.findByEmail"),
+    () => UserWorkflowError.unauthorized(),
   );
 }
 
@@ -83,14 +76,10 @@ export function requireUser(
   userId: UserId,
   label: string,
 ): Effect.Effect<User, WorkflowError> {
-  return pipe(
+  return requireFound(
     repo.findById(userId),
-    Effect.mapError(unavailable("repo.findById")),
-    Effect.flatMap((opt) =>
-      Option.isNone(opt)
-        ? Effect.fail(UserWorkflowError.notFound(label))
-        : Effect.succeed(opt.value),
-    ),
+    unavailable("repo.findById"),
+    () => UserWorkflowError.notFound(label),
   );
 }
 
@@ -100,9 +89,10 @@ export function requireUser(
 // ---------------------------------------------------------------------------
 
 export function assertAdmin(actor: { readonly role: Role }): Effect.Effect<void, WorkflowError> {
-  return actor.role !== Role.Admin
-    ? Effect.fail(UserWorkflowError.forbidden("Only admins can change user roles"))
-    : Effect.void;
+  return assertGuard(
+    actor.role === Role.Admin,
+    () => UserWorkflowError.forbidden("Only admins can change user roles"),
+  );
 }
 
 // ---------------------------------------------------------------------------

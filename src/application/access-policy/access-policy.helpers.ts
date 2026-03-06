@@ -1,4 +1,4 @@
-import { Effect, Option, pipe } from "effect";
+import { Effect, pipe } from "effect";
 import { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
 import type { AccessPolicy as AccessPolicyType } from "@domain/access-policy/access-policy.entity.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
@@ -18,15 +18,17 @@ import {
   AccessPolicyWorkflowError,
   type AccessPolicyWorkflowError as WorkflowError,
 } from "./access-policy-workflow.errors.ts";
+import {
+  makeUnavailable,
+  requireFound,
+  assertOrFail,
+} from "@application/shared/workflow.helpers.ts";
 
 // ---------------------------------------------------------------------------
 // unavailable — uniform infra-error factory used by all repo wrappers.
 // ---------------------------------------------------------------------------
 
-export const unavailable =
-  (op: string) =>
-  (e: unknown): WorkflowError =>
-    AccessPolicyWorkflowError.unavailable(op, e);
+export const unavailable = makeUnavailable(AccessPolicyWorkflowError.unavailable);
 
 // ---------------------------------------------------------------------------
 // MANAGE_DENIED — pre-built error value for the policy-manager guard.
@@ -45,14 +47,10 @@ export function requireDocForPolicy(
   repo: IDocumentRepository,
   documentId: DocumentId,
 ): Effect.Effect<Document, WorkflowError> {
-  return pipe(
+  return requireFound(
     repo.findById(documentId),
-    Effect.mapError(unavailable("documentRepo.findById")),
-    Effect.flatMap((opt) =>
-      Option.isNone(opt)
-        ? Effect.fail(AccessPolicyWorkflowError.notFound(`Document '${documentId}'`))
-        : Effect.succeed(opt.value),
-    ),
+    unavailable("documentRepo.findById"),
+    () => AccessPolicyWorkflowError.notFound(`Document '${documentId}'`),
   );
 }
 
@@ -65,14 +63,10 @@ export function requirePolicy(
   repo: IAccessPolicyRepository,
   policyId: AccessPolicyId,
 ): Effect.Effect<AccessPolicyType, WorkflowError> {
-  return pipe(
+  return requireFound(
     repo.findById(policyId),
-    Effect.mapError(unavailable("policyRepo.findById")),
-    Effect.flatMap((opt) =>
-      Option.isNone(opt)
-        ? Effect.fail(AccessPolicyWorkflowError.notFound(`Access policy '${policyId}'`))
-        : Effect.succeed(opt.value),
-    ),
+    unavailable("policyRepo.findById"),
+    () => AccessPolicyWorkflowError.notFound(`Access policy '${policyId}'`),
   );
 }
 
@@ -86,9 +80,11 @@ export function assertPolicyManager(
   document: Document,
   actor: { readonly userId: UserId; readonly role: Role },
 ): Effect.Effect<Document, WorkflowError> {
-  return actor.role !== Role.Admin && !isOwner(document, actor.userId)
-    ? Effect.fail(MANAGE_DENIED)
-    : Effect.succeed(document);
+  return assertOrFail(
+    actor.role === Role.Admin || isOwner(document, actor.userId),
+    document,
+    () => MANAGE_DENIED,
+  );
 }
 
 // ---------------------------------------------------------------------------

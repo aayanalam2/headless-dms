@@ -26,6 +26,14 @@ import {
   DocumentWorkflowError,
   type DocumentWorkflowError as WorkflowError,
 } from "./document-workflow.errors.ts";
+import {
+  makeUnavailable,
+  requireFound,
+  assertOrFail,
+  assertGuard,
+} from "@application/shared/workflow.helpers.ts";
+
+const unavailable = makeUnavailable(DocumentWorkflowError.unavailable);
 
 // ---------------------------------------------------------------------------
 // buildBucketKey
@@ -97,13 +105,11 @@ export function assertDocumentAccess(
   actor: { readonly userId: UserId; readonly role: Role },
   action: string,
 ): Effect.Effect<Document, WorkflowError> {
-  return actor.role !== Role.Admin && !isOwner(document, actor.userId)
-    ? Effect.fail(
-        DocumentWorkflowError.accessDenied(
-          `User '${actor.userId}' cannot ${action} document '${document.id}'`,
-        ),
-      )
-    : Effect.succeed(document);
+  return assertOrFail(
+    actor.role === Role.Admin || isOwner(document, actor.userId),
+    document,
+    () => DocumentWorkflowError.accessDenied(`User '${actor.userId}' cannot ${action} document '${document.id}'`),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -119,13 +125,10 @@ export function assertAdminOnly(
   actor: { readonly userId: UserId; readonly role: Role },
   action: string,
 ): Effect.Effect<void, WorkflowError> {
-  return actor.role !== Role.Admin
-    ? Effect.fail(
-        DocumentWorkflowError.accessDenied(
-          `User '${actor.userId}' does not have '${action}' permission`,
-        ),
-      )
-    : Effect.void;
+  return assertGuard(
+    actor.role === Role.Admin,
+    () => DocumentWorkflowError.accessDenied(`User '${actor.userId}' does not have '${action}' permission`),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -139,14 +142,10 @@ export function requireDocument(
   repo: IDocumentRepository,
   documentId: DocumentId,
 ): Effect.Effect<Document, WorkflowError> {
-  return pipe(
+  return requireFound(
     repo.findById(documentId),
-    Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.findById", e)),
-    Effect.flatMap((opt) =>
-      Option.isNone(opt)
-        ? Effect.fail(DocumentWorkflowError.notFound(`Document '${documentId}'`))
-        : Effect.succeed(opt.value),
-    ),
+    unavailable("repo.findById"),
+    () => DocumentWorkflowError.notFound(`Document '${documentId}'`),
   );
 }
 
@@ -154,14 +153,10 @@ export function requireActiveDocument(
   repo: IDocumentRepository,
   documentId: DocumentId,
 ): Effect.Effect<Document, WorkflowError> {
-  return pipe(
+  return requireFound(
     repo.findActiveById(documentId),
-    Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.findActiveById", e)),
-    Effect.flatMap((opt) =>
-      Option.isNone(opt)
-        ? Effect.fail(DocumentWorkflowError.notFound(`Document '${documentId}'`))
-        : Effect.succeed(opt.value),
-    ),
+    unavailable("repo.findActiveById"),
+    () => DocumentWorkflowError.notFound(`Document '${documentId}'`),
   );
 }
 
@@ -174,14 +169,10 @@ export function requireVersion(
   repo: IDocumentRepository,
   versionId: VersionId,
 ): Effect.Effect<DocumentVersion, WorkflowError> {
-  return pipe(
+  return requireFound(
     repo.findVersionById(versionId),
-    Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.findVersionById", e)),
-    Effect.flatMap((opt) =>
-      Option.isNone(opt)
-        ? Effect.fail(DocumentWorkflowError.notFound(`Version '${versionId}'`))
-        : Effect.succeed(opt.value),
-    ),
+    unavailable("repo.findVersionById"),
+    () => DocumentWorkflowError.notFound(`Version '${versionId}'`),
   );
 }
 
