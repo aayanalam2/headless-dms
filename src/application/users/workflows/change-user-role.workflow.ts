@@ -64,9 +64,7 @@ export function changeUserRole(
           Effect.mapError((e) => UserWorkflowError.unavailable("repo.findById", e)),
         );
         if (Option.isNone(userOpt)) {
-          return yield* Effect.fail(
-            UserWorkflowError.notFound(`User '${cmd.targetUserId}'`),
-          );
+          return yield* Effect.fail(UserWorkflowError.notFound(`User '${cmd.targetUserId}'`));
         }
         const user = userOpt.value;
 
@@ -81,7 +79,7 @@ export function changeUserRole(
               typeof e === "object" &&
               e !== null &&
               "_tag" in e &&
-              (e as { _tag: string })._tag === UserErrorTags.UserNotFound
+              (e as { _tag: UserErrorTags })._tag === UserErrorTags.UserNotFound
             ) {
               return UserWorkflowError.notFound(`User '${cmd.targetUserId}'`);
             }

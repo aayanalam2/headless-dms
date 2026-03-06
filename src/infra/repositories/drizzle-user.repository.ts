@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { eq } from "drizzle-orm";
 import type { AppDb } from "@infra/database/utils/connection.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
@@ -6,7 +6,7 @@ import type { Email, UserId } from "@domain/utils/refined.types.ts";
 import { User } from "@domain/user/user.entity.ts";
 import type { UserRow } from "@infra/database/schema.ts";
 import { UserAlreadyExistsError, UserNotFoundError } from "@domain/user/user.errors.ts";
-import { RepositoryError } from "@domain/utils/repository.types.ts";
+import { RepositoryError, type RepositoryEffect } from "@domain/utils/repository.types.ts";
 import {
   Email as EmailBrand,
   HashedPassword,
@@ -42,14 +42,14 @@ export class DrizzleUserRepository implements IUserRepository {
   // Queries
   // -------------------------------------------------------------------------
 
-  findById(id: UserId) {
+  findById(id: UserId): RepositoryEffect<Option.Option<User>> {
     return fetchSingle(
       () => this.db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1),
       DrizzleUserRepository.fromRow,
     );
   }
 
-  findByEmail(email: Email) {
+  findByEmail(email: Email): RepositoryEffect<Option.Option<User>> {
     return fetchSingle(
       () => this.db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1),
       DrizzleUserRepository.fromRow,
@@ -60,7 +60,7 @@ export class DrizzleUserRepository implements IUserRepository {
   // Writes
   // -------------------------------------------------------------------------
 
-  save(user: User) {
+  save(user: User): RepositoryEffect<void, UserAlreadyExistsError> {
     return Effect.tryPromise<void, UserAlreadyExistsError | RepositoryError>({
       try: async () => {
         await this.db.insert(usersTable).values({
@@ -79,7 +79,7 @@ export class DrizzleUserRepository implements IUserRepository {
     });
   }
 
-  update(user: User) {
+  update(user: User): RepositoryEffect<void, UserNotFoundError> {
     return Effect.flatMap(
       executeQuery(() =>
         this.db

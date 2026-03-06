@@ -14,7 +14,6 @@ import {
 } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { PolicyTargetRequiredError } from "@domain/access-policy/access-policy.errors.ts";
 
-
 export const AccessPolicySchema = Schema.Struct({
   id: StringToAccessPolicyId,
   documentId: StringToDocumentId,
@@ -104,4 +103,3 @@ export class AccessPolicy extends BaseEntity<AccessPolicyId> implements IAccessP
 
   // equals() is inherited from BaseEntity — identity by id.
 }
-

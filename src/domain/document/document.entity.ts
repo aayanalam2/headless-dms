@@ -1,8 +1,5 @@
 import { Effect, Option, ParseResult, Schema } from "effect";
-import {
-  BaseEntity,
-  type IEntity,
-} from "@domain/utils/base.entity.ts";
+import { BaseEntity, type IEntity } from "@domain/utils/base.entity.ts";
 import type { DocumentId, UserId, VersionId } from "@domain/utils/refined.types.ts";
 import {
   StringToDocumentId,
@@ -96,9 +93,7 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
     });
   }
 
-  static create(
-    input: SerializedDocument,
-  ): Effect.Effect<Document, InvalidContentTypeError> {
+  static create(input: SerializedDocument): Effect.Effect<Document, InvalidContentTypeError> {
     return Schema.decodeUnknown(DocumentSchema)(input).pipe(
       Effect.map((data) => new Document(data)),
       Effect.mapError(() => new InvalidContentTypeError(input.contentType)),
@@ -148,8 +143,6 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
     now = new Date(),
   ): Effect.Effect<Document, DocumentAlreadyDeletedError> {
     if (this.isDeleted) return Effect.fail(new DocumentAlreadyDeletedError(this.id));
-    return Effect.succeed(
-      this.with({ currentVersionId: Option.some(versionId), updatedAt: now }),
-    );
+    return Effect.succeed(this.with({ currentVersionId: Option.some(versionId), updatedAt: now }));
   }
 }

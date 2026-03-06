@@ -7,7 +7,6 @@ import type { IDocumentRepository } from "@domain/document/document.repository.t
 import type { IUserRepository } from "@domain/user/user.repository.ts";
 import type { IAuditRepository } from "@application/audit/audit.repository.port.ts";
 import { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
-import { PolicyTargetRequiredError } from "@domain/access-policy/access-policy.errors.ts";
 import { DocumentAccessService } from "@domain/services/document-access.service.ts";
 import { isOwner } from "@domain/document/document.guards.ts";
 import { Role, AuditAction, AuditResourceType } from "@domain/utils/enums.ts";
@@ -97,7 +96,10 @@ export class AccessPolicyWorkflows {
                   action: cmd.action,
                   effect: cmd.effect,
                 }),
-                () => AccessPolicyWorkflowError.invalidInput("Exactly one of subjectId or subjectRole must be provided"),
+                () =>
+                  AccessPolicyWorkflowError.invalidInput(
+                    "Exactly one of subjectId or subjectRole must be provided",
+                  ),
               ),
               Effect.flatMap((policy) =>
                 pipe(

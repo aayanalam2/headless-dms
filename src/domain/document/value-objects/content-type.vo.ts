@@ -1,6 +1,5 @@
 import { Schema } from "effect";
 
-
 export const ALLOWED_MIME_TYPES = [
   // Documents
   "application/pdf",

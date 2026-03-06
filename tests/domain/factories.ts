@@ -13,12 +13,7 @@ import {
   PermissionAction,
   PolicyEffect,
 } from "@domain/access-policy/value-objects/permission-action.vo.ts";
-import {
-  AccessPolicyId,
-  DocumentId,
-  UserId,
-  VersionId,
-} from "@domain/utils/refined.types.ts";
+import { AccessPolicyId, DocumentId, UserId, VersionId } from "@domain/utils/refined.types.ts";
 import { Role } from "@domain/utils/enums.ts";
 
 // ---------------------------------------------------------------------------
@@ -180,4 +175,3 @@ export function makeAllowAllScenario(): {
 
   return { user, document, allowAllPolicies };
 }
-

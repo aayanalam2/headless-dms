@@ -10,12 +10,13 @@ import {
   DocumentNotFoundError,
   DocumentVersionNotFoundError,
 } from "@domain/document/document.errors.ts";
-import type { PaginationParams } from "@domain/utils/pagination.ts";
+import type { Paginated, PaginationParams } from "@domain/utils/pagination.ts";
 import { buildPageInfo } from "@domain/utils/pagination.ts";
 import type { ContentType } from "@domain/document/value-objects/content-type.vo.ts";
 import { documentsTable } from "@infra/database/models/document.table.ts";
 import { documentVersionsTable } from "@infra/database/models/document-version.table.ts";
 import { executeQuery, fetchMultiple, fetchSingle } from "@infra/database/utils/query-helpers.ts";
+import type { RepositoryEffect } from "@domain/utils/repository.types.ts";
 
 export class DrizzleDocumentRepository implements IDocumentRepository {
   constructor(private readonly db: AppDb) {}
@@ -58,14 +59,14 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
   // Document queries
   // -------------------------------------------------------------------------
 
-  findById(id: DocumentId) {
+  findById(id: DocumentId): RepositoryEffect<Option.Option<Document>> {
     return fetchSingle(
       () => this.db.select().from(documentsTable).where(eq(documentsTable.id, id)).limit(1),
       DrizzleDocumentRepository.fromDocumentRow,
     );
   }
 
-  findActiveById(id: DocumentId) {
+  findActiveById(id: DocumentId): RepositoryEffect<Option.Option<Document>> {
     return fetchSingle(
       () =>
         this.db
@@ -77,7 +78,10 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
     );
   }
 
-  findByOwner(ownerId: UserId, { page, limit }: PaginationParams) {
+  findByOwner(
+    ownerId: UserId,
+    { page, limit }: PaginationParams,
+  ): RepositoryEffect<Paginated<Document>> {
     const offset = (page - 1) * limit;
     const where = and(eq(documentsTable.ownerId, ownerId), isNull(documentsTable.deletedAt));
 
@@ -102,7 +106,7 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
     });
   }
 
-  search(query: string, { page, limit }: PaginationParams) {
+  search(query: string, { page, limit }: PaginationParams): RepositoryEffect<Paginated<Document>> {
     const offset = (page - 1) * limit;
     const where = and(isNull(documentsTable.deletedAt), ilike(documentsTable.name, `%${query}%`));
 
@@ -131,7 +135,7 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
   // Version queries
   // -------------------------------------------------------------------------
 
-  findVersionsByDocument(documentId: DocumentId) {
+  findVersionsByDocument(documentId: DocumentId): RepositoryEffect<readonly DocumentVersion[]> {
     return fetchMultiple(
       () =>
         this.db
@@ -143,7 +147,7 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
     );
   }
 
-  findVersionById(versionId: VersionId) {
+  findVersionById(versionId: VersionId): RepositoryEffect<Option.Option<DocumentVersion>> {
     return fetchSingle(
       () =>
         this.db
@@ -159,7 +163,7 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
   // Document writes
   // -------------------------------------------------------------------------
 
-  save(document: Document) {
+  save(document: Document): RepositoryEffect<void> {
     return executeQuery(() =>
       this.db.insert(documentsTable).values({
         id: document.id,
@@ -176,7 +180,7 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
     );
   }
 
-  update(document: Document) {
+  update(document: Document): RepositoryEffect<void, DocumentNotFoundError> {
     return Effect.flatMap(
       executeQuery(() =>
         this.db
@@ -201,7 +205,7 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
   // Version writes
   // -------------------------------------------------------------------------
 
-  saveVersion(version: DocumentVersion) {
+  saveVersion(version: DocumentVersion): RepositoryEffect<void> {
     return executeQuery(() =>
       this.db.insert(documentVersionsTable).values({
         id: version.id,
@@ -217,7 +221,7 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
     );
   }
 
-  deleteVersion(versionId: VersionId) {
+  deleteVersion(versionId: VersionId): RepositoryEffect<void, DocumentVersionNotFoundError> {
     return Effect.flatMap(
       executeQuery(() =>
         this.db

@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { User } from "@domain/user/user.entity.ts";
 import { isAdmin, isRegularUser } from "@domain/user/user.guards.ts";
 import { Role } from "@domain/utils/enums.ts";
-import { Email, HashedPassword, UserId } from "@domain/utils/refined.types.ts";
+import { Email, HashedPassword } from "@domain/utils/refined.types.ts";
 import { FIXED_DATE, makeAdminUser, makeUser, makeUserId } from "./factories.ts";
 
 describe("User entity", () => {

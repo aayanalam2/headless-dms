@@ -1,5 +1,12 @@
 import { Effect, Option } from "effect";
-import { BucketKey, type DocumentId, type VersionId } from "@domain/utils/refined.types.ts";
+import { BucketKey, type DocumentId, type VersionId, UserId } from "@domain/utils/refined.types.ts";
+import { isOwner } from "@domain/document/document.guards.ts";
+import { Role } from "@domain/utils/enums.ts";
+import type { Document } from "@domain/document/document.entity.ts";
+import {
+  DocumentWorkflowError,
+  type DocumentWorkflowError as WorkflowError,
+} from "./document-workflow.errors.ts";
 
 // ---------------------------------------------------------------------------
 // buildBucketKey
@@ -55,4 +62,28 @@ export function parseOptionalJson(
     },
     catch: (e) => (e instanceof Error ? e : new Error("metadata must be valid JSON")),
   });
+}
+
+// ---------------------------------------------------------------------------
+// assertDocumentAccess
+// Succeeds with the document when the actor is an Admin or the document owner;
+// otherwise fails with an accessDenied workflow error.
+//
+// `action` is a short verb phrase used in the error message, e.g. "read",
+// "download", "list versions of".
+// ---------------------------------------------------------------------------
+
+export function assertDocumentAccess(
+  document: Document,
+  actor: { readonly userId: string; readonly role: Role },
+  action: string,
+): Effect.Effect<Document, WorkflowError> {
+  const actorId = UserId.create(actor.userId).unwrap();
+  return actor.role !== Role.Admin && !isOwner(document, actorId)
+    ? Effect.fail(
+        DocumentWorkflowError.accessDenied(
+          `User '${actor.userId}' cannot ${action} document '${document.id}'`,
+        ),
+      )
+    : Effect.succeed(document);
 }

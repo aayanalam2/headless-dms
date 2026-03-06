@@ -1,39 +1,31 @@
 import { describe, expect, it } from "bun:test";
-import { Effect, Either, Option } from "effect";
+import { Effect, Either } from "effect";
 import { changeUserRole } from "@application/users/workflows/change-user-role.workflow.ts";
 import { UserWorkflowErrorTag } from "@application/users/user-workflow.errors.ts";
 import { Role } from "@domain/utils/enums.ts";
 import { createInMemoryUserRepository } from "../../helpers/mocks.ts";
-import {
-  makeAdminUser,
-  makeUser,
-  makeUserId,
-  FIXED_ISO,
-} from "../../domain/factories.ts";
+import { makeAdminUser, makeUser, makeUserId } from "../../domain/factories.ts";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function run(raw: Parameters<typeof changeUserRole>[1]) {
-  const userRepo = createInMemoryUserRepository({ users: [] });
-  return { userRepo, effect: changeUserRole({ userRepo }, raw) };
-}
-
-function runWith(raw: Parameters<typeof changeUserRole>[1], initialUsers: ReturnType<typeof makeUser>[]) {
+function runWith(
+  raw: Parameters<typeof changeUserRole>[1],
+  initialUsers: ReturnType<typeof makeUser>[],
+) {
   const userRepo = createInMemoryUserRepository({ users: initialUsers });
   return Effect.runPromise(Effect.either(changeUserRole({ userRepo }, raw)));
 }
 
 const adminActor = { userId: makeUserId() as string, role: Role.Admin };
-const userActor  = { userId: makeUserId() as string, role: Role.User };
+const userActor = { userId: makeUserId() as string, role: Role.User };
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe("changeUserRole workflow", () => {
-
   // -------------------------------------------------------------------------
   // Admin gate
   // -------------------------------------------------------------------------

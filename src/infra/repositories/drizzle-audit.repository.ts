@@ -8,8 +8,10 @@ import type {
 } from "@application/audit/audit.repository.port.ts";
 import type { AuditLogRow } from "@infra/database/schema.ts";
 import { auditLogsTable } from "@infra/database/models/audit-log.table.ts";
+import type { Paginated } from "@domain/utils/pagination.ts";
 import { buildPageInfo } from "@domain/utils/pagination.ts";
 import { executeQuery } from "@infra/database/utils/query-helpers.ts";
+import type { RepositoryEffect } from "@domain/utils/repository.types.ts";
 
 // ---------------------------------------------------------------------------
 // DrizzleAuditRepository
@@ -42,7 +44,7 @@ export class DrizzleAuditRepository implements IAuditRepository {
   // Writes
   // -------------------------------------------------------------------------
 
-  insertAuditLog(input: NewAuditLogInput) {
+  insertAuditLog(input: NewAuditLogInput): RepositoryEffect<void> {
     const now = new Date();
     return executeQuery(() =>
       this.db.insert(auditLogsTable).values({
@@ -58,7 +60,7 @@ export class DrizzleAuditRepository implements IAuditRepository {
     );
   }
 
-  listAuditLogs(params: AuditQueryParams) {
+  listAuditLogs(params: AuditQueryParams): RepositoryEffect<Paginated<AuditLogEntry>> {
     const { page, limit, resourceType, resourceId } = params;
     const offset = (page - 1) * limit;
 

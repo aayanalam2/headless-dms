@@ -1,40 +1,48 @@
 import { Option, Schema as S } from "effect";
-import type { Document } from "@domain/document/document.entity.ts";
-import type { DocumentVersion } from "@domain/document/document-version.entity.ts";
+import { DocumentSchema, type Document } from "@domain/document/document.entity.ts";
+import {
+  DocumentVersionSchema,
+  type DocumentVersion,
+} from "@domain/document/document-version.entity.ts";
 import type { Paginated } from "@domain/utils/pagination.ts";
 
 // ---------------------------------------------------------------------------
 // Output DTO Schemas
 //
-// Types are DERIVED from these schemas — the schema is the single source of
-// truth for the TypeScript type AND runtime shape. Never write the DTO type
-// manually; always use `S.Schema.Type<typeof XxxDTOSchema>`.
+// Fields are pulled directly from the entity schemas so the DTO shape never
+// drifts from the domain model.  `Encoded` gives the wire form (plain
+// strings, ISO dates, null instead of Option) — exactly what the HTTP layer
+// should serialise.
+//
+// `deletedAt` is intentionally omitted from DocumentDTOSchema: it is an
+// internal soft-delete marker, not a field consumers should reason about.
 // ---------------------------------------------------------------------------
 
 export const VersionDTOSchema = S.Struct({
-  id: S.String,
-  documentId: S.String,
-  versionNumber: S.Number,
-  bucketKey: S.String,
-  sizeBytes: S.Number,
-  uploadedBy: S.String,
-  checksum: S.String,
-  createdAt: S.String,
+  id: DocumentVersionSchema.fields.id,
+  documentId: DocumentVersionSchema.fields.documentId,
+  versionNumber: DocumentVersionSchema.fields.versionNumber,
+  bucketKey: DocumentVersionSchema.fields.bucketKey,
+  sizeBytes: DocumentVersionSchema.fields.sizeBytes,
+  uploadedBy: DocumentVersionSchema.fields.uploadedBy,
+  checksum: DocumentVersionSchema.fields.checksum,
+  createdAt: DocumentVersionSchema.fields.createdAt,
 });
-export type VersionDTO = S.Schema.Type<typeof VersionDTOSchema>;
+export type VersionDTO = S.Schema.Encoded<typeof VersionDTOSchema>;
 
 export const DocumentDTOSchema = S.Struct({
-  id: S.String,
-  ownerId: S.String,
-  name: S.String,
-  contentType: S.String,
-  currentVersionId: S.NullOr(S.String),
-  tags: S.Array(S.String),
-  metadata: S.Record({ key: S.String, value: S.String }),
-  createdAt: S.String,
-  updatedAt: S.String,
+  id: DocumentSchema.fields.id,
+  ownerId: DocumentSchema.fields.ownerId,
+  name: DocumentSchema.fields.name,
+  contentType: DocumentSchema.fields.contentType,
+  currentVersionId: DocumentSchema.fields.currentVersionId,
+  tags: DocumentSchema.fields.tags,
+  metadata: DocumentSchema.fields.metadata,
+  createdAt: DocumentSchema.fields.createdAt,
+  updatedAt: DocumentSchema.fields.updatedAt,
+  // deletedAt intentionally excluded — consumers see active documents only
 });
-export type DocumentDTO = S.Schema.Type<typeof DocumentDTOSchema>;
+export type DocumentDTO = S.Schema.Encoded<typeof DocumentDTOSchema>;
 
 export const PageInfoSchema = S.Struct({
   total: S.Number,
@@ -48,17 +56,17 @@ export const PaginatedDocumentsDTOSchema = S.Struct({
   items: S.Array(DocumentDTOSchema),
   pageInfo: PageInfoSchema,
 });
-export type PaginatedDocumentsDTO = S.Schema.Type<typeof PaginatedDocumentsDTOSchema>;
+export type PaginatedDocumentsDTO = S.Schema.Encoded<typeof PaginatedDocumentsDTOSchema>;
 
 export const PresignedDownloadDTOSchema = S.Struct({
   url: S.String,
   expiresAt: S.String,
   version: VersionDTOSchema,
 });
-export type PresignedDownloadDTO = S.Schema.Type<typeof PresignedDownloadDTOSchema>;
+export type PresignedDownloadDTO = S.Schema.Encoded<typeof PresignedDownloadDTOSchema>;
 
 // ---------------------------------------------------------------------------
-// Mappers — domain entity → DTO (must produce values conforming to the schema)
+// Mappers — domain entity → DTO (wire / encoded form)
 // ---------------------------------------------------------------------------
 
 export function toVersionDTO(version: DocumentVersion): VersionDTO {

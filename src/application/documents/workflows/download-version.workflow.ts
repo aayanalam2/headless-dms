@@ -1,9 +1,8 @@
 import { Effect, Option, pipe } from "effect";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
-import { DocumentId, UserId, VersionId } from "@domain/utils/refined.types.ts";
-import { isOwner } from "@domain/document/document.guards.ts";
-import { Role } from "@domain/utils/enums.ts";
+import { DocumentId, VersionId } from "@domain/utils/refined.types.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
+import { assertDocumentAccess } from "../document.helpers.ts";
 import { toVersionDTO, type PresignedDownloadDTO } from "../dtos/document.dto.ts";
 import {
   DownloadVersionQuerySchema,
@@ -37,7 +36,6 @@ export function downloadVersion(
     Effect.flatMap((query) => {
       const documentId = DocumentId.create(query.documentId).unwrap();
       const versionId = VersionId.create(query.versionId).unwrap();
-      const actorId = UserId.create(query.actor.userId).unwrap();
       const ttl = query.expiresInSeconds ?? 300;
 
       return pipe(
@@ -48,15 +46,7 @@ export function downloadVersion(
             ? Effect.fail(DocumentWorkflowError.notFound(`Document '${query.documentId}'`))
             : Effect.succeed(opt.value),
         ),
-        Effect.flatMap((document) =>
-          query.actor.role !== Role.Admin && !isOwner(document, actorId)
-            ? Effect.fail(
-                DocumentWorkflowError.accessDenied(
-                  `User '${query.actor.userId}' cannot download document '${query.documentId}'`,
-                ),
-              )
-            : Effect.succeed(document),
-        ),
+        Effect.flatMap((document) => assertDocumentAccess(document, query.actor, "download")),
         Effect.flatMap((document) =>
           pipe(
             deps.documentRepo.findVersionById(versionId),

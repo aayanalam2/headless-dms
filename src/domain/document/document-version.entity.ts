@@ -1,6 +1,12 @@
 import { Effect, ParseResult, Schema } from "effect";
 import { BaseEntity, type IEntity } from "@domain/utils/base.entity.ts";
-import type { BucketKey, Checksum, DocumentId, UserId, VersionId } from "@domain/utils/refined.types.ts";
+import type {
+  BucketKey,
+  Checksum,
+  DocumentId,
+  UserId,
+  VersionId,
+} from "@domain/utils/refined.types.ts";
 import {
   StringToBucketKey,
   StringToChecksum,
@@ -100,4 +106,3 @@ export class DocumentVersion extends BaseEntity<VersionId> implements IDocumentV
 
   // equals() is inherited from BaseEntity — identity by id.
 }
-

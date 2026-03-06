@@ -6,10 +6,11 @@ import { AccessPolicyId, DocumentId, UserId } from "@domain/utils/refined.types.
 import { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
 import type { AccessPolicyRow } from "@infra/database/schema.ts";
 import { AccessPolicyNotFoundError } from "@domain/access-policy/access-policy.errors.ts";
-import type { PermissionAction, PolicyEffect } from "@domain/access-policy/value-objects/permission-action.vo.ts";
+import type { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import type { Role } from "@domain/utils/enums.ts";
 import { accessPoliciesTable } from "@infra/database/models/access-policy.table.ts";
 import { executeQuery, fetchMultiple, fetchSingle } from "@infra/database/utils/query-helpers.ts";
+import type { RepositoryEffect } from "@domain/utils/repository.types.ts";
 
 export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
   constructor(private readonly db: AppDb) {}
@@ -34,14 +35,14 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
   // Queries
   // -------------------------------------------------------------------------
 
-  findById(id: AccessPolicyId) {
+  findById(id: AccessPolicyId): RepositoryEffect<Option.Option<AccessPolicy>> {
     return fetchSingle(
       () => this.db.select().from(accessPoliciesTable).where(eq(accessPoliciesTable.id, id)),
       DrizzleAccessPolicyRepository.fromRow,
     );
   }
 
-  findByDocument(documentId: DocumentId) {
+  findByDocument(documentId: DocumentId): RepositoryEffect<readonly AccessPolicy[]> {
     return fetchMultiple(
       () =>
         this.db
@@ -52,7 +53,10 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
     );
   }
 
-  findByDocumentAndSubject(documentId: DocumentId, userId: UserId) {
+  findByDocumentAndSubject(
+    documentId: DocumentId,
+    userId: UserId,
+  ): RepositoryEffect<readonly AccessPolicy[]> {
     return fetchMultiple(
       () =>
         this.db
@@ -68,7 +72,10 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
     );
   }
 
-  findByDocumentAndRole(documentId: DocumentId, role: Role) {
+  findByDocumentAndRole(
+    documentId: DocumentId,
+    role: Role,
+  ): RepositoryEffect<readonly AccessPolicy[]> {
     return fetchMultiple(
       () =>
         this.db
@@ -84,7 +91,11 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
     );
   }
 
-  findByDocumentSubjectAndAction(documentId: DocumentId, userId: UserId, action: PermissionAction) {
+  findByDocumentSubjectAndAction(
+    documentId: DocumentId,
+    userId: UserId,
+    action: PermissionAction,
+  ): RepositoryEffect<readonly AccessPolicy[]> {
     return fetchMultiple(
       () =>
         this.db
@@ -105,7 +116,7 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
   // Writes
   // -------------------------------------------------------------------------
 
-  save(policy: AccessPolicy) {
+  save(policy: AccessPolicy): RepositoryEffect<void> {
     return executeQuery(() =>
       this.db.insert(accessPoliciesTable).values({
         id: policy.id,
@@ -120,7 +131,7 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
     );
   }
 
-  delete(id: AccessPolicyId) {
+  delete(id: AccessPolicyId): RepositoryEffect<void, AccessPolicyNotFoundError> {
     return Effect.flatMap(
       executeQuery(() =>
         this.db
@@ -132,7 +143,7 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
     );
   }
 
-  deleteByDocument(documentId: DocumentId) {
+  deleteByDocument(documentId: DocumentId): RepositoryEffect<void> {
     return executeQuery(() =>
       this.db.delete(accessPoliciesTable).where(eq(accessPoliciesTable.documentId, documentId)),
     );

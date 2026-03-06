@@ -77,9 +77,7 @@ export class User extends BaseEntity<UserId> implements IUser {
   }
 
   static create(input: SerializedUser): Effect.Effect<User, ParseResult.ParseError> {
-    return Schema.decodeUnknown(UserSchema)(input).pipe(
-      Effect.map((data) => new User(data)),
-    );
+    return Schema.decodeUnknown(UserSchema)(input).pipe(Effect.map((data) => new User(data)));
   }
 
   static reconstitute(data: UserType): User {

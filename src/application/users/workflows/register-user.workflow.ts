@@ -2,7 +2,7 @@ import { Effect, Option, pipe } from "effect";
 import { User } from "@domain/user/user.entity.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
 import { UserErrorTags } from "@domain/user/user.errors.ts";
-import { Email, HashedPassword, UserId } from "@domain/utils/refined.types.ts";
+import { Email } from "@domain/utils/refined.types.ts";
 import { Role } from "@domain/utils/enums.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
 import {
