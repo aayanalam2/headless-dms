@@ -1,5 +1,8 @@
 import { Schema as S } from "effect";
 import { Role } from "@domain/utils/enums.ts";
+import { DocumentSchema } from "@domain/document/document.entity.ts";
+import { DocumentVersionSchema } from "@domain/document/document-version.entity.ts";
+import { UserSchema } from "@domain/user/user.entity.ts";
 
 // ---------------------------------------------------------------------------
 // ActorCommandSchema — raw actor shape flowing in from JWT claims.
@@ -9,7 +12,7 @@ import { Role } from "@domain/utils/enums.ts";
 // ---------------------------------------------------------------------------
 
 export const ActorCommandSchema = S.Struct({
-  userId: S.String,
+  userId: UserSchema.fields.id,
   role: S.Enums(Role),
 });
 export type ActorCommandEncoded = S.Schema.Encoded<typeof ActorCommandSchema>;
@@ -38,7 +41,7 @@ export type UploadDocumentMeta = S.Schema.Type<typeof UploadDocumentMetaSchema>;
 
 export const UploadVersionMetaSchema = S.Struct({
   actor: ActorCommandSchema,
-  documentId: S.String,
+  documentId: DocumentSchema.fields.id,
   name: S.optional(S.String),
 });
 export type UploadVersionMetaEncoded = S.Schema.Encoded<typeof UploadVersionMetaSchema>;
@@ -49,7 +52,7 @@ export type UploadVersionMeta = S.Schema.Type<typeof UploadVersionMetaSchema>;
 // ---------------------------------------------------------------------------
 
 export const GetDocumentQuerySchema = S.Struct({
-  documentId: S.String,
+  documentId: DocumentSchema.fields.id,
   actor: ActorCommandSchema,
 });
 export type GetDocumentQueryEncoded = S.Schema.Encoded<typeof GetDocumentQuerySchema>;
@@ -65,7 +68,7 @@ export type GetDocumentQueryDecoded = S.Schema.Type<typeof GetDocumentQuerySchem
 export const ListDocumentsQuerySchema = S.Struct({
   actor: ActorCommandSchema,
   name: S.optional(S.String),
-  ownerId: S.optional(S.String),
+  ownerId: S.optional(UserSchema.fields.id),
   page: S.optional(S.Union(S.Number, S.NumberFromString)),
   limit: S.optional(S.Union(S.Number, S.NumberFromString)),
 });
@@ -76,8 +79,11 @@ export type ListDocumentsQueryDecoded = S.Schema.Type<typeof ListDocumentsQueryS
 // DownloadDocumentQuerySchema
 // ---------------------------------------------------------------------------
 
+/** Default lifetime of a presigned download URL, in seconds. */
+export const DEFAULT_PRESIGNED_URL_TTL_SECONDS = 300;
+
 export const DownloadDocumentQuerySchema = S.Struct({
-  documentId: S.String,
+  documentId: DocumentSchema.fields.id,
   actor: ActorCommandSchema,
   expiresInSeconds: S.optional(S.Number),
 });
@@ -89,8 +95,8 @@ export type DownloadDocumentQueryDecoded = S.Schema.Type<typeof DownloadDocument
 // ---------------------------------------------------------------------------
 
 export const DownloadVersionQuerySchema = S.Struct({
-  documentId: S.String,
-  versionId: S.String,
+  documentId: DocumentSchema.fields.id,
+  versionId: DocumentVersionSchema.fields.id,
   actor: ActorCommandSchema,
   expiresInSeconds: S.optional(S.Number),
 });
@@ -102,7 +108,7 @@ export type DownloadVersionQueryDecoded = S.Schema.Type<typeof DownloadVersionQu
 // ---------------------------------------------------------------------------
 
 export const ListVersionsQuerySchema = S.Struct({
-  documentId: S.String,
+  documentId: DocumentSchema.fields.id,
   actor: ActorCommandSchema,
 });
 export type ListVersionsQueryEncoded = S.Schema.Encoded<typeof ListVersionsQuerySchema>;
@@ -113,7 +119,7 @@ export type ListVersionsQueryDecoded = S.Schema.Type<typeof ListVersionsQuerySch
 // ---------------------------------------------------------------------------
 
 export const DeleteDocumentCommandSchema = S.Struct({
-  documentId: S.String,
+  documentId: DocumentSchema.fields.id,
   actor: ActorCommandSchema,
 });
 export type DeleteDocumentCommandEncoded = S.Schema.Encoded<typeof DeleteDocumentCommandSchema>;

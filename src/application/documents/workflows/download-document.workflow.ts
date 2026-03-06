@@ -1,12 +1,16 @@
-import { Effect, Option, pipe } from "effect";
+import { Effect, pipe } from "effect";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
-import { DocumentId } from "@domain/utils/refined.types.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
-import { assertDocumentAccess } from "../document.helpers.ts";
+import {
+  assertDocumentAccess,
+  requireActiveDocument,
+  requireCurrentVersion,
+} from "../document.helpers.ts";
 import { toVersionDTO, type PresignedDownloadDTO } from "../dtos/document.dto.ts";
 import {
   DownloadDocumentQuerySchema,
   type DownloadDocumentQueryEncoded,
+  DEFAULT_PRESIGNED_URL_TTL_SECONDS,
 } from "../dtos/commands.dto.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
 import {
@@ -33,54 +37,25 @@ export function downloadDocument(
 ): Effect.Effect<PresignedDownloadDTO, WorkflowError> {
   return pipe(
     decodeCommand(DownloadDocumentQuerySchema, raw, DocumentWorkflowError.invalidInput),
-    Effect.flatMap((query) => {
-      const documentId = DocumentId.create(query.documentId).unwrap();
-      const ttl = query.expiresInSeconds ?? 300;
-
-      return pipe(
-        deps.documentRepo.findActiveById(documentId),
-        Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.findActiveById", e)),
-        Effect.flatMap((opt) =>
-          Option.isNone(opt)
-            ? Effect.fail(DocumentWorkflowError.notFound(`Document '${query.documentId}'`))
-            : Effect.succeed(opt.value),
-        ),
+    Effect.flatMap((query) =>
+      pipe(
+        requireActiveDocument(deps.documentRepo, query.documentId),
         Effect.flatMap((document) => assertDocumentAccess(document, query.actor, "download")),
-        Effect.flatMap((document) =>
-          Option.isNone(document.currentVersionId)
-            ? Effect.fail(
-                DocumentWorkflowError.notFound(
-                  `Document '${query.documentId}' has no uploaded version yet`,
-                ),
-              )
-            : pipe(
-                deps.documentRepo.findVersionById(document.currentVersionId.value),
-                Effect.mapError((e) =>
-                  DocumentWorkflowError.unavailable("repo.findVersionById", e),
-                ),
-              ),
-        ),
-        Effect.flatMap((opt) =>
-          Option.isNone(opt)
-            ? Effect.fail(
-                DocumentWorkflowError.notFound(`Current version of '${query.documentId}'`),
-              )
-            : Effect.succeed(opt.value),
-        ),
+        Effect.flatMap((document) => requireCurrentVersion(deps.documentRepo, document)),
         Effect.flatMap((version) =>
           pipe(
-            deps.storage.getPresignedDownloadUrl(version.bucketKey, ttl),
+            deps.storage.getPresignedDownloadUrl(version.bucketKey, query.expiresInSeconds ?? DEFAULT_PRESIGNED_URL_TTL_SECONDS),
             Effect.mapError((e) =>
               DocumentWorkflowError.unavailable("storage.getPresignedDownloadUrl", e),
             ),
             Effect.map((url) => ({
               url,
-              expiresAt: new Date(Date.now() + ttl * 1000).toISOString(),
+              expiresAt: new Date(Date.now() + (query.expiresInSeconds ?? DEFAULT_PRESIGNED_URL_TTL_SECONDS) * 1000).toISOString(),
               version: toVersionDTO(version),
             })),
           ),
         ),
-      );
-    }),
+      ),
+    ),
   );
 }

@@ -1,8 +1,16 @@
-import { Effect, Option } from "effect";
-import { BucketKey, type DocumentId, type VersionId, UserId } from "@domain/utils/refined.types.ts";
+import { Effect, Option, pipe } from "effect";
+import {
+  BucketKey,
+  Checksum,
+  type DocumentId,
+  type VersionId,
+  type UserId,
+} from "@domain/utils/refined.types.ts";
 import { isOwner } from "@domain/document/document.guards.ts";
 import { Role } from "@domain/utils/enums.ts";
 import type { Document } from "@domain/document/document.entity.ts";
+import type { DocumentVersion } from "@domain/document/document-version.entity.ts";
+import type { IDocumentRepository } from "@domain/document/document.repository.ts";
 import {
   DocumentWorkflowError,
   type DocumentWorkflowError as WorkflowError,
@@ -16,8 +24,8 @@ import {
 // ---------------------------------------------------------------------------
 
 export function buildBucketKey(
-  documentId: DocumentId,
-  versionId: VersionId,
+  documentId: string,
+  versionId: string,
   filename: string,
 ): BucketKey {
   return BucketKey.create(`${documentId}/${versionId}/${encodeURIComponent(filename)}`).unwrap();
@@ -75,15 +83,164 @@ export function parseOptionalJson(
 
 export function assertDocumentAccess(
   document: Document,
-  actor: { readonly userId: string; readonly role: Role },
+  actor: { readonly userId: UserId; readonly role: Role },
   action: string,
 ): Effect.Effect<Document, WorkflowError> {
-  const actorId = UserId.create(actor.userId).unwrap();
-  return actor.role !== Role.Admin && !isOwner(document, actorId)
+  return actor.role !== Role.Admin && !isOwner(document, actor.userId)
     ? Effect.fail(
         DocumentWorkflowError.accessDenied(
           `User '${actor.userId}' cannot ${action} document '${document.id}'`,
         ),
       )
     : Effect.succeed(document);
+}
+
+// ---------------------------------------------------------------------------
+// assertAdminOnly
+// Gate that passes when the actor has the Admin role; fails with accessDenied
+// otherwise. Use for operations that are admin-exclusive regardless of
+// document ownership (e.g. hard-delete, role management).
+//
+// `action` is used in the error message, e.g. PermissionAction.Delete.
+// ---------------------------------------------------------------------------
+
+export function assertAdminOnly(
+  actor: { readonly userId: UserId; readonly role: Role },
+  action: string,
+): Effect.Effect<void, WorkflowError> {
+  return actor.role !== Role.Admin
+    ? Effect.fail(
+        DocumentWorkflowError.accessDenied(
+          `User '${actor.userId}' does not have '${action}' permission`,
+        ),
+      )
+    : Effect.void;
+}
+
+// ---------------------------------------------------------------------------
+// requireDocument / requireActiveDocument
+// Fetch a document by ID and convert a missing row into a notFound error.
+// Use requireActiveDocument when soft-deleted documents should be invisible;
+// use requireDocument when you need to operate on any row (e.g. hard-delete).
+// ---------------------------------------------------------------------------
+
+export function requireDocument(
+  repo: IDocumentRepository,
+  documentId: DocumentId,
+): Effect.Effect<Document, WorkflowError> {
+  return pipe(
+    repo.findById(documentId),
+    Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.findById", e)),
+    Effect.flatMap((opt) =>
+      Option.isNone(opt)
+        ? Effect.fail(DocumentWorkflowError.notFound(`Document '${documentId}'`))
+        : Effect.succeed(opt.value),
+    ),
+  );
+}
+
+export function requireActiveDocument(
+  repo: IDocumentRepository,
+  documentId: DocumentId,
+): Effect.Effect<Document, WorkflowError> {
+  return pipe(
+    repo.findActiveById(documentId),
+    Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.findActiveById", e)),
+    Effect.flatMap((opt) =>
+      Option.isNone(opt)
+        ? Effect.fail(DocumentWorkflowError.notFound(`Document '${documentId}'`))
+        : Effect.succeed(opt.value),
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// requireVersion
+// Fetch a document version by ID and convert a missing row into notFound.
+// ---------------------------------------------------------------------------
+
+export function requireVersion(
+  repo: IDocumentRepository,
+  versionId: VersionId,
+): Effect.Effect<DocumentVersion, WorkflowError> {
+  return pipe(
+    repo.findVersionById(versionId),
+    Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.findVersionById", e)),
+    Effect.flatMap((opt) =>
+      Option.isNone(opt)
+        ? Effect.fail(DocumentWorkflowError.notFound(`Version '${versionId}'`))
+        : Effect.succeed(opt.value),
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// requireVersionOfDocument
+// Asserts that a version belongs to the given document; fails with notFound
+// if the foreign-key relationship does not match.
+// ---------------------------------------------------------------------------
+
+export function requireVersionOfDocument(
+  version: DocumentVersion,
+  document: Document,
+): Effect.Effect<DocumentVersion, WorkflowError> {
+  return version.documentId !== document.id
+    ? Effect.fail(
+        DocumentWorkflowError.notFound(
+          `Version '${version.id}' does not belong to document '${document.id}'`,
+        ),
+      )
+    : Effect.succeed(version);
+}
+
+// ---------------------------------------------------------------------------
+// requireCurrentVersion
+// Resolves a document's currentVersionId Option into a fetched DocumentVersion.
+// Fails with notFound if the document has no current version yet, or if the
+// version row is missing.
+// ---------------------------------------------------------------------------
+
+export function requireCurrentVersion(
+  repo: IDocumentRepository,
+  document: Document,
+): Effect.Effect<DocumentVersion, WorkflowError> {
+  return Option.isNone(document.currentVersionId)
+    ? Effect.fail(
+        DocumentWorkflowError.notFound(
+          `Document '${document.id}' has no uploaded version yet`,
+        ),
+      )
+    : requireVersion(repo, document.currentVersionId.value);
+}
+
+// ---------------------------------------------------------------------------
+// parseMetadata
+// Converts an optional raw JSON string into Record<string, string>.
+// Wraps parseOptionalJson with a workflow-level error so callers don't need
+// to re-map the error themselves.
+// ---------------------------------------------------------------------------
+
+export function parseMetadata(
+  raw: string | null | undefined,
+): Effect.Effect<Record<string, string>, WorkflowError> {
+  return pipe(
+    parseOptionalJson(Option.fromNullable(raw)),
+    Effect.mapError(() =>
+      DocumentWorkflowError.invalidInput(
+        "Metadata must be a valid JSON object of string values",
+      ),
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// hashBuffer
+// SHA-256 hashes an ArrayBuffer and returns a branded Checksum string.
+// ---------------------------------------------------------------------------
+
+export function hashBuffer(buf: ArrayBuffer): Effect.Effect<Checksum, never> {
+  return pipe(
+    Effect.promise(() => crypto.subtle.digest("SHA-256", buf)),
+    Effect.map((hash) => Checksum.create(Buffer.from(hash).toString("hex")).unwrap()),
+  );
 }

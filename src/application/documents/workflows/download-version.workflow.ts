@@ -1,12 +1,17 @@
-import { Effect, Option, pipe } from "effect";
+import { Effect, pipe } from "effect";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
-import { DocumentId, VersionId } from "@domain/utils/refined.types.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
-import { assertDocumentAccess } from "../document.helpers.ts";
+import {
+  assertDocumentAccess,
+  requireActiveDocument,
+  requireVersion,
+  requireVersionOfDocument,
+} from "../document.helpers.ts";
 import { toVersionDTO, type PresignedDownloadDTO } from "../dtos/document.dto.ts";
 import {
   DownloadVersionQuerySchema,
   type DownloadVersionQueryEncoded,
+  DEFAULT_PRESIGNED_URL_TTL_SECONDS,
 } from "../dtos/commands.dto.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
 import {
@@ -34,37 +39,15 @@ export function downloadVersion(
   return pipe(
     decodeCommand(DownloadVersionQuerySchema, raw, DocumentWorkflowError.invalidInput),
     Effect.flatMap((query) => {
-      const documentId = DocumentId.create(query.documentId).unwrap();
-      const versionId = VersionId.create(query.versionId).unwrap();
-      const ttl = query.expiresInSeconds ?? 300;
+      const ttl = query.expiresInSeconds ?? DEFAULT_PRESIGNED_URL_TTL_SECONDS;
 
       return pipe(
-        deps.documentRepo.findActiveById(documentId),
-        Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.findActiveById", e)),
-        Effect.flatMap((opt) =>
-          Option.isNone(opt)
-            ? Effect.fail(DocumentWorkflowError.notFound(`Document '${query.documentId}'`))
-            : Effect.succeed(opt.value),
-        ),
+        requireActiveDocument(deps.documentRepo, query.documentId),
         Effect.flatMap((document) => assertDocumentAccess(document, query.actor, "download")),
         Effect.flatMap((document) =>
           pipe(
-            deps.documentRepo.findVersionById(versionId),
-            Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.findVersionById", e)),
-            Effect.flatMap((opt) =>
-              Option.isNone(opt)
-                ? Effect.fail(DocumentWorkflowError.notFound(`Version '${query.versionId}'`))
-                : Effect.succeed(opt.value),
-            ),
-            Effect.flatMap((version) =>
-              version.documentId !== document.id
-                ? Effect.fail(
-                    DocumentWorkflowError.notFound(
-                      `Version '${query.versionId}' does not belong to document '${query.documentId}'`,
-                    ),
-                  )
-                : Effect.succeed(version),
-            ),
+            requireVersion(deps.documentRepo, query.versionId),
+            Effect.flatMap((version) => requireVersionOfDocument(version, document)),
           ),
         ),
         Effect.flatMap((version) =>
