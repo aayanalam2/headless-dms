@@ -3,7 +3,7 @@ import { Effect, pipe } from "effect";
 import { TOKENS } from "@infra/di/tokens.ts";
 import type { IAuditRepository } from "./audit.repository.port.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
-import { parsePagination } from "@domain/utils/pagination.ts";
+import { withPagination } from "@domain/utils/pagination.ts";
 import { ListAuditLogsQuerySchema, type ListAuditLogsQueryEncoded } from "./dtos/commands.dto.ts";
 import { toPaginatedAuditLogsDTO, type PaginatedAuditLogsDTO } from "./dtos/audit-log.dto.ts";
 import {
@@ -18,21 +18,21 @@ export class AuditWorkflows {
   listAuditLogs(raw: ListAuditLogsQueryEncoded): Effect.Effect<PaginatedAuditLogsDTO, WorkflowError> {
     return pipe(
       decodeCommand(ListAuditLogsQuerySchema, raw, AuditWorkflowError.invalidInput),
-      Effect.flatMap((query) => {
-        const { page, limit } = parsePagination(query);
-        const params = {
-          page,
-          limit,
-          ...(query.resourceType !== undefined && { resourceType: query.resourceType }),
-          ...(query.resourceId !== undefined && { resourceId: query.resourceId }),
-        };
-
-        return pipe(
-          this.auditRepo.listAuditLogs(params),
-          Effect.mapError((e) => AuditWorkflowError.unavailable("repo.listAuditLogs", e)),
-          Effect.map(toPaginatedAuditLogsDTO),
-        );
-      }),
+      Effect.flatMap((query) =>
+        withPagination(
+          query,
+          (pagination) =>
+            pipe(
+              this.auditRepo.listAuditLogs({
+                ...pagination,
+                ...(query.resourceType !== undefined && { resourceType: query.resourceType }),
+                ...(query.resourceId !== undefined && { resourceId: query.resourceId }),
+              }),
+              Effect.mapError((e) => AuditWorkflowError.unavailable("repo.listAuditLogs", e)),
+            ),
+          toPaginatedAuditLogsDTO,
+        ),
+      ),
     );
   }
 }

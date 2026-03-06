@@ -5,20 +5,7 @@ import { TOKENS } from "@infra/di/tokens.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
-import { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
-import type { AccessPolicy as AccessPolicyType } from "@domain/access-policy/access-policy.entity.ts";
-import type { Document } from "@domain/document/document.entity.ts";
 import { DocumentAccessService } from "@domain/services/document-access.service.ts";
-import { isOwner } from "@domain/document/document.guards.ts";
-import { Role } from "@domain/utils/enums.ts";
-import type { UserId, AccessPolicyId, DocumentId } from "@domain/utils/refined.types.ts";
-import {
-  AccessPolicyEvent,
-  type AccessPolicyGrantedEvent,
-  type AccessPolicyUpdatedEvent,
-  type AccessPolicyRevokedEvent,
-} from "@domain/events/access-policy.events.ts";
-import { eventBus } from "@infra/event-bus.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
 import {
   AccessPolicyWorkflowError,
@@ -37,73 +24,16 @@ import {
   type CheckAccessQueryEncoded,
   type ListDocumentPoliciesQueryEncoded,
 } from "./dtos/commands.dto.ts";
-
-// ---------------------------------------------------------------------------
-// Module-level helpers
-// ---------------------------------------------------------------------------
-
-const unavailable =
-  (op: string) =>
-  (e: unknown): WorkflowError =>
-    AccessPolicyWorkflowError.unavailable(op, e);
-
-const MANAGE_DENIED = AccessPolicyWorkflowError.accessDenied(
-  "Only the document owner or an admin can manage access policies",
-);
-
-/** Fetches a document by ID; maps absence to a notFound workflow error. */
-function requireDocForPolicy(
-  repo: IDocumentRepository,
-  documentId: DocumentId,
-): Effect.Effect<Document, WorkflowError> {
-  return pipe(
-    repo.findById(documentId),
-    Effect.mapError(unavailable("documentRepo.findById")),
-    Effect.flatMap((opt) =>
-      Option.isNone(opt)
-        ? Effect.fail(AccessPolicyWorkflowError.notFound(`Document '${documentId}'`))
-        : Effect.succeed(opt.value),
-    ),
-  );
-}
-
-/** Fetches a policy by ID; maps absence to a notFound workflow error. */
-function requirePolicy(
-  repo: IAccessPolicyRepository,
-  policyId: AccessPolicyId,
-): Effect.Effect<AccessPolicyType, WorkflowError> {
-  return pipe(
-    repo.findById(policyId),
-    Effect.mapError(unavailable("policyRepo.findById")),
-    Effect.flatMap((opt) =>
-      Option.isNone(opt)
-        ? Effect.fail(AccessPolicyWorkflowError.notFound(`Access policy '${policyId}'`))
-        : Effect.succeed(opt.value),
-    ),
-  );
-}
-
-/**
- * Guards that the actor is the document owner or an admin.
- * Returns the document so it stays in scope for callers that need it.
- */
-function assertPolicyManager(
-  document: Document,
-  actor: { readonly userId: UserId; readonly role: Role },
-): Effect.Effect<Document, WorkflowError> {
-  return actor.role !== Role.Admin && !isOwner(document, actor.userId)
-    ? Effect.fail(MANAGE_DENIED)
-    : Effect.succeed(document);
-}
-
-const emitPolicyGranted = (event: AccessPolicyGrantedEvent): Effect.Effect<void, never> =>
-  Effect.sync(() => eventBus.emit(AccessPolicyEvent.Granted, event));
-
-const emitPolicyUpdated = (event: AccessPolicyUpdatedEvent): Effect.Effect<void, never> =>
-  Effect.sync(() => eventBus.emit(AccessPolicyEvent.Updated, event));
-
-const emitPolicyRevoked = (event: AccessPolicyRevokedEvent): Effect.Effect<void, never> =>
-  Effect.sync(() => eventBus.emit(AccessPolicyEvent.Revoked, event));
+import {
+  unavailable,
+  requireDocForPolicy,
+  requirePolicy,
+  assertPolicyManager,
+  buildPolicy,
+  emitPolicyGranted,
+  emitPolicyUpdated,
+  emitPolicyRevoked,
+} from "./access-policy.helpers.ts";
 
 // ---------------------------------------------------------------------------
 // AccessPolicyWorkflows
@@ -136,8 +66,8 @@ export class AccessPolicyWorkflows {
           requireDocForPolicy(this.documentRepo, cmd.documentId),
           Effect.flatMap((document) => assertPolicyManager(document, cmd.actor)),
           Effect.flatMap(() =>
-            pipe(
-              AccessPolicy.create({
+            buildPolicy(
+              {
                 id: crypto.randomUUID(),
                 createdAt: new Date().toISOString(),
                 documentId: cmd.documentId as string,
@@ -145,12 +75,8 @@ export class AccessPolicyWorkflows {
                 subjectRole: cmd.subjectRole ?? null,
                 action: cmd.action,
                 effect: cmd.effect,
-              }),
-              Effect.mapError(() =>
-                AccessPolicyWorkflowError.invalidInput(
-                  "Exactly one of subjectId or subjectRole must be provided",
-                ),
-              ),
+              },
+              "Exactly one of subjectId or subjectRole must be provided",
             ),
           ),
           Effect.flatMap((policy) =>
@@ -193,8 +119,8 @@ export class AccessPolicyWorkflows {
               requireDocForPolicy(this.documentRepo, existing.documentId),
               Effect.flatMap((document) => assertPolicyManager(document, cmd.actor)),
               Effect.flatMap(() =>
-                pipe(
-                  AccessPolicy.create({
+                buildPolicy(
+                  {
                     id: crypto.randomUUID(),
                     createdAt: new Date().toISOString(),
                     documentId: existing.documentId as string,
@@ -202,10 +128,8 @@ export class AccessPolicyWorkflows {
                     subjectRole: Option.getOrNull(existing.subjectRole),
                     action: existing.action,
                     effect: cmd.effect,
-                  }),
-                  Effect.mapError(() =>
-                    AccessPolicyWorkflowError.invalidInput("Policy reconstruction failed"),
-                  ),
+                  },
+                  "Policy reconstruction failed",
                 ),
               ),
               Effect.flatMap((replacement) =>

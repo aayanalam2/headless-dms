@@ -8,7 +8,7 @@ import type { IAccessPolicyRepository } from "@domain/access-policy/access-polic
 import type { IUserRepository } from "@domain/user/user.repository.ts";
 import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { Role } from "@domain/utils/enums.ts";
-import { parsePagination } from "@domain/utils/pagination.ts";
+import { withPagination } from "@domain/utils/pagination.ts";
 import { type BucketKey, type Checksum } from "@domain/utils/refined.types.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
 import { TOKENS } from "@infra/di/tokens.ts";
@@ -31,6 +31,7 @@ import {
 } from "./document.helpers.ts";
 import {
   toDocumentDTO,
+  toPaginatedDocumentsDTO,
   toVersionDTO,
   type DocumentDTO,
   type PaginatedDocumentsDTO,
@@ -352,24 +353,24 @@ export class DocumentWorkflows {
   list(raw: ListDocumentsQueryEncoded): Effect.Effect<PaginatedDocumentsDTO, WorkflowError> {
     return pipe(
       decodeCommand(ListDocumentsQuerySchema, raw, DocumentWorkflowError.invalidInput),
-      Effect.flatMap((query) => {
-        const pagination = parsePagination(query);
-        const effectiveOwnerId =
-          query.actor.role !== Role.Admin ? query.actor.userId : query.ownerId;
-        const search =
-          effectiveOwnerId !== undefined
-            ? this.documentRepo.findByOwner(effectiveOwnerId, pagination)
-            : this.documentRepo.search(query.name?.trim() ?? "", pagination);
-
-        return pipe(
-          search,
-          Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.listDocuments", e)),
-          Effect.map((paginated) => ({
-            items: paginated.items.map(toDocumentDTO),
-            pageInfo: paginated.pageInfo,
-          })),
-        );
-      }),
+      Effect.flatMap((query) =>
+        withPagination(
+          query,
+          (pagination) => {
+            const effectiveOwnerId =
+              query.actor.role !== Role.Admin ? query.actor.userId : query.ownerId;
+            const search =
+              effectiveOwnerId !== undefined
+                ? this.documentRepo.findByOwner(effectiveOwnerId, pagination)
+                : this.documentRepo.search(query.name?.trim() ?? "", pagination);
+            return pipe(
+              search,
+              Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.listDocuments", e)),
+            );
+          },
+          toPaginatedDocumentsDTO,
+        ),
+      ),
     );
   }
 
