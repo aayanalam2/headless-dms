@@ -11,6 +11,13 @@ import { Role } from "@domain/utils/enums.ts";
 import type { Document } from "@domain/document/document.entity.ts";
 import type { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
+import { eventBus } from "@infra/event-bus.ts";
+import {
+  DocumentEvent,
+  type DocumentUploadedEvent,
+  type DocumentVersionCreatedEvent,
+  type DocumentDeletedEvent,
+} from "@domain/events/document.events.ts";
 import {
   DocumentWorkflowError,
   type DocumentWorkflowError as WorkflowError,
@@ -244,3 +251,68 @@ export function hashBuffer(buf: ArrayBuffer): Effect.Effect<Checksum, never> {
     Effect.map((hash) => Checksum.create(Buffer.from(hash).toString("hex")).unwrap()),
   );
 }
+
+// ---------------------------------------------------------------------------
+// commitVersion
+// Persists a new version, points the document's currentVersionId at it, and
+// saves the updated document.  Returns both for use by the caller.
+// ---------------------------------------------------------------------------
+
+export function commitVersion(
+  repo: IDocumentRepository,
+  doc: Document,
+  version: DocumentVersion,
+  now: Date,
+): Effect.Effect<{ readonly version: DocumentVersion; readonly updated: Document }, WorkflowError> {
+  return pipe(
+    repo.saveVersion(version),
+    Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.saveVersion", e)),
+    Effect.flatMap(() =>
+      pipe(
+        doc.setCurrentVersion(version.id, now),
+        Effect.mapError((e) => DocumentWorkflowError.conflict(e.message)),
+      ),
+    ),
+    Effect.flatMap((updated) =>
+      pipe(
+        repo.update(updated),
+        Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.update", e)),
+        Effect.as({ version, updated }),
+      ),
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// requireAccessibleDocument
+// Combines requireActiveDocument + assertDocumentAccess into a single step.
+// Use in any read/write workflow that needs both existence and ownership checks.
+// ---------------------------------------------------------------------------
+
+export function requireAccessibleDocument(
+  repo: IDocumentRepository,
+  documentId: DocumentId,
+  actor: { readonly userId: UserId; readonly role: Role },
+  action: string,
+): Effect.Effect<Document, WorkflowError> {
+  return pipe(
+    requireActiveDocument(repo, documentId),
+    Effect.flatMap((document) => assertDocumentAccess(document, actor, action)),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Event emitters
+// Thin Effect.sync wrappers so workflow code never imports eventBus directly.
+// ---------------------------------------------------------------------------
+
+export const emitDocumentUploaded = (event: DocumentUploadedEvent): Effect.Effect<void, never> =>
+  Effect.sync(() => eventBus.emit(DocumentEvent.Uploaded, event));
+
+export const emitVersionCreated = (
+  event: DocumentVersionCreatedEvent,
+): Effect.Effect<void, never> =>
+  Effect.sync(() => eventBus.emit(DocumentEvent.VersionCreated, event));
+
+export const emitDocumentDeleted = (event: DocumentDeletedEvent): Effect.Effect<void, never> =>
+  Effect.sync(() => eventBus.emit(DocumentEvent.Deleted, event));
