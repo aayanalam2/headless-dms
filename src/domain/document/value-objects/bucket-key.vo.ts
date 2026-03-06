@@ -12,8 +12,6 @@ import { BucketKey } from "@domain/utils/refined.types.ts";
  */
 export const BucketKeyFactory = {
   forVersion(documentId: string, versionId: string, filename: string): BucketKey {
-    return BucketKey.create(
-      `${documentId}/${versionId}/${encodeURIComponent(filename)}`,
-    ).unwrap();
+    return BucketKey.create(`${documentId}/${versionId}/${encodeURIComponent(filename)}`).unwrap();
   },
 } as const;

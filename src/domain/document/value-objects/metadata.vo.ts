@@ -45,8 +45,7 @@ export class Metadata {
         }
         return new Metadata(parsed as Record<string, string>);
       },
-      catch: (e) =>
-        new InvalidMetadataError(e instanceof Error ? e.message : "must be valid JSON"),
+      catch: (e) => new InvalidMetadataError(e instanceof Error ? e.message : "must be valid JSON"),
     });
   }
 }

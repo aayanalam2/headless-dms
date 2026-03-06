@@ -11,7 +11,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, setDefaultTimeout } from "bun:test";
 import { Effect as E, Either, Option as O } from "effect";
 
-import { makeDocument, makeDocumentVersion, makeRolePolicy, makeSubjectPolicy, makeUser } from "../domain/factories.ts";
+import {
+  makeDocument,
+  makeDocumentVersion,
+  makeRolePolicy,
+  makeSubjectPolicy,
+  makeUser,
+} from "../domain/factories.ts";
 import type { TestDb } from "./helpers/db.ts";
 import { startTestDb, stopTestDb, truncateAll } from "./helpers/db.ts";
 import { DrizzleUserRepository } from "@infra/repositories/drizzle-user.repository.ts";

@@ -1,9 +1,5 @@
 import { Effect as E, Option as O, pipe } from "effect";
-import {
-  type DocumentId,
-  type VersionId,
-  type UserId,
-} from "@domain/utils/refined.types.ts";
+import { type DocumentId, type VersionId, type UserId } from "@domain/utils/refined.types.ts";
 import { Role } from "@domain/utils/enums.ts";
 import type { Document } from "@domain/document/document.entity.ts";
 import type { DocumentVersion } from "@domain/document/document-version.entity.ts";
@@ -26,7 +22,6 @@ import {
 import {
   makeUnavailable,
   requireFound,
-  assertOrFail,
   assertGuard,
 } from "@application/shared/workflow.helpers.ts";
 
