@@ -11,11 +11,14 @@ import {
   RegisterUserCommandSchema,
   LoginCommandSchema,
   ChangeUserRoleCommandSchema,
+  toUserDTO,
+  toJwtClaims,
   type RegisterUserCommandEncoded,
   type LoginCommandEncoded,
   type ChangeUserRoleCommandEncoded,
-} from "./dtos/commands.dto.ts";
-import { toUserDTO, toJwtClaims, type UserDTO, type JwtClaims } from "./dtos/user.dto.ts";
+  type UserDTO,
+  type JwtClaims,
+} from "./dtos/user.dto.ts";
 import {
   UserWorkflowError,
   type UserWorkflowError as WorkflowError,

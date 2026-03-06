@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { Effect, Either } from "effect";
 import { UserWorkflows } from "@application/users/user.workflows.ts";
 import { UserWorkflowErrorTag } from "@application/users/user-workflow.errors.ts";
-import type { ChangeUserRoleCommandEncoded } from "@application/users/dtos/commands.dto.ts";
+import type { ChangeUserRoleCommandEncoded } from "@application/users/dtos/user.dto.ts";
 import { Role } from "@domain/utils/enums.ts";
 import { createInMemoryUserRepository } from "../../helpers/mocks.ts";
 import { makeAdminUser, makeUser, makeUserId } from "../../domain/factories.ts";

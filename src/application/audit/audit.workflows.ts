@@ -4,8 +4,7 @@ import { TOKENS } from "@infra/di/tokens.ts";
 import type { IAuditRepository } from "./audit.repository.port.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
 import { withPagination } from "@domain/utils/pagination.ts";
-import { ListAuditLogsQuerySchema, type ListAuditLogsQueryEncoded } from "./dtos/commands.dto.ts";
-import { toPaginatedAuditLogsDTO, type PaginatedAuditLogsDTO } from "./dtos/audit-log.dto.ts";
+import { ListAuditLogsQuerySchema, toPaginatedAuditLogsDTO, type ListAuditLogsQueryEncoded, type PaginatedAuditLogsDTO } from "./dtos/audit.dto.ts";
 import {
   AuditWorkflowError,
   type AuditWorkflowError as WorkflowError,

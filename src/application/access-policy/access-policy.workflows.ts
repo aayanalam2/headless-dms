@@ -11,8 +11,9 @@ import {
   AccessPolicyWorkflowError,
   type AccessPolicyWorkflowError as WorkflowError,
 } from "./access-policy-workflow.errors.ts";
-import { toAccessPolicyDTO, type AccessPolicyDTO } from "./dtos/access-policy.dto.ts";
 import {
+  toAccessPolicyDTO,
+  type AccessPolicyDTO,
   GrantAccessCommandSchema,
   UpdateAccessCommandSchema,
   RevokeAccessCommandSchema,
@@ -23,7 +24,7 @@ import {
   type RevokeAccessCommandEncoded,
   type CheckAccessQueryEncoded,
   type ListDocumentPoliciesQueryEncoded,
-} from "./dtos/commands.dto.ts";
+} from "./dtos/access-policy.dto.ts";
 import {
   unavailable,
   requireDocForPolicy,

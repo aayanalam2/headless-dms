@@ -1,20 +1,43 @@
 import { Schema as S } from "effect";
-import { Role } from "@domain/utils/enums.ts";
+import { UserSchema } from "@domain/user/user.entity.ts";
 import type { User } from "@domain/user/user.entity.ts";
+import { Role } from "@domain/utils/enums.ts";
+import { ActorCommandSchema } from "@application/shared/actor.ts";
 
-// ---------------------------------------------------------------------------
-// UserDTOSchema — outbound shape for user data.
-//
-// passwordHash is intentionally absent: it must never leave the server.
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// INBOUND — Command / Query schemas
+// ===========================================================================
 
-export const UserDTOSchema = S.Struct({
-  id: S.String,
+export const RegisterUserCommandSchema = S.Struct({
   email: S.String,
-  role: S.Enums(Role),
-  createdAt: S.String,
+  password: S.String,
+  role: S.optional(S.Enums(Role)),
 });
-export type UserDTO = S.Schema.Type<typeof UserDTOSchema>;
+export type RegisterUserCommandEncoded = S.Schema.Encoded<typeof RegisterUserCommandSchema>;
+export type RegisterUserCommand = S.Schema.Type<typeof RegisterUserCommandSchema>;
+
+export const LoginCommandSchema = S.Struct({
+  email: S.String,
+  password: S.String,
+});
+export type LoginCommandEncoded = S.Schema.Encoded<typeof LoginCommandSchema>;
+export type LoginCommand = S.Schema.Type<typeof LoginCommandSchema>;
+
+export const ChangeUserRoleCommandSchema = S.Struct({
+  actor: ActorCommandSchema,
+  targetUserId: UserSchema.fields.id,
+  newRole: S.Enums(Role),
+});
+export type ChangeUserRoleCommandEncoded = S.Schema.Encoded<typeof ChangeUserRoleCommandSchema>;
+export type ChangeUserRoleCommand = S.Schema.Type<typeof ChangeUserRoleCommandSchema>;
+
+// ===========================================================================
+// OUTBOUND — Response DTO schemas + mappers
+// ===========================================================================
+
+// `passwordHash` must never leave the server; `updatedAt` is internal.
+export const UserDTOSchema = UserSchema.omit("passwordHash", "updatedAt");
+export type UserDTO = S.Schema.Encoded<typeof UserDTOSchema>;
 
 // ---------------------------------------------------------------------------
 // JwtClaims — the minimal payload embedded in a JWT.
@@ -29,10 +52,6 @@ export type JwtClaims = {
   readonly email: string;
   readonly role: Role;
 };
-
-// ---------------------------------------------------------------------------
-// Mappers
-// ---------------------------------------------------------------------------
 
 export function toUserDTO(user: User): UserDTO {
   return {

@@ -5,8 +5,9 @@ import { decodeCommand } from "@application/shared/decode.ts";
 import {
   RegisterUserCommandSchema,
   type RegisterUserCommandEncoded,
-} from "../dtos/commands.dto.ts";
-import { toUserDTO, type UserDTO } from "../dtos/user.dto.ts";
+  toUserDTO,
+  type UserDTO,
+} from "../dtos/user.dto.ts";
 import {
   UserWorkflowError,
   type UserWorkflowError as WorkflowError,

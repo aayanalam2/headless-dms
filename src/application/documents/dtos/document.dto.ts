@@ -4,44 +4,96 @@ import {
   DocumentVersionSchema,
   type DocumentVersion,
 } from "@domain/document/document-version.entity.ts";
+import { UserSchema } from "@domain/user/user.entity.ts";
 import type { Paginated } from "@domain/utils/pagination.ts";
+import { ActorCommandSchema } from "@application/shared/actor.ts";
+import type { ActorCommandEncoded, ActorCommand } from "@application/shared/actor.ts";
 
-// ---------------------------------------------------------------------------
-// Output DTO Schemas
-//
-// Fields are pulled directly from the entity schemas so the DTO shape never
-// drifts from the domain model.  `Encoded` gives the wire form (plain
-// strings, ISO dates, null instead of Option) — exactly what the HTTP layer
-// should serialise.
-//
-// `deletedAt` is intentionally omitted from DocumentDTOSchema: it is an
-// internal soft-delete marker, not a field consumers should reason about.
-// ---------------------------------------------------------------------------
+export { ActorCommandSchema };
+export type { ActorCommandEncoded, ActorCommand };
 
-export const VersionDTOSchema = S.Struct({
-  id: DocumentVersionSchema.fields.id,
-  documentId: DocumentVersionSchema.fields.documentId,
-  versionNumber: DocumentVersionSchema.fields.versionNumber,
-  bucketKey: DocumentVersionSchema.fields.bucketKey,
-  sizeBytes: DocumentVersionSchema.fields.sizeBytes,
-  uploadedBy: DocumentVersionSchema.fields.uploadedBy,
-  checksum: DocumentVersionSchema.fields.checksum,
-  createdAt: DocumentVersionSchema.fields.createdAt,
+// ===========================================================================
+// INBOUND — Command / Query schemas
+// ===========================================================================
+
+/** Default lifetime of a presigned download URL, in seconds. */
+export const DEFAULT_PRESIGNED_URL_TTL_SECONDS = 300;
+
+export const UploadDocumentMetaSchema = S.Struct({
+  actor: ActorCommandSchema,
+  name: S.optional(S.String),
+  rawTags: S.optional(S.String),
+  rawMetadata: S.optional(S.String),
 });
+export type UploadDocumentMetaEncoded = S.Schema.Encoded<typeof UploadDocumentMetaSchema>;
+export type UploadDocumentMeta = S.Schema.Type<typeof UploadDocumentMetaSchema>;
+
+export const UploadVersionMetaSchema = S.Struct({
+  actor: ActorCommandSchema,
+  documentId: DocumentSchema.fields.id,
+  name: S.optional(S.String),
+});
+export type UploadVersionMetaEncoded = S.Schema.Encoded<typeof UploadVersionMetaSchema>;
+export type UploadVersionMeta = S.Schema.Type<typeof UploadVersionMetaSchema>;
+
+export const GetDocumentQuerySchema = S.Struct({
+  documentId: DocumentSchema.fields.id,
+  actor: ActorCommandSchema,
+});
+export type GetDocumentQueryEncoded = S.Schema.Encoded<typeof GetDocumentQuerySchema>;
+export type GetDocumentQueryDecoded = S.Schema.Type<typeof GetDocumentQuerySchema>;
+
+export const ListDocumentsQuerySchema = S.Struct({
+  actor: ActorCommandSchema,
+  name: S.optional(S.String),
+  ownerId: S.optional(UserSchema.fields.id),
+  page: S.optional(S.Union(S.Number, S.NumberFromString)),
+  limit: S.optional(S.Union(S.Number, S.NumberFromString)),
+});
+export type ListDocumentsQueryEncoded = S.Schema.Encoded<typeof ListDocumentsQuerySchema>;
+export type ListDocumentsQueryDecoded = S.Schema.Type<typeof ListDocumentsQuerySchema>;
+
+export const DownloadDocumentQuerySchema = S.Struct({
+  documentId: DocumentSchema.fields.id,
+  actor: ActorCommandSchema,
+  expiresInSeconds: S.optional(S.Number),
+});
+export type DownloadDocumentQueryEncoded = S.Schema.Encoded<typeof DownloadDocumentQuerySchema>;
+export type DownloadDocumentQueryDecoded = S.Schema.Type<typeof DownloadDocumentQuerySchema>;
+
+export const DownloadVersionQuerySchema = S.Struct({
+  documentId: DocumentSchema.fields.id,
+  versionId: DocumentVersionSchema.fields.id,
+  actor: ActorCommandSchema,
+  expiresInSeconds: S.optional(S.Number),
+});
+export type DownloadVersionQueryEncoded = S.Schema.Encoded<typeof DownloadVersionQuerySchema>;
+export type DownloadVersionQueryDecoded = S.Schema.Type<typeof DownloadVersionQuerySchema>;
+
+export const ListVersionsQuerySchema = S.Struct({
+  documentId: DocumentSchema.fields.id,
+  actor: ActorCommandSchema,
+});
+export type ListVersionsQueryEncoded = S.Schema.Encoded<typeof ListVersionsQuerySchema>;
+export type ListVersionsQueryDecoded = S.Schema.Type<typeof ListVersionsQuerySchema>;
+
+export const DeleteDocumentCommandSchema = S.Struct({
+  documentId: DocumentSchema.fields.id,
+  actor: ActorCommandSchema,
+});
+export type DeleteDocumentCommandEncoded = S.Schema.Encoded<typeof DeleteDocumentCommandSchema>;
+export type DeleteDocumentCommandDecoded = S.Schema.Type<typeof DeleteDocumentCommandSchema>;
+
+// ===========================================================================
+// OUTBOUND — Response DTO schemas + mappers
+// `Encoded` gives the wire form: plain strings, no branded types.
+// ===========================================================================
+
+export const VersionDTOSchema = DocumentVersionSchema;
 export type VersionDTO = S.Schema.Encoded<typeof VersionDTOSchema>;
 
-export const DocumentDTOSchema = S.Struct({
-  id: DocumentSchema.fields.id,
-  ownerId: DocumentSchema.fields.ownerId,
-  name: DocumentSchema.fields.name,
-  contentType: DocumentSchema.fields.contentType,
-  currentVersionId: DocumentSchema.fields.currentVersionId,
-  tags: DocumentSchema.fields.tags,
-  metadata: DocumentSchema.fields.metadata,
-  createdAt: DocumentSchema.fields.createdAt,
-  updatedAt: DocumentSchema.fields.updatedAt,
-  // deletedAt intentionally excluded — consumers see active documents only
-});
+// `deletedAt` intentionally excluded — consumers see active documents only
+export const DocumentDTOSchema = DocumentSchema.omit("deletedAt");
 export type DocumentDTO = S.Schema.Encoded<typeof DocumentDTOSchema>;
 
 export const PageInfoSchema = S.Struct({
@@ -64,10 +116,6 @@ export const PresignedDownloadDTOSchema = S.Struct({
   version: VersionDTOSchema,
 });
 export type PresignedDownloadDTO = S.Schema.Encoded<typeof PresignedDownloadDTOSchema>;
-
-// ---------------------------------------------------------------------------
-// Mappers — domain entity → DTO (wire / encoded form)
-// ---------------------------------------------------------------------------
 
 export function toVersionDTO(version: DocumentVersion): VersionDTO {
   return {

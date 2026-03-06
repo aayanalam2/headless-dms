@@ -37,8 +37,6 @@ import {
   type PaginatedDocumentsDTO,
   type PresignedDownloadDTO,
   type VersionDTO,
-} from "./dtos/document.dto.ts";
-import {
   UploadDocumentMetaSchema,
   UploadVersionMetaSchema,
   GetDocumentQuerySchema,
@@ -56,7 +54,7 @@ import {
   type DownloadVersionQueryEncoded,
   type ListVersionsQueryEncoded,
   type DeleteDocumentCommandEncoded,
-} from "./dtos/commands.dto.ts";
+} from "./dtos/document.dto.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
 import {
   DocumentWorkflowError,
