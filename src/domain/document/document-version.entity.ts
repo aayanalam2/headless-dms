@@ -83,4 +83,22 @@ export class DocumentVersion extends BaseEntity<VersionId> implements IDocumentV
   static reconstitute(data: DocumentVersionType): DocumentVersion {
     return new DocumentVersion(data);
   }
+
+  /**
+   * Derive the next version number from an existing set of versions.
+   * Returns `max(versionNumber) + 1`, or `1` when no versions exist yet.
+   * Version numbers are monotonically increasing integers starting at 1.
+   */
+  static nextNumber(existing: readonly DocumentVersion[]): number {
+    if (existing.length === 0) return 1;
+    return existing.reduce((max, v) => Math.max(max, v.versionNumber), 0) + 1;
+  }
+
+  /**
+   * Returns `true` when this version belongs to the given document.
+   * Encodes the membership invariant "a version is owned by exactly one document".
+   */
+  belongsTo(documentId: DocumentId): boolean {
+    return this.documentId === documentId;
+  }
 }

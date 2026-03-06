@@ -1,12 +1,9 @@
 import { Effect as E, Option as O, pipe } from "effect";
 import {
-  BucketKey,
-  Checksum,
   type DocumentId,
   type VersionId,
   type UserId,
 } from "@domain/utils/refined.types.ts";
-import { isOwner } from "@domain/document/document.guards.ts";
 import { Role } from "@domain/utils/enums.ts";
 import type { Document } from "@domain/document/document.entity.ts";
 import type { DocumentVersion } from "@domain/document/document-version.entity.ts";
@@ -34,50 +31,6 @@ import {
 } from "@application/shared/workflow.helpers.ts";
 
 const unavailable = makeUnavailable(DocumentWorkflowError.unavailable);
-
-export function buildBucketKey(documentId: string, versionId: string, filename: string): BucketKey {
-  return BucketKey.create(`${documentId}/${versionId}/${encodeURIComponent(filename)}`).unwrap();
-}
-
-export function parseTags(raw: O.Option<string>): string[] {
-  if (O.isNone(raw) || raw.value.trim().length === 0) return [];
-  return raw.value
-    .split(",")
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0);
-}
-
-export function parseOptionalJson(raw: O.Option<string>): E.Effect<Record<string, string>, Error> {
-  if (O.isNone(raw) || raw.value.trim().length === 0) return E.succeed({});
-  const str = raw.value;
-  return E.try({
-    try: () => {
-      const parsed: unknown = JSON.parse(str);
-      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-        throw new Error("metadata must be a JSON object of string values");
-      }
-      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-        if (typeof v !== "string") {
-          throw new Error(`metadata value for "${k}" must be a string`);
-        }
-      }
-      return parsed as Record<string, string>;
-    },
-    catch: (e) => (e instanceof Error ? e : new Error("metadata must be valid JSON")),
-  });
-}
-
-export function assertDocumentAccess(
-  document: Document,
-  actor: { readonly userId: UserId; readonly role: Role },
-  action: string,
-): E.Effect<Document, WorkflowError> {
-  return assertOrFail(actor.role === Role.Admin || isOwner(document, actor.userId), document, () =>
-    DocumentWorkflowError.accessDenied(
-      `User '${actor.userId}' cannot ${action} document '${document.id}'`,
-    ),
-  );
-}
 
 export function assertAdminOnly(
   actor: { readonly userId: UserId; readonly role: Role },
@@ -121,7 +74,7 @@ export function requireVersionOfDocument(
   version: DocumentVersion,
   document: Document,
 ): E.Effect<DocumentVersion, WorkflowError> {
-  return version.documentId !== document.id
+  return !version.belongsTo(document.id)
     ? E.fail(
         DocumentWorkflowError.notFound(
           `Version '${version.id}' does not belong to document '${document.id}'`,
@@ -134,29 +87,13 @@ export function requireCurrentVersion(
   repo: IDocumentRepository,
   document: Document,
 ): E.Effect<DocumentVersion, WorkflowError> {
-  return O.isNone(document.currentVersionId)
-    ? E.fail(
-        DocumentWorkflowError.notFound(`Document '${document.id}' has no uploaded version yet`),
-      )
-    : requireVersion(repo, document.currentVersionId.value);
-}
-
-export function parseMetadata(
-  raw: string | null | undefined,
-): E.Effect<Record<string, string>, WorkflowError> {
-  return pipe(
-    parseOptionalJson(O.fromNullable(raw)),
-    E.mapError(() =>
-      DocumentWorkflowError.invalidInput("Metadata must be a valid JSON object of string values"),
-    ),
-  );
-}
-
-export function hashBuffer(buf: ArrayBuffer): E.Effect<Checksum, never> {
-  return pipe(
-    E.promise(() => crypto.subtle.digest("SHA-256", buf)),
-    E.map((hash) => Checksum.create(Buffer.from(hash).toString("hex")).unwrap()),
-  );
+  const versionId = O.getOrNull(document.currentVersionId);
+  if (!document.hasVersions || versionId === null) {
+    return E.fail(
+      DocumentWorkflowError.notFound(`Document '${document.id}' has no uploaded version yet`),
+    );
+  }
+  return requireVersion(repo, versionId);
 }
 
 export function commitVersion(

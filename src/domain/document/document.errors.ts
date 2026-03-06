@@ -3,6 +3,7 @@ import type { DocumentId, VersionId } from "@domain/utils/refined.types.ts";
 
 export enum DocumentErrorTags {
   InvalidContentType = "InvalidContentType",
+  InvalidMetadata = "InvalidMetadata",
   DocumentAlreadyDeleted = "DocumentAlreadyDeleted",
   DocumentNotFound = "DocumentNotFound",
   DocumentVersionNotFound = "DocumentVersionNotFound",
@@ -12,6 +13,14 @@ export class InvalidContentTypeError extends DomainError {
 
   constructor(readonly contentType: string) {
     super(`Content type '${contentType}' is not permitted for document uploads`);
+  }
+}
+
+export class InvalidMetadataError extends DomainError {
+  readonly _tag = DocumentErrorTags.InvalidMetadata as const;
+
+  constructor(readonly reason: string) {
+    super(`Invalid document metadata: ${reason}`);
   }
 }
 
@@ -59,6 +68,7 @@ export class DocumentVersionNotFoundError extends DomainError {
  */
 export type DocumentDomainError =
   | InvalidContentTypeError
+  | InvalidMetadataError
   | DocumentAlreadyDeletedError
   | DocumentNotFoundError
   | DocumentVersionNotFoundError;

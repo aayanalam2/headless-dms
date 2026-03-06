@@ -1,5 +1,5 @@
 import { inject, injectable } from "tsyringe";
-import { Effect as E, Option as O, pipe } from "effect";
+import { Effect as E, pipe } from "effect";
 import { Document } from "@domain/document/document.entity.ts";
 import type { ContentType } from "@domain/document/value-objects/content-type.vo.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
@@ -12,11 +12,11 @@ import { withPagination } from "@domain/utils/pagination.ts";
 import { type BucketKey, type Checksum } from "@domain/utils/refined.types.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
 import { TOKENS } from "@infra/di/tokens.ts";
+import { BucketKeyFactory } from "@domain/document/value-objects/bucket-key.vo.ts";
+import { ChecksumFactory } from "@domain/document/value-objects/checksum.vo.ts";
+import { Tags } from "@domain/document/value-objects/tags.vo.ts";
+import { Metadata } from "@domain/document/value-objects/metadata.vo.ts";
 import {
-  buildBucketKey,
-  parseTags,
-  parseMetadata,
-  hashBuffer,
   commitVersion,
   requireAccessibleDocument,
   assertAdminOnly,
@@ -81,7 +81,7 @@ function uploadAndHash(
 ): E.Effect<Checksum, WorkflowError> {
   return pipe(
     E.all([
-      hashBuffer(buffer),
+      ChecksumFactory.fromBuffer(buffer),
       pipe(
         storage.uploadFile(bucketKey, Buffer.from(buffer), contentType),
         E.mapError(unavailable("storage.uploadFile")),
@@ -127,15 +127,26 @@ export class DocumentWorkflows {
         const docId = crypto.randomUUID();
         const verId = crypto.randomUUID();
         const filename = meta.name?.trim() || file.name || "untitled";
-        const contentType = (file.type || "application/octet-stream") as ContentType;
-        const bucketKey = buildBucketKey(docId, verId, filename);
+        const contentType = file.type as ContentType;
+        const bucketKey = BucketKeyFactory.forVersion(docId, verId, filename);
 
         return pipe(
-          E.all([parseMetadata(meta.rawMetadata), E.promise(() => file.arrayBuffer())]),
+          E.all([
+            pipe(
+              Metadata.parse(meta.rawMetadata),
+              E.map((m) => m.value),
+              E.mapError(() =>
+                DocumentWorkflowError.invalidInput(
+                  "Metadata must be a valid JSON object of string values",
+                ),
+              ),
+            ),
+            E.promise(() => file.arrayBuffer()),
+          ]),
           E.map(([metadata, buffer]) => ({
             metadata,
             buffer,
-            tags: parseTags(O.fromNullable(meta.rawTags)),
+            tags: Tags.parse(meta.rawTags).value,
           })),
 
           E.flatMap(({ metadata, buffer, tags }) =>
@@ -235,11 +246,8 @@ export class DocumentWorkflows {
           E.map(([document, versions]) => {
             const filename = meta.name?.trim() || file.name || document.name;
             const contentType = file.type || document.contentType;
-            const versionNumber =
-              versions.length === 0
-                ? 1
-                : versions.reduce((max, v) => Math.max(max, v.versionNumber), 0) + 1;
-            const bucketKey = buildBucketKey(meta.documentId as string, verId, filename);
+            const versionNumber = DocumentVersion.nextNumber(versions);
+            const bucketKey = BucketKeyFactory.forVersion(meta.documentId as string, verId, filename);
             return { document, filename, contentType, versionNumber, bucketKey };
           }),
 

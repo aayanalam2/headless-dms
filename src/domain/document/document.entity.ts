@@ -67,6 +67,15 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
     return O.isSome(this.deletedAt);
   }
 
+  /**
+   * Returns `true` when the document has at least one uploaded version.
+   * Mirrors the `hasVersion` guard in document.guards.ts as a first-class
+   * entity predicate so callers do not need to inspect the Option directly.
+   */
+  get hasVersions(): boolean {
+    return O.isSome(this.currentVersionId);
+  }
+
   serialized(): E.Effect<SerializedDocument, ParseResult.ParseError> {
     return Schema.encode(DocumentSchema)({
       id: this.id,
