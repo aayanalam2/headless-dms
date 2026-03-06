@@ -4,6 +4,8 @@ import { Document } from "@domain/document/document.entity.ts";
 import type { ContentType } from "@domain/document/value-objects/content-type.vo.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
+import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
+import type { IUserRepository } from "@domain/user/user.repository.ts";
 import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { Role } from "@domain/utils/enums.ts";
 import { parsePagination } from "@domain/utils/pagination.ts";
@@ -127,6 +129,8 @@ export class DocumentWorkflows {
   constructor(
     @inject(TOKENS.DocumentRepository) private readonly documentRepo: IDocumentRepository,
     @inject(TOKENS.StorageService) private readonly storage: IStorage,
+    @inject(TOKENS.AccessPolicyRepository) private readonly policyRepo: IAccessPolicyRepository,
+    @inject(TOKENS.UserRepository) private readonly userRepo: IUserRepository,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -334,7 +338,7 @@ export class DocumentWorkflows {
       decodeCommand(GetDocumentQuerySchema, raw, DocumentWorkflowError.invalidInput),
       Effect.flatMap((query) =>
         pipe(
-          requireAccessibleDocument(this.documentRepo, query.documentId, query.actor, "read"),
+          requireAccessibleDocument(this.documentRepo, this.policyRepo, this.userRepo, query.documentId, query.actor, PermissionAction.Read),
           Effect.map(toDocumentDTO),
         ),
       ),
@@ -379,7 +383,7 @@ export class DocumentWorkflows {
       Effect.flatMap((query) => {
         const ttl = query.expiresInSeconds ?? DEFAULT_PRESIGNED_URL_TTL_SECONDS;
         return pipe(
-          requireAccessibleDocument(this.documentRepo, query.documentId, query.actor, "download"),
+          requireAccessibleDocument(this.documentRepo, this.policyRepo, this.userRepo, query.documentId, query.actor, PermissionAction.Read),
           Effect.flatMap((document) => requireCurrentVersion(this.documentRepo, document)),
           Effect.flatMap((version) => buildPresignedResponse(this.storage, version, ttl)),
         );
@@ -399,7 +403,7 @@ export class DocumentWorkflows {
       Effect.flatMap((query) => {
         const ttl = query.expiresInSeconds ?? DEFAULT_PRESIGNED_URL_TTL_SECONDS;
         return pipe(
-          requireAccessibleDocument(this.documentRepo, query.documentId, query.actor, "download"),
+          requireAccessibleDocument(this.documentRepo, this.policyRepo, this.userRepo, query.documentId, query.actor, PermissionAction.Read),
           Effect.flatMap((document) =>
             pipe(
               requireVersion(this.documentRepo, query.versionId),
@@ -423,9 +427,11 @@ export class DocumentWorkflows {
         pipe(
           requireAccessibleDocument(
             this.documentRepo,
+            this.policyRepo,
+            this.userRepo,
             query.documentId,
             query.actor,
-            "list versions of",
+            PermissionAction.Read,
           ),
           Effect.flatMap((document) =>
             pipe(

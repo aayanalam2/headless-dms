@@ -12,7 +12,7 @@ import { buildContainer } from "@infra/di/container.ts";
 import { DocumentWorkflows } from "@application/documents/document.workflows.ts";
 import { UserWorkflows } from "@application/users/user.workflows.ts";
 import { AuditWorkflows } from "@application/audit/audit.workflows.ts";
-import { AccessPolicyWorkflows } from "@application/access-policy/workflows/access-policy.workflows.ts";
+import { AccessPolicyWorkflows } from "@application/access-policy/access-policy.workflows.ts";
 import { createAuthController } from "./presentation/http/controllers/auth.controller.ts";
 import { createDocumentsController } from "./presentation/http/controllers/documents.controller.ts";
 import { createAuditController } from "./presentation/http/controllers/audit.controller.ts";

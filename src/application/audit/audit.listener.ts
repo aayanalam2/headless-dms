@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import type { IAuditRepository } from "./audit.repository.port.ts";
 import { AuditAction, AuditResourceType } from "@domain/utils/enums.ts";
 import { DocumentEvent } from "@domain/events/document.events.ts";
+import { AccessPolicyEvent } from "@domain/events/access-policy.events.ts";
 import { eventBus } from "@infra/event-bus.ts";
 
 // ---------------------------------------------------------------------------
@@ -58,6 +59,53 @@ export function createAuditListeners(auditRepo: IAuditRepository): { register():
             resourceType: AuditResourceType.Document,
             resourceId: e.resourceId,
             metadata: {},
+          }),
+        ),
+      );
+
+      eventBus.on(AccessPolicyEvent.Granted, (e) =>
+        fire(
+          auditRepo.insertAuditLog({
+            actorId: e.actorId,
+            action: AuditAction.AccessPolicyGrant,
+            resourceType: AuditResourceType.AccessPolicy,
+            resourceId: e.resourceId,
+            metadata: {
+              documentId: e.documentId,
+              action: e.action,
+              effect: e.effect,
+            },
+          }),
+        ),
+      );
+
+      eventBus.on(AccessPolicyEvent.Updated, (e) =>
+        fire(
+          auditRepo.insertAuditLog({
+            actorId: e.actorId,
+            action: AuditAction.AccessPolicyUpdate,
+            resourceType: AuditResourceType.AccessPolicy,
+            resourceId: e.resourceId,
+            metadata: {
+              previousPolicyId: e.previousPolicyId,
+              documentId: e.documentId,
+              effect: e.effect,
+            },
+          }),
+        ),
+      );
+
+      eventBus.on(AccessPolicyEvent.Revoked, (e) =>
+        fire(
+          auditRepo.insertAuditLog({
+            actorId: e.actorId,
+            action: AuditAction.AccessPolicyRevoke,
+            resourceType: AuditResourceType.AccessPolicy,
+            resourceId: e.resourceId,
+            metadata: {
+              documentId: e.documentId,
+              action: e.action,
+            },
           }),
         ),
       );

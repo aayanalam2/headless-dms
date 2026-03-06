@@ -11,6 +11,10 @@ import { Role } from "@domain/utils/enums.ts";
 import type { Document } from "@domain/document/document.entity.ts";
 import type { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
+import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
+import type { IUserRepository } from "@domain/user/user.repository.ts";
+import { DocumentAccessService } from "@domain/services/document-access.service.ts";
+import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { eventBus } from "@infra/event-bus.ts";
 import {
   DocumentEvent,
@@ -285,19 +289,68 @@ export function commitVersion(
 
 // ---------------------------------------------------------------------------
 // requireAccessibleDocument
-// Combines requireActiveDocument + assertDocumentAccess into a single step.
-// Use in any read/write workflow that needs both existence and ownership checks.
+// Combines existence check with full RBAC evaluation via DocumentAccessService.
+//
+// Flow:
+//   1. Fetch the active document (or notFound).
+//   2. In parallel: fetch the actor's User entity + all applicable policies
+//      (subject-specific and role-based).
+//   3. Delegate the access decision to DocumentAccessService.evaluate —
+//      which short-circuits for admins and applies tiered policy precedence
+//      for everyone else.
+//
+// Use this helper in any read/write workflow that gates on document access.
 // ---------------------------------------------------------------------------
 
 export function requireAccessibleDocument(
   repo: IDocumentRepository,
+  policyRepo: IAccessPolicyRepository,
+  userRepo: IUserRepository,
   documentId: DocumentId,
   actor: { readonly userId: UserId; readonly role: Role },
-  action: string,
+  action: PermissionAction,
 ): Effect.Effect<Document, WorkflowError> {
   return pipe(
     requireActiveDocument(repo, documentId),
-    Effect.flatMap((document) => assertDocumentAccess(document, actor, action)),
+    Effect.flatMap((document) =>
+      pipe(
+        Effect.all(
+          {
+            userOpt: pipe(
+              userRepo.findById(actor.userId),
+              Effect.mapError((e) => DocumentWorkflowError.unavailable("userRepo.findById", e)),
+            ),
+            subjectPolicies: pipe(
+              policyRepo.findByDocumentAndSubject(documentId, actor.userId),
+              Effect.mapError((e) =>
+                DocumentWorkflowError.unavailable("policyRepo.findByDocumentAndSubject", e),
+              ),
+            ),
+            rolePolicies: pipe(
+              policyRepo.findByDocumentAndRole(documentId, actor.role),
+              Effect.mapError((e) =>
+                DocumentWorkflowError.unavailable("policyRepo.findByDocumentAndRole", e),
+              ),
+            ),
+          },
+          { concurrency: 3 },
+        ),
+        Effect.flatMap(({ userOpt, subjectPolicies, rolePolicies }) => {
+          if (Option.isNone(userOpt)) {
+            return Effect.fail(DocumentWorkflowError.notFound(`User '${actor.userId}'`));
+          }
+          const user = userOpt.value;
+          const policies = [...subjectPolicies, ...rolePolicies];
+          return DocumentAccessService.evaluate(user, policies, document, action)
+            ? Effect.succeed(document)
+            : Effect.fail(
+                DocumentWorkflowError.accessDenied(
+                  `User '${actor.userId}' cannot ${action} document '${document.id}'`,
+                ),
+              );
+        }),
+      ),
+    ),
   );
 }
 

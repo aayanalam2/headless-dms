@@ -1,4 +1,7 @@
 import type { DocumentEventMap } from "@domain/events/document.events.ts";
+import type { AccessPolicyEventMap } from "@domain/events/access-policy.events.ts";
+
+type AllEventMap = DocumentEventMap & AccessPolicyEventMap;
 
 // ---------------------------------------------------------------------------
 // Minimal typed in-process event bus.
@@ -25,4 +28,4 @@ class EventBus<TMap extends Record<string, unknown>> {
   }
 }
 
-export const eventBus = new EventBus<DocumentEventMap>();
+export const eventBus = new EventBus<AllEventMap>();

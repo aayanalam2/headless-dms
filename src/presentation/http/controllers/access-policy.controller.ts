@@ -7,7 +7,7 @@ import {
   AccessPolicyWorkflowErrorTag,
   type AccessPolicyWorkflowError,
 } from "@application/access-policy/access-policy-workflow.errors.ts";
-import type { AccessPolicyWorkflows } from "@application/access-policy/workflows/access-policy.workflows.ts";
+import type { AccessPolicyWorkflows } from "@application/access-policy/access-policy.workflows.ts";
 import {
   PermissionAction,
   PolicyEffect,
