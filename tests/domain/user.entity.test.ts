@@ -24,6 +24,7 @@ describe("User entity", () => {
           passwordHash,
           role: Role.User,
           createdAt: FIXED_DATE.toISOString(),
+          updatedAt: FIXED_DATE.toISOString(),
         }),
       );
 
@@ -35,7 +36,7 @@ describe("User entity", () => {
       expect(user.createdAt).toEqual(FIXED_DATE);
     });
 
-    it("sets updatedAt equal to createdAt (immutable entity)", () => {
+    it("sets updatedAt equal to createdAt on initial creation", () => {
       const user = makeUser();
       expect(user.updatedAt).toEqual(user.createdAt);
     });
@@ -62,14 +63,57 @@ describe("User entity", () => {
         passwordHash: HashedPassword.create("$2b$10$hash").unwrap(),
         role: Role.Admin,
         createdAt,
+        updatedAt,
       });
 
-      // reconstitute sets updatedAt = createdAt (immutable entity)
       expect(user.id).toBe(id);
       expect(user.createdAt).toEqual(createdAt);
+      expect(user.updatedAt).toEqual(updatedAt);
       expect(user.role).toBe(Role.Admin);
-      // suppress unused var warning
-      void updatedAt;
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // User.changeRole
+  // -------------------------------------------------------------------------
+
+  describe("User.changeRole", () => {
+    it("escalates a user to admin", () => {
+      const user = makeUser({ role: Role.User });
+      const at = new Date("2025-06-01T12:00:00.000Z");
+      const promoted = user.changeRole(Role.Admin, at);
+
+      expect(promoted.role).toBe(Role.Admin);
+      expect(promoted.updatedAt).toEqual(at);
+    });
+
+    it("strips admin privileges from an admin user", () => {
+      const admin = makeAdminUser();
+      const at = new Date("2025-07-01T08:00:00.000Z");
+      const demoted = admin.changeRole(Role.User, at);
+
+      expect(demoted.role).toBe(Role.User);
+      expect(demoted.updatedAt).toEqual(at);
+    });
+
+    it("preserves all other fields", () => {
+      const user = makeUser();
+      const at = new Date("2025-06-01T12:00:00.000Z");
+      const promoted = user.changeRole(Role.Admin, at);
+
+      expect(promoted.id).toBe(user.id);
+      expect(promoted.email).toBe(user.email);
+      expect(promoted.passwordHash).toBe(user.passwordHash);
+      expect(promoted.createdAt).toEqual(user.createdAt);
+    });
+
+    it("returns a new instance — does not mutate the original", () => {
+      const user = makeUser({ role: Role.User });
+      const at = new Date("2025-06-01T12:00:00.000Z");
+      const promoted = user.changeRole(Role.Admin, at);
+
+      expect(user.role).toBe(Role.User);
+      expect(promoted).not.toBe(user);
     });
   });
 

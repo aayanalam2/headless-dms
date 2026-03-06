@@ -71,6 +71,7 @@ export function registerUser(
           User.create({
             id: crypto.randomUUID(),
             createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
             email: cmd.email,
             passwordHash: raw_hash,
             role: cmd.role ?? Role.User,

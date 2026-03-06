@@ -15,6 +15,7 @@ export const UserSchema = Schema.Struct({
   passwordHash: StringToHashedPassword,
   role: Schema.Enums(RoleEnum),
   createdAt: Schema.DateFromString,
+  updatedAt: Schema.DateFromString,
 });
 
 export type UserType = Schema.Schema.Type<typeof UserSchema>;
@@ -41,7 +42,6 @@ export class User extends BaseEntity<UserId> implements IUser {
   readonly role: Role;
 
   private constructor(data: UserType) {
-    // User accounts are immutable — updatedAt always equals createdAt.
     super(data.id, data.createdAt, data.createdAt);
     this.email = data.email;
     this.passwordHash = data.passwordHash;
@@ -56,6 +56,23 @@ export class User extends BaseEntity<UserId> implements IUser {
       passwordHash: this.passwordHash,
       role: this.role,
       createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+    });
+  }
+
+  /**
+   * Returns a new User with the given role and an updated `updatedAt`
+   * timestamp.  Only admins should be permitted to call this — enforce
+   * that constraint in the workflow layer.
+   */
+  changeRole(newRole: Role, at: Date): User {
+    return User.reconstitute({
+      id: this.id,
+      email: this.email,
+      passwordHash: this.passwordHash,
+      role: newRole,
+      createdAt: this.createdAt,
+      updatedAt: at,
     });
   }
 

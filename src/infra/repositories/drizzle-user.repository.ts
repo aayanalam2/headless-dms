@@ -34,6 +34,7 @@ export class DrizzleUserRepository implements IUserRepository {
       passwordHash: HashedPassword.create(row.passwordHash).unwrap(),
       role: row.role,
       createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     });
   };
 

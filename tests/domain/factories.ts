@@ -55,6 +55,7 @@ export function makeUser(overrides: Partial<SerializedUser> = {}): User {
       passwordHash: DEFAULT_HASH,
       role: Role.User,
       createdAt: FIXED_ISO,
+      updatedAt: FIXED_ISO,
       ...overrides,
     }),
   );
