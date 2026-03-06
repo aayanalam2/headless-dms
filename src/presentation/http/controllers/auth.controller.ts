@@ -25,6 +25,8 @@ function toAppError(e: UserWorkflowError): AppError {
       return AppError.conflict(e.message);
     case UserWorkflowErrorTag.Unauthorized:
       return AppError.accessDenied("Invalid credentials");
+    case UserWorkflowErrorTag.Forbidden:
+      return AppError.accessDenied(e.reason);
     case UserWorkflowErrorTag.Unavailable:
       return AppError.database(e.operation);
     default:

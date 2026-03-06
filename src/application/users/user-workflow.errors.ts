@@ -19,6 +19,7 @@ export const UserWorkflowErrorTag = {
   NotFound: "UserWorkflow.NotFound",
   Duplicate: "UserWorkflow.Duplicate",
   Unauthorized: "UserWorkflow.Unauthorized",
+  Forbidden: "UserWorkflow.Forbidden",
   Unavailable: "UserWorkflow.Unavailable",
 } as const;
 
@@ -43,6 +44,10 @@ export type UserWorkflowError =
     }
   | {
       readonly _tag: typeof UserWorkflowErrorTag.Unauthorized;
+    }
+  | {
+      readonly _tag: typeof UserWorkflowErrorTag.Forbidden;
+      readonly reason: string;
     }
   | {
       readonly _tag: typeof UserWorkflowErrorTag.Unavailable;
@@ -72,6 +77,11 @@ export const UserWorkflowError = {
 
   unauthorized: (): UserWorkflowError => ({
     _tag: UserWorkflowErrorTag.Unauthorized,
+  }),
+
+  forbidden: (reason: string): UserWorkflowError => ({
+    _tag: UserWorkflowErrorTag.Forbidden,
+    reason,
   }),
 
   unavailable: (operation: string, cause?: unknown): UserWorkflowError => ({

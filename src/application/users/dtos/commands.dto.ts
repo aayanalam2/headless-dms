@@ -1,5 +1,6 @@
 import { Schema as S } from "effect";
 import { Role } from "@domain/utils/enums.ts";
+import { ActorCommandSchema } from "@application/documents/dtos/commands.dto.ts";
 
 // ---------------------------------------------------------------------------
 // RegisterUserCommandSchema
@@ -29,3 +30,18 @@ export const LoginCommandSchema = S.Struct({
 });
 export type LoginCommandEncoded = S.Schema.Encoded<typeof LoginCommandSchema>;
 export type LoginCommand = S.Schema.Type<typeof LoginCommandSchema>;
+
+// ---------------------------------------------------------------------------
+// ChangeUserRoleCommandSchema
+//
+// Changes the role of any user.  Only admins may execute this; the guard
+// lives inside the workflow rather than the schema so the error is typed.
+// ---------------------------------------------------------------------------
+
+export const ChangeUserRoleCommandSchema = S.Struct({
+  actor: ActorCommandSchema,
+  targetUserId: S.String,
+  newRole: S.Enums(Role),
+});
+export type ChangeUserRoleCommandEncoded = S.Schema.Encoded<typeof ChangeUserRoleCommandSchema>;
+export type ChangeUserRoleCommand = S.Schema.Type<typeof ChangeUserRoleCommandSchema>;

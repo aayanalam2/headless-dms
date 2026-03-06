@@ -5,8 +5,10 @@ import type { IUserRepository } from "@domain/user/user.repository.ts";
 import { AuthService } from "@infra/services/auth.service.ts";
 import { registerUser } from "./workflows/register-user.workflow.ts";
 import { loginUser } from "./workflows/login-user.workflow.ts";
+import { changeUserRole } from "./workflows/change-user-role.workflow.ts";
 import type { RegisterUserCommandEncoded } from "./dtos/commands.dto.ts";
 import type { LoginCommandEncoded } from "./dtos/commands.dto.ts";
+import type { ChangeUserRoleCommandEncoded } from "./dtos/commands.dto.ts";
 import type { UserWorkflowError } from "./user-workflow.errors.ts";
 import type { UserDTO } from "./dtos/user.dto.ts";
 import type { LoginResult } from "./workflows/login-user.workflow.ts";
@@ -42,5 +44,9 @@ export class UserWorkflows {
       },
       raw,
     );
+  }
+
+  changeRole(raw: ChangeUserRoleCommandEncoded): Effect.Effect<UserDTO, UserWorkflowError> {
+    return changeUserRole({ userRepo: this.userRepo }, raw);
   }
 }
