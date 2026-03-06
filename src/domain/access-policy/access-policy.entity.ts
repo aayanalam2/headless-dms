@@ -1,4 +1,4 @@
-import { Effect, Option, ParseResult, Schema } from "effect";
+import { Effect as E, Option as O, ParseResult, Schema } from "effect";
 import { BaseEntity, type IEntity } from "@domain/utils/base.entity.ts";
 import type { AccessPolicyId, DocumentId, UserId } from "@domain/utils/refined.types.ts";
 import {
@@ -28,26 +28,18 @@ export type AccessPolicyType = Schema.Schema.Type<typeof AccessPolicySchema>;
 
 export type SerializedAccessPolicy = Schema.Schema.Encoded<typeof AccessPolicySchema>;
 
-// ---------------------------------------------------------------------------
-// Domain interface
-// ---------------------------------------------------------------------------
-
 export interface IAccessPolicy extends IEntity<AccessPolicyId> {
   readonly documentId: DocumentId;
-  readonly subjectId: Option.Option<UserId>;
-  readonly subjectRole: Option.Option<Role>;
+  readonly subjectId: O.Option<UserId>;
+  readonly subjectRole: O.Option<Role>;
   readonly action: PermissionAction;
   readonly effect: PolicyEffect;
 }
 
-// ---------------------------------------------------------------------------
-// AccessPolicy entity class
-// ---------------------------------------------------------------------------
-
 export class AccessPolicy extends BaseEntity<AccessPolicyId> implements IAccessPolicy {
   readonly documentId: DocumentId;
-  readonly subjectId: Option.Option<UserId>;
-  readonly subjectRole: Option.Option<Role>;
+  readonly subjectId: O.Option<UserId>;
+  readonly subjectRole: O.Option<Role>;
   readonly action: PermissionAction;
   readonly effect: PolicyEffect;
 
@@ -62,7 +54,7 @@ export class AccessPolicy extends BaseEntity<AccessPolicyId> implements IAccessP
     Object.freeze(this);
   }
 
-  serialized(): Effect.Effect<SerializedAccessPolicy, ParseResult.ParseError> {
+  serialized(): E.Effect<SerializedAccessPolicy, ParseResult.ParseError> {
     return Schema.encode(AccessPolicySchema)({
       id: this.id,
       documentId: this.documentId,
@@ -79,27 +71,23 @@ export class AccessPolicy extends BaseEntity<AccessPolicyId> implements IAccessP
    * Returns `PolicyTargetRequiredError` when neither or both of
    * `subjectId` / `subjectRole` are provided (XOR constraint).
    */
-  static create(
-    input: SerializedAccessPolicy,
-  ): Effect.Effect<AccessPolicy, PolicyTargetRequiredError> {
+  static create(input: SerializedAccessPolicy): E.Effect<AccessPolicy, PolicyTargetRequiredError> {
     return Schema.decodeUnknown(AccessPolicySchema)(input).pipe(
-      Effect.mapError(() => new PolicyTargetRequiredError()),
-      Effect.flatMap((data) => {
-        const hasSubject = Option.isSome(data.subjectId);
-        const hasRole = Option.isSome(data.subjectRole);
+      E.mapError(() => new PolicyTargetRequiredError()),
+      E.flatMap((data) => {
+        const hasSubject = O.isSome(data.subjectId);
+        const hasRole = O.isSome(data.subjectRole);
 
         // XOR: exactly one must be set.
         if (hasSubject === hasRole) {
-          return Effect.fail(new PolicyTargetRequiredError());
+          return E.fail(new PolicyTargetRequiredError());
         }
 
-        return Effect.succeed(new AccessPolicy(data));
+        return E.succeed(new AccessPolicy(data));
       }),
     );
   }
   static reconstitute(data: AccessPolicyType): AccessPolicy {
     return new AccessPolicy(data);
   }
-
-  // equals() is inherited from BaseEntity — identity by id.
 }

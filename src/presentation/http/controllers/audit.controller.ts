@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia";
-import { Effect, pipe } from "effect";
+import { Effect as E, pipe } from "effect";
 import { adminPlugin } from "../middleware/auth.plugin.ts";
 import {
   AuditWorkflowErrorTag,
@@ -9,10 +9,6 @@ import { AppError } from "@infra/errors.ts";
 import type { AuditResourceType } from "@domain/utils/enums.ts";
 import { run, assertNever } from "../lib/http.ts";
 import type { AuditWorkflows } from "@application/audit/audit.workflows.ts";
-
-// ---------------------------------------------------------------------------
-// Error bridge
-// ---------------------------------------------------------------------------
 
 function toAppError(e: AuditWorkflowError): AppError {
   switch (e._tag) {
@@ -24,10 +20,6 @@ function toAppError(e: AuditWorkflowError): AppError {
       return assertNever(e);
   }
 }
-
-// ---------------------------------------------------------------------------
-// createAuditController
-// ---------------------------------------------------------------------------
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createAuditController(workflows: AuditWorkflows) {
@@ -43,7 +35,7 @@ export function createAuditController(workflows: AuditWorkflows) {
             // workflow's decodeCommand will validate it against AuditResourceType enum.
             resourceType: query.resourceType as AuditResourceType | undefined,
           }),
-          Effect.mapError(toAppError),
+          E.mapError(toAppError),
         ),
       ),
     {

@@ -1,10 +1,15 @@
 import { inject, injectable } from "tsyringe";
-import { Effect, pipe } from "effect";
+import { Effect as E, pipe } from "effect";
 import { TOKENS } from "@infra/di/tokens.ts";
 import type { IAuditRepository } from "./audit.repository.port.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
 import { withPagination } from "@domain/utils/pagination.ts";
-import { ListAuditLogsQuerySchema, toPaginatedAuditLogsDTO, type ListAuditLogsQueryEncoded, type PaginatedAuditLogsDTO } from "./dtos/audit.dto.ts";
+import {
+  ListAuditLogsQuerySchema,
+  toPaginatedAuditLogsDTO,
+  type ListAuditLogsQueryEncoded,
+  type PaginatedAuditLogsDTO,
+} from "./dtos/audit.dto.ts";
 import {
   AuditWorkflowError,
   type AuditWorkflowError as WorkflowError,
@@ -14,10 +19,10 @@ import {
 export class AuditWorkflows {
   constructor(@inject(TOKENS.AuditRepository) private readonly auditRepo: IAuditRepository) {}
 
-  listAuditLogs(raw: ListAuditLogsQueryEncoded): Effect.Effect<PaginatedAuditLogsDTO, WorkflowError> {
+  listAuditLogs(raw: ListAuditLogsQueryEncoded): E.Effect<PaginatedAuditLogsDTO, WorkflowError> {
     return pipe(
       decodeCommand(ListAuditLogsQuerySchema, raw, AuditWorkflowError.invalidInput),
-      Effect.flatMap((query) =>
+      E.flatMap((query) =>
         withPagination(
           query,
           (pagination) =>
@@ -27,7 +32,7 @@ export class AuditWorkflows {
                 ...(query.resourceType !== undefined && { resourceType: query.resourceType }),
                 ...(query.resourceId !== undefined && { resourceId: query.resourceId }),
               }),
-              Effect.mapError((e) => AuditWorkflowError.unavailable("repo.listAuditLogs", e)),
+              E.mapError((e) => AuditWorkflowError.unavailable("repo.listAuditLogs", e)),
             ),
           toPaginatedAuditLogsDTO,
         ),

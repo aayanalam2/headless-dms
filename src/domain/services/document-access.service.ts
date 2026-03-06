@@ -1,4 +1,4 @@
-import { Option, pipe } from "effect";
+import { Option as O, pipe } from "effect";
 import type { IDocument } from "@domain/document/document.entity.ts";
 import type { IUser } from "@domain/user/user.entity.ts";
 import type { IAccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
@@ -37,11 +37,11 @@ import { isAdmin } from "@domain/user/user.guards.ts";
  * `Some(true)` if any policy allows and none denies,
  * or `None` if no matching policies exist (undecided — try next tier).
  */
-const decideTier = (tierPolicies: readonly IAccessPolicy[]): Option.Option<boolean> => {
-  if (tierPolicies.length === 0) return Option.none();
-  if (tierPolicies.some((p) => p.effect === PolicyEffect.Deny)) return Option.some(false);
-  if (tierPolicies.some((p) => p.effect === PolicyEffect.Allow)) return Option.some(true);
-  return Option.none();
+const decideTier = (tierPolicies: readonly IAccessPolicy[]): O.Option<boolean> => {
+  if (tierPolicies.length === 0) return O.none();
+  if (tierPolicies.some((p) => p.effect === PolicyEffect.Deny)) return O.some(false);
+  if (tierPolicies.some((p) => p.effect === PolicyEffect.Allow)) return O.some(true);
+  return O.none();
 };
 
 export class DocumentAccessService {
@@ -70,13 +70,11 @@ export class DocumentAccessService {
     const relevant = policies.filter((p) => p.documentId === document.id && p.action === action);
 
     // Tier 2 — Subject policies: explicitly target this user by ID.
-    const subjectPolicies = relevant.filter((p) =>
-      Option.exists(p.subjectId, (id) => id === user.id),
-    );
+    const subjectPolicies = relevant.filter((p) => O.exists(p.subjectId, (id) => id === user.id));
 
     // Tier 3 — Role policies: target the user's role.
     const rolePolicies = relevant.filter((p) =>
-      Option.exists(p.subjectRole, (role) => role === user.role),
+      O.exists(p.subjectRole, (role) => role === user.role),
     );
 
     // Chain tiers via Option<boolean>.  The first tier that reaches a decision
@@ -84,8 +82,8 @@ export class DocumentAccessService {
     // getOrElse provides the default-deny fallback.
     return pipe(
       decideTier(subjectPolicies),
-      Option.orElse(() => decideTier(rolePolicies)),
-      Option.getOrElse(() => false),
+      O.orElse(() => decideTier(rolePolicies)),
+      O.getOrElse(() => false),
     );
   }
 

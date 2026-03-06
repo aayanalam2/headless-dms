@@ -1,4 +1,4 @@
-import { Option, Schema as S } from "effect";
+import { Option as O, Schema as S } from "effect";
 import { DocumentSchema, type Document } from "@domain/document/document.entity.ts";
 import {
   DocumentVersionSchema,
@@ -136,7 +136,7 @@ export function toDocumentDTO(document: Document): DocumentDTO {
     ownerId: document.ownerId,
     name: document.name,
     contentType: document.contentType,
-    currentVersionId: Option.getOrNull(document.currentVersionId),
+    currentVersionId: O.getOrNull(document.currentVersionId),
     tags: [...document.tags],
     metadata: document.metadata,
     createdAt: document.createdAt.toISOString(),

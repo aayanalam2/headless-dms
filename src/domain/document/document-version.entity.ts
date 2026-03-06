@@ -1,4 +1,4 @@
-import { Effect, ParseResult, Schema } from "effect";
+import { Effect as E, ParseResult, Schema } from "effect";
 import { BaseEntity, type IEntity } from "@domain/utils/base.entity.ts";
 import type {
   BucketKey,
@@ -15,16 +15,6 @@ import {
   StringToVersionId,
 } from "@domain/utils/refined.types.ts";
 
-// ---------------------------------------------------------------------------
-// DocumentVersionSchema
-//
-//   Encoded (wire)  →  Type (domain)
-//   string (UUID)   →  VersionId / DocumentId / UserId  (branded)
-//   string          →  BucketKey / Checksum             (branded)
-//   number          →  number                           (pass-through)
-//   string (ISO)    →  Date
-// ---------------------------------------------------------------------------
-
 export const DocumentVersionSchema = Schema.Struct({
   id: StringToVersionId,
   documentId: StringToDocumentId,
@@ -36,15 +26,9 @@ export const DocumentVersionSchema = Schema.Struct({
   createdAt: Schema.DateFromString,
 });
 
-/** Domain form — branded IDs, Date. */
 export type DocumentVersionType = Schema.Schema.Type<typeof DocumentVersionSchema>;
 
-/** Wire / persistence form — plain strings, ISO date. */
 export type SerializedDocumentVersion = Schema.Schema.Encoded<typeof DocumentVersionSchema>;
-
-// ---------------------------------------------------------------------------
-// Domain interface
-// ---------------------------------------------------------------------------
 
 export interface IDocumentVersion extends IEntity<VersionId> {
   readonly documentId: DocumentId;
@@ -54,10 +38,6 @@ export interface IDocumentVersion extends IEntity<VersionId> {
   readonly checksum: Checksum;
   readonly uploadedBy: UserId;
 }
-
-// ---------------------------------------------------------------------------
-// DocumentVersion entity class
-// ---------------------------------------------------------------------------
 
 export class DocumentVersion extends BaseEntity<VersionId> implements IDocumentVersion {
   readonly documentId: DocumentId;
@@ -79,7 +59,7 @@ export class DocumentVersion extends BaseEntity<VersionId> implements IDocumentV
     Object.freeze(this);
   }
 
-  serialized(): Effect.Effect<SerializedDocumentVersion, ParseResult.ParseError> {
+  serialized(): E.Effect<SerializedDocumentVersion, ParseResult.ParseError> {
     return Schema.encode(DocumentVersionSchema)({
       id: this.id,
       documentId: this.documentId,
@@ -94,15 +74,13 @@ export class DocumentVersion extends BaseEntity<VersionId> implements IDocumentV
 
   static create(
     input: SerializedDocumentVersion,
-  ): Effect.Effect<DocumentVersion, ParseResult.ParseError> {
+  ): E.Effect<DocumentVersion, ParseResult.ParseError> {
     return Schema.decodeUnknown(DocumentVersionSchema)(input).pipe(
-      Effect.map((data) => new DocumentVersion(data)),
+      E.map((data) => new DocumentVersion(data)),
     );
   }
 
   static reconstitute(data: DocumentVersionType): DocumentVersion {
     return new DocumentVersion(data);
   }
-
-  // equals() is inherited from BaseEntity — identity by id.
 }

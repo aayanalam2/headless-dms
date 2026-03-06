@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect as E } from "effect";
 
 export interface PaginationParams {
   readonly page: number;
@@ -21,12 +21,6 @@ export function buildPageInfo(total: number, page: number, limit: number): PageI
   return { total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
-// ---------------------------------------------------------------------------
-// parsePagination
-// Clamps raw (possibly undefined) page/limit inputs from HTTP query strings
-// into safe, integer-valued PaginationParams.
-// ---------------------------------------------------------------------------
-
 export const PAGINATION_DEFAULTS = {
   page: 1,
   limit: 20,
@@ -46,12 +40,6 @@ export function parsePagination(raw: {
   };
 }
 
-// ---------------------------------------------------------------------------
-// withPagination
-// HOF that parses pagination from a query, passes the resolved PaginationParams
-// to the provided repo operation, and maps the Paginated<T> result to a DTO.
-// ---------------------------------------------------------------------------
-
 export function withPagination<
   Q extends { readonly page?: number | undefined; readonly limit?: number | undefined },
   T,
@@ -59,8 +47,8 @@ export function withPagination<
   E,
 >(
   query: Q,
-  op: (pagination: PaginationParams) => Effect.Effect<Paginated<T>, E>,
+  op: (pagination: PaginationParams) => E.Effect<Paginated<T>, E>,
   toDTO: (paginated: Paginated<T>) => DTO,
-): Effect.Effect<DTO, E> {
-  return op(parsePagination(query)).pipe(Effect.map(toDTO));
+): E.Effect<DTO, E> {
+  return op(parsePagination(query)).pipe(E.map(toDTO));
 }

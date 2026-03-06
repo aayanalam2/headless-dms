@@ -1,4 +1,4 @@
-import { Effect, Option } from "effect";
+import { Effect as E, Option as O } from "effect";
 import type { IDocumentRepository } from "../../src/domain/document/document.repository.ts";
 import type { IUserRepository } from "../../src/domain/user/user.repository.ts";
 import type { IStorage } from "../../src/infra/repositories/storage.port.ts";
@@ -36,20 +36,20 @@ export function createInMemoryDocumentRepository(initial?: {
   return {
     findById(id: DocumentId) {
       const doc = docs.find((d) => d.id === id);
-      return Effect.succeed(doc ? Option.some(doc) : Option.none());
+      return E.succeed(doc ? O.some(doc) : O.none());
     },
 
     findActiveById(id: DocumentId) {
-      const doc = docs.find((d) => d.id === id && Option.isNone(d.deletedAt));
-      return Effect.succeed(doc ? Option.some(doc) : Option.none());
+      const doc = docs.find((d) => d.id === id && O.isNone(d.deletedAt));
+      return E.succeed(doc ? O.some(doc) : O.none());
     },
 
     findByOwner(ownerId: UserId, pagination: PaginationParams) {
-      const filtered = docs.filter((d) => d.ownerId === ownerId && Option.isNone(d.deletedAt));
+      const filtered = docs.filter((d) => d.ownerId === ownerId && O.isNone(d.deletedAt));
       const total = filtered.length;
       const offset = (pagination.page - 1) * pagination.limit;
       const items = filtered.slice(offset, offset + pagination.limit);
-      return Effect.succeed({
+      return E.succeed({
         items,
         pageInfo: buildPageInfo(total, pagination.page, pagination.limit),
       });
@@ -58,12 +58,12 @@ export function createInMemoryDocumentRepository(initial?: {
     search(query: string, pagination: PaginationParams) {
       const needle = query.toLowerCase();
       const filtered = docs.filter(
-        (d) => Option.isNone(d.deletedAt) && d.name.toLowerCase().includes(needle),
+        (d) => O.isNone(d.deletedAt) && d.name.toLowerCase().includes(needle),
       );
       const total = filtered.length;
       const offset = (pagination.page - 1) * pagination.limit;
       const items = filtered.slice(offset, offset + pagination.limit);
-      return Effect.succeed({
+      return E.succeed({
         items,
         pageInfo: buildPageInfo(total, pagination.page, pagination.limit),
       });
@@ -73,36 +73,36 @@ export function createInMemoryDocumentRepository(initial?: {
       const result = versions
         .filter((v) => v.documentId === documentId)
         .sort((a, b) => a.versionNumber - b.versionNumber);
-      return Effect.succeed(result);
+      return E.succeed(result);
     },
 
     findVersionById(versionId: VersionId) {
       const version = versions.find((v) => v.id === versionId);
-      return Effect.succeed(version ? Option.some(version) : Option.none());
+      return E.succeed(version ? O.some(version) : O.none());
     },
 
     save(document: Document) {
       docs.push(document);
-      return Effect.succeed(undefined);
+      return E.succeed(undefined);
     },
 
     saveVersion(version: DocumentVersion) {
       versions.push(version);
-      return Effect.succeed(undefined);
+      return E.succeed(undefined);
     },
 
     update(document: Document) {
       const idx = docs.findIndex((d) => d.id === document.id);
-      if (idx === -1) return Effect.fail(new DocumentNotFoundError(document.id));
+      if (idx === -1) return E.fail(new DocumentNotFoundError(document.id));
       docs[idx] = document;
-      return Effect.succeed(undefined);
+      return E.succeed(undefined);
     },
 
     deleteVersion(versionId: VersionId) {
       const idx = versions.findIndex((v) => v.id === versionId);
-      if (idx === -1) return Effect.fail(new DocumentVersionNotFoundError(versionId));
+      if (idx === -1) return E.fail(new DocumentVersionNotFoundError(versionId));
       versions.splice(idx, 1);
-      return Effect.succeed(undefined);
+      return E.succeed(undefined);
     },
   };
 }
@@ -117,26 +117,26 @@ export function createInMemoryUserRepository(initial?: { users?: User[] }): IUse
   return {
     findById(id: UserId) {
       const user = users.find((u) => u.id === id);
-      return Effect.succeed(user ? Option.some(user) : Option.none());
+      return E.succeed(user ? O.some(user) : O.none());
     },
 
     findByEmail(email) {
       const user = users.find((u) => u.email === email);
-      return Effect.succeed(user ? Option.some(user) : Option.none());
+      return E.succeed(user ? O.some(user) : O.none());
     },
 
     save(user: User) {
       const existing = users.find((u) => u.email === user.email);
-      if (existing) return Effect.fail(new UserAlreadyExistsError(user.email));
+      if (existing) return E.fail(new UserAlreadyExistsError(user.email));
       users.push(user);
-      return Effect.succeed(undefined);
+      return E.succeed(undefined);
     },
 
     update(user: User) {
       const idx = users.findIndex((u) => u.id === user.id);
-      if (idx === -1) return Effect.fail(new UserNotFoundError(user.id));
+      if (idx === -1) return E.fail(new UserNotFoundError(user.id));
       users[idx] = user;
-      return Effect.succeed(undefined);
+      return E.succeed(undefined);
     },
   };
 }
@@ -150,15 +150,15 @@ export function createInMemoryUserRepository(initial?: { users?: User[] }): IUse
 export function createInMemoryStorage(): IStorage {
   return {
     uploadFile(_key, _body, _contentType) {
-      return Effect.succeed(undefined);
+      return E.succeed(undefined);
     },
 
     getPresignedDownloadUrl(key: BucketKey, _expiresInSeconds?: number) {
-      return Effect.succeed(`https://fake-storage.test/${key as string}?X-Test=1`);
+      return E.succeed(`https://fake-storage.test/${key as string}?X-Test=1`);
     },
 
     deleteFile(_key) {
-      return Effect.succeed(undefined);
+      return E.succeed(undefined);
     },
   };
 }

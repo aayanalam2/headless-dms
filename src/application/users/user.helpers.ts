@@ -1,10 +1,13 @@
-import { Effect, pipe } from "effect";
+import { Effect as E, pipe } from "effect";
 import { User, type SerializedUser } from "@domain/user/user.entity.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
 import { Email, type UserId } from "@domain/utils/refined.types.ts";
 import { Role } from "@domain/utils/enums.ts";
 import { UserErrorTags } from "@domain/user/user.errors.ts";
-import { UserWorkflowError, type UserWorkflowError as WorkflowError } from "./user-workflow.errors.ts";
+import {
+  UserWorkflowError,
+  type UserWorkflowError as WorkflowError,
+} from "./user-workflow.errors.ts";
 import {
   makeUnavailable,
   requireFound,
@@ -12,163 +15,96 @@ import {
   assertGuard,
 } from "@application/shared/workflow.helpers.ts";
 
-// ---------------------------------------------------------------------------
-// unavailable — uniform infra-error factory used by all repo wrappers.
-// ---------------------------------------------------------------------------
-
 export const unavailable = makeUnavailable(UserWorkflowError.unavailable);
 
-// ---------------------------------------------------------------------------
-// parseEmail
-// Validates a raw string into a branded Email; fails with InvalidInput.
-// Use this for registration where bad format is the caller's fault.
-// ---------------------------------------------------------------------------
-
-export function parseEmail(raw: string): Effect.Effect<Email, WorkflowError> {
+export function parseEmail(raw: string): E.Effect<Email, WorkflowError> {
   const result = Email.create(raw);
   return result.isOk()
-    ? Effect.succeed(result.unwrap())
-    : Effect.fail(UserWorkflowError.invalidInput("Invalid email address"));
+    ? E.succeed(result.unwrap())
+    : E.fail(UserWorkflowError.invalidInput("Invalid email address"));
 }
-
-// ---------------------------------------------------------------------------
-// requireNoEmailConflict
-// Asserts that no user already holds this email address.
-// Fails with Duplicate if a row is found.
-// ---------------------------------------------------------------------------
 
 export function requireNoEmailConflict(
   repo: IUserRepository,
   email: Email,
   rawEmail: string,
-): Effect.Effect<void, WorkflowError> {
-  return requireAbsent(
-    repo.findByEmail(email),
-    unavailable("repo.findByEmail"),
-    () => UserWorkflowError.duplicate(`An account with email '${rawEmail}' already exists`),
+): E.Effect<void, WorkflowError> {
+  return requireAbsent(repo.findByEmail(email), unavailable("repo.findByEmail"), () =>
+    UserWorkflowError.duplicate(`An account with email '${rawEmail}' already exists`),
   );
 }
 
-// ---------------------------------------------------------------------------
-// requireUserByEmail
-// Fetches a user by email; maps absence to Unauthorized.
-// The Unauthorized collapse is intentional — prevents user-enumeration attacks.
-// ---------------------------------------------------------------------------
-
+// Unauthorized collapse is intentional — prevents user-enumeration attacks.
 export function requireUserByEmail(
   repo: IUserRepository,
   email: Email,
-): Effect.Effect<User, WorkflowError> {
-  return requireFound(
-    repo.findByEmail(email),
-    unavailable("repo.findByEmail"),
-    () => UserWorkflowError.unauthorized(),
+): E.Effect<User, WorkflowError> {
+  return requireFound(repo.findByEmail(email), unavailable("repo.findByEmail"), () =>
+    UserWorkflowError.unauthorized(),
   );
 }
-
-// ---------------------------------------------------------------------------
-// requireUser
-// Fetches a user by ID; maps absence to NotFound with the provided label.
-// ---------------------------------------------------------------------------
 
 export function requireUser(
   repo: IUserRepository,
   userId: UserId,
   label: string,
-): Effect.Effect<User, WorkflowError> {
-  return requireFound(
-    repo.findById(userId),
-    unavailable("repo.findById"),
-    () => UserWorkflowError.notFound(label),
+): E.Effect<User, WorkflowError> {
+  return requireFound(repo.findById(userId), unavailable("repo.findById"), () =>
+    UserWorkflowError.notFound(label),
   );
 }
 
-// ---------------------------------------------------------------------------
-// assertAdmin
-// Guard that the actor carries the Admin role; fails with Forbidden otherwise.
-// ---------------------------------------------------------------------------
-
-export function assertAdmin(actor: { readonly role: Role }): Effect.Effect<void, WorkflowError> {
-  return assertGuard(
-    actor.role === Role.Admin,
-    () => UserWorkflowError.forbidden("Only admins can change user roles"),
+export function assertAdmin(actor: { readonly role: Role }): E.Effect<void, WorkflowError> {
+  return assertGuard(actor.role === Role.Admin, () =>
+    UserWorkflowError.forbidden("Only admins can change user roles"),
   );
 }
 
-// ---------------------------------------------------------------------------
-// assertPasswordValid
-// Verifies a plaintext password against a stored hash.
-// Both format failures and wrong passwords collapse to Unauthorized — prevents
-// distinguishing between "no account" and "wrong password" at the API layer.
-// ---------------------------------------------------------------------------
-
+// Collapses to Unauthorized to prevent distinguishing "no account" vs "wrong password".
 export function assertPasswordValid(
   verifyFn: (plaintext: string, hash: string) => Promise<boolean>,
   plaintext: string,
   hash: string,
-): Effect.Effect<void, WorkflowError> {
+): E.Effect<void, WorkflowError> {
   return pipe(
-    Effect.promise(() => verifyFn(plaintext, hash)),
-    Effect.flatMap((valid) =>
-      valid ? Effect.void : Effect.fail(UserWorkflowError.unauthorized()),
-    ),
+    E.promise(() => verifyFn(plaintext, hash)),
+    E.flatMap((valid) => (valid ? E.void : E.fail(UserWorkflowError.unauthorized()))),
   );
 }
 
-// ---------------------------------------------------------------------------
-// buildUser
-// Wraps User.create (which decodes + validates all fields through the schema)
-// and maps a decode failure to InvalidInput.
-// ---------------------------------------------------------------------------
-
-export function buildUser(input: SerializedUser): Effect.Effect<User, WorkflowError> {
+export function buildUser(input: SerializedUser): E.Effect<User, WorkflowError> {
   return pipe(
     User.create(input),
-    Effect.mapError(() => UserWorkflowError.invalidInput("Failed to construct user entity")),
+    E.mapError(() => UserWorkflowError.invalidInput("Failed to construct user entity")),
   );
 }
 
-// ---------------------------------------------------------------------------
-// saveNewUser
-// Persists a new User row; maps UserAlreadyExistsError to Duplicate and
-// everything else to Unavailable.
-// ---------------------------------------------------------------------------
-
-export function saveNewUser(
-  repo: IUserRepository,
-  user: User,
-): Effect.Effect<void, WorkflowError> {
+export function saveNewUser(repo: IUserRepository, user: User): E.Effect<void, WorkflowError> {
   return pipe(
     repo.save(user),
-    Effect.mapError((e) =>
+    E.mapError((e) =>
       typeof e === "object" &&
       e !== null &&
       "_tag" in e &&
-      (e as { _tag: string })._tag === UserErrorTags.UserAlreadyExists
+      (e as { _tag: UserErrorTags })._tag === UserErrorTags.UserAlreadyExists
         ? UserWorkflowError.duplicate((e as { message: string }).message)
         : UserWorkflowError.unavailable("repo.save", e),
     ),
   );
 }
 
-// ---------------------------------------------------------------------------
-// updateUser
-// Persists an updated User; maps UserNotFoundError to NotFound and
-// everything else to Unavailable.
-// ---------------------------------------------------------------------------
-
 export function updateUser(
   repo: IUserRepository,
   user: User,
   label: string,
-): Effect.Effect<void, WorkflowError> {
+): E.Effect<void, WorkflowError> {
   return pipe(
     repo.update(user),
-    Effect.mapError((e) =>
+    E.mapError((e) =>
       typeof e === "object" &&
       e !== null &&
       "_tag" in e &&
-      (e as { _tag: string })._tag === UserErrorTags.UserNotFound
+      (e as { _tag: UserErrorTags })._tag === UserErrorTags.UserNotFound
         ? UserWorkflowError.notFound(label)
         : UserWorkflowError.unavailable("repo.update", e),
     ),

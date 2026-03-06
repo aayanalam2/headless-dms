@@ -1,4 +1,4 @@
-import { Effect, Option } from "effect";
+import { Effect as E, Option as O } from "effect";
 import { eq } from "drizzle-orm";
 import type { AppDb } from "@infra/database/utils/connection.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
@@ -23,10 +23,6 @@ import {
 export class DrizzleUserRepository implements IUserRepository {
   constructor(private readonly db: AppDb) {}
 
-  // -------------------------------------------------------------------------
-  // Row ↔ entity
-  // -------------------------------------------------------------------------
-
   private static readonly fromRow = (row: UserRow): User => {
     return User.reconstitute({
       id: UserIdBrand.create(row.id).unwrap(),
@@ -38,30 +34,22 @@ export class DrizzleUserRepository implements IUserRepository {
     });
   };
 
-  // -------------------------------------------------------------------------
-  // Queries
-  // -------------------------------------------------------------------------
-
-  findById(id: UserId): RepositoryEffect<Option.Option<User>> {
+  findById(id: UserId): RepositoryEffect<O.Option<User>> {
     return fetchSingle(
       () => this.db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1),
       DrizzleUserRepository.fromRow,
     );
   }
 
-  findByEmail(email: Email): RepositoryEffect<Option.Option<User>> {
+  findByEmail(email: Email): RepositoryEffect<O.Option<User>> {
     return fetchSingle(
       () => this.db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1),
       DrizzleUserRepository.fromRow,
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Writes
-  // -------------------------------------------------------------------------
-
   save(user: User): RepositoryEffect<void, UserAlreadyExistsError> {
-    return Effect.tryPromise<void, UserAlreadyExistsError | RepositoryError>({
+    return E.tryPromise<void, UserAlreadyExistsError | RepositoryError>({
       try: async () => {
         await this.db.insert(usersTable).values({
           id: user.id,
@@ -80,7 +68,7 @@ export class DrizzleUserRepository implements IUserRepository {
   }
 
   update(user: User): RepositoryEffect<void, UserNotFoundError> {
-    return Effect.flatMap(
+    return E.flatMap(
       executeQuery(() =>
         this.db
           .update(usersTable)
@@ -93,7 +81,7 @@ export class DrizzleUserRepository implements IUserRepository {
           .where(eq(usersTable.id, user.id))
           .returning({ id: usersTable.id }),
       ),
-      (rows) => (rows.length > 0 ? Effect.void : Effect.fail(new UserNotFoundError(user.id))),
+      (rows) => (rows.length > 0 ? E.void : E.fail(new UserNotFoundError(user.id))),
     );
   }
 }

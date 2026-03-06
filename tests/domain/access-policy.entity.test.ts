@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Effect, Either, Option } from "effect";
+import { Effect as E, Either, Option as O } from "effect";
 import { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
 import { PolicyTargetRequiredError } from "@domain/access-policy/access-policy.errors.ts";
 import {
@@ -41,9 +41,9 @@ describe("AccessPolicy entity", () => {
       });
 
       expect(policy).toBeInstanceOf(AccessPolicy);
-      expect(Option.isSome(policy.subjectId)).toBe(true);
-      if (Option.isSome(policy.subjectId)) expect(policy.subjectId.value).toBe(userId);
-      expect(Option.isNone(policy.subjectRole)).toBe(true);
+      expect(O.isSome(policy.subjectId)).toBe(true);
+      if (O.isSome(policy.subjectId)) expect(policy.subjectId.value).toBe(userId);
+      expect(O.isNone(policy.subjectRole)).toBe(true);
       expect(policy.documentId).toBe(docId);
       expect(policy.action).toBe(PermissionAction.Write);
       expect(policy.effect).toBe(PolicyEffect.Allow);
@@ -53,14 +53,14 @@ describe("AccessPolicy entity", () => {
       const policy = makeRolePolicy({ subjectRole: Role.Admin });
 
       expect(policy).toBeInstanceOf(AccessPolicy);
-      expect(Option.isNone(policy.subjectId)).toBe(true);
-      expect(Option.isSome(policy.subjectRole)).toBe(true);
-      if (Option.isSome(policy.subjectRole)) expect(policy.subjectRole.value).toBe(Role.Admin);
+      expect(O.isNone(policy.subjectId)).toBe(true);
+      expect(O.isSome(policy.subjectRole)).toBe(true);
+      if (O.isSome(policy.subjectRole)) expect(policy.subjectRole.value).toBe(Role.Admin);
     });
 
     it("returns PolicyTargetRequiredError when neither subjectId nor subjectRole is set", () => {
-      const result = Effect.runSync(
-        Effect.either(
+      const result = E.runSync(
+        E.either(
           AccessPolicy.create({
             id: crypto.randomUUID(),
             documentId: crypto.randomUUID(),
@@ -78,8 +78,8 @@ describe("AccessPolicy entity", () => {
     });
 
     it("returns PolicyTargetRequiredError when both subjectId and subjectRole are set", () => {
-      const result = Effect.runSync(
-        Effect.either(
+      const result = E.runSync(
+        E.either(
           AccessPolicy.create({
             id: crypto.randomUUID(),
             documentId: crypto.randomUUID(),
@@ -97,7 +97,7 @@ describe("AccessPolicy entity", () => {
     });
 
     it("accepts null as 'not provided' for optional targets", () => {
-      const user = Effect.runSync(
+      const user = E.runSync(
         AccessPolicy.create({
           id: crypto.randomUUID(),
           documentId: crypto.randomUUID(),
@@ -131,8 +131,8 @@ describe("AccessPolicy entity", () => {
       const policy = AccessPolicy.reconstitute({
         id,
         documentId: docId,
-        subjectId: Option.some(userId),
-        subjectRole: Option.none(),
+        subjectId: O.some(userId),
+        subjectRole: O.none(),
         action: PermissionAction.Delete,
         effect: PolicyEffect.Deny,
         createdAt: FIXED_DATE,
@@ -152,7 +152,7 @@ describe("AccessPolicy entity", () => {
     it("serializes a subject policy with subjectRole as null", () => {
       const userId = makeUserId();
       const policy = makeSubjectPolicy({ subjectId: userId as string });
-      const s = Effect.runSync(policy.serialized());
+      const s = E.runSync(policy.serialized());
 
       expect(s.subjectId).toBe(userId);
       expect(s.subjectRole).toBeNull();
@@ -161,7 +161,7 @@ describe("AccessPolicy entity", () => {
 
     it("serializes a role policy with subjectId as null", () => {
       const policy = makeRolePolicy({ subjectRole: Role.Admin });
-      const s = Effect.runSync(policy.serialized());
+      const s = E.runSync(policy.serialized());
 
       expect(s.subjectId).toBeNull();
       expect(s.subjectRole).toBe(Role.Admin);
@@ -172,7 +172,7 @@ describe("AccessPolicy entity", () => {
         action: PermissionAction.Share,
         effect: PolicyEffect.Deny,
       });
-      const s = Effect.runSync(policy.serialized());
+      const s = E.runSync(policy.serialized());
 
       expect(s.action).toBe(PermissionAction.Share);
       expect(s.effect).toBe(PolicyEffect.Deny);

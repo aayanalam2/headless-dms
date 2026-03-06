@@ -1,5 +1,5 @@
 import { faker } from "@faker-js/faker";
-import { Effect, Either } from "effect";
+import { Effect as E, Either } from "effect";
 import type { AppError } from "../../src/infra/errors.ts";
 import { Role } from "../../src/domain/utils/enums.ts";
 import type { DocumentRow, UserRow, VersionRow } from "../../src/infra/database/schema.ts";
@@ -9,22 +9,22 @@ import type { JwtClaims } from "../../src/application/users/dtos/user.dto.ts";
 // Effect runner helpers — shared across all test files.
 // ---------------------------------------------------------------------------
 
-export function runOk<T>(effect: Effect.Effect<T, unknown>): T {
-  return Effect.runSync(effect);
+export function runOk<T>(effect: E.Effect<T, unknown>): T {
+  return E.runSync(effect);
 }
 
-export function runOkAsync<T>(effect: Effect.Effect<T, unknown>): Promise<T> {
-  return Effect.runPromise(effect);
+export function runOkAsync<T>(effect: E.Effect<T, unknown>): Promise<T> {
+  return E.runPromise(effect);
 }
 
-export function runErr<E>(effect: Effect.Effect<unknown, E>): E {
-  const result = Effect.runSync(Effect.either(effect));
+export function runErr<E>(effect: E.Effect<unknown, E>): E {
+  const result = E.runSync(E.either(effect));
   if (Either.isRight(result)) throw new Error("Expected failure but got success");
   return result.left;
 }
 
-export async function runErrAsync<E>(effect: Effect.Effect<unknown, E>): Promise<E> {
-  const result = await Effect.runPromise(Effect.either(effect));
+export async function runErrAsync<E>(effect: E.Effect<unknown, E>): Promise<E> {
+  const result = await E.runPromise(E.either(effect));
   if (Either.isRight(result)) throw new Error("Expected failure but got success");
   return result.left;
 }

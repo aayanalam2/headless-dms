@@ -1,4 +1,4 @@
-import { Effect, Option } from "effect";
+import { Effect as E, Option as O } from "effect";
 import { and, asc, desc, eq, ilike, isNull, sql } from "drizzle-orm";
 import type { AppDb } from "@infra/database/utils/connection.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
@@ -21,24 +21,20 @@ import type { RepositoryEffect } from "@domain/utils/repository.types.ts";
 export class DrizzleDocumentRepository implements IDocumentRepository {
   constructor(private readonly db: AppDb) {}
 
-  // -------------------------------------------------------------------------
-  // Row ↔ entity
-  // -------------------------------------------------------------------------
-
   private static readonly fromDocumentRow = (row: DocumentRow): Document => {
     return Document.reconstitute({
       id: DocumentId.create(row.id).unwrap(),
       ownerId: UserId.create(row.ownerId).unwrap(),
       name: row.name,
       contentType: row.contentType as ContentType,
-      currentVersionId: Option.map(Option.fromNullable(row.currentVersionId), (v) =>
+      currentVersionId: O.map(O.fromNullable(row.currentVersionId), (v) =>
         VersionId.create(v).unwrap(),
       ),
       tags: row.tags,
       metadata: row.metadata ?? {},
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
-      deletedAt: Option.fromNullable(row.deletedAt),
+      deletedAt: O.fromNullable(row.deletedAt),
     });
   };
 
@@ -55,18 +51,14 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
     });
   };
 
-  // -------------------------------------------------------------------------
-  // Document queries
-  // -------------------------------------------------------------------------
-
-  findById(id: DocumentId): RepositoryEffect<Option.Option<Document>> {
+  findById(id: DocumentId): RepositoryEffect<O.Option<Document>> {
     return fetchSingle(
       () => this.db.select().from(documentsTable).where(eq(documentsTable.id, id)).limit(1),
       DrizzleDocumentRepository.fromDocumentRow,
     );
   }
 
-  findActiveById(id: DocumentId): RepositoryEffect<Option.Option<Document>> {
+  findActiveById(id: DocumentId): RepositoryEffect<O.Option<Document>> {
     return fetchSingle(
       () =>
         this.db
@@ -131,10 +123,6 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Version queries
-  // -------------------------------------------------------------------------
-
   findVersionsByDocument(documentId: DocumentId): RepositoryEffect<readonly DocumentVersion[]> {
     return fetchMultiple(
       () =>
@@ -147,7 +135,7 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
     );
   }
 
-  findVersionById(versionId: VersionId): RepositoryEffect<Option.Option<DocumentVersion>> {
+  findVersionById(versionId: VersionId): RepositoryEffect<O.Option<DocumentVersion>> {
     return fetchSingle(
       () =>
         this.db
@@ -159,10 +147,6 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Document writes
-  // -------------------------------------------------------------------------
-
   save(document: Document): RepositoryEffect<void> {
     return executeQuery(() =>
       this.db.insert(documentsTable).values({
@@ -170,40 +154,35 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
         ownerId: document.ownerId,
         name: document.name,
         contentType: document.contentType,
-        currentVersionId: Option.getOrNull(document.currentVersionId),
+        currentVersionId: O.getOrNull(document.currentVersionId),
         tags: [...document.tags],
         metadata: document.metadata,
         createdAt: document.createdAt,
         updatedAt: document.updatedAt,
-        deletedAt: Option.getOrNull(document.deletedAt),
+        deletedAt: O.getOrNull(document.deletedAt),
       }),
     );
   }
 
   update(document: Document): RepositoryEffect<void, DocumentNotFoundError> {
-    return Effect.flatMap(
+    return E.flatMap(
       executeQuery(() =>
         this.db
           .update(documentsTable)
           .set({
             name: document.name,
-            currentVersionId: Option.getOrNull(document.currentVersionId),
+            currentVersionId: O.getOrNull(document.currentVersionId),
             tags: [...document.tags],
             metadata: document.metadata,
-            deletedAt: Option.getOrNull(document.deletedAt),
+            deletedAt: O.getOrNull(document.deletedAt),
             updatedAt: document.updatedAt,
           })
           .where(eq(documentsTable.id, document.id))
           .returning({ id: documentsTable.id }),
       ),
-      (rows) =>
-        rows.length > 0 ? Effect.void : Effect.fail(new DocumentNotFoundError(document.id)),
+      (rows) => (rows.length > 0 ? E.void : E.fail(new DocumentNotFoundError(document.id))),
     );
   }
-
-  // -------------------------------------------------------------------------
-  // Version writes
-  // -------------------------------------------------------------------------
 
   saveVersion(version: DocumentVersion): RepositoryEffect<void> {
     return executeQuery(() =>
@@ -222,15 +201,14 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
   }
 
   deleteVersion(versionId: VersionId): RepositoryEffect<void, DocumentVersionNotFoundError> {
-    return Effect.flatMap(
+    return E.flatMap(
       executeQuery(() =>
         this.db
           .delete(documentVersionsTable)
           .where(eq(documentVersionsTable.id, versionId))
           .returning({ id: documentVersionsTable.id }),
       ),
-      (rows) =>
-        rows.length > 0 ? Effect.void : Effect.fail(new DocumentVersionNotFoundError(versionId)),
+      (rows) => (rows.length > 0 ? E.void : E.fail(new DocumentVersionNotFoundError(versionId))),
     );
   }
 }

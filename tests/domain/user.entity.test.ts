@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Effect } from "effect";
+import { Effect as E } from "effect";
 import { User } from "@domain/user/user.entity.ts";
 import { isAdmin, isRegularUser } from "@domain/user/user.guards.ts";
 import { Role } from "@domain/utils/enums.ts";
@@ -17,7 +17,7 @@ describe("User entity", () => {
       const email = "alice@example.com";
       const passwordHash = "$2b$10$hash";
 
-      const user = Effect.runSync(
+      const user = E.runSync(
         User.create({
           id: id as string,
           email,

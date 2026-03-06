@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect as E } from "effect";
 import { Document, type SerializedDocument } from "@domain/document/document.entity.ts";
 import {
   DocumentVersion,
@@ -43,7 +43,7 @@ export const fixedUserId = () => UserId.create(FIXED_UUID).unwrap();
 const DEFAULT_HASH = "$2b$10$hashedpasswordplaceholder1234567890abcdefghijklmnopqrs";
 
 export function makeUser(overrides: Partial<SerializedUser> = {}): User {
-  return Effect.runSync(
+  return E.runSync(
     User.create({
       id: makeUserId() as string,
       email: `user-${crypto.randomUUID().slice(0, 8)}@example.com`,
@@ -65,7 +65,7 @@ export function makeAdminUser(overrides: Partial<SerializedUser> = {}): User {
 // ---------------------------------------------------------------------------
 
 export function makeDocument(overrides: Partial<SerializedDocument> = {}): Document {
-  return Effect.runSync(
+  return E.runSync(
     Document.create({
       id: makeDocId() as string,
       ownerId: makeUserId() as string,
@@ -85,7 +85,7 @@ export function makeDocument(overrides: Partial<SerializedDocument> = {}): Docum
 /** A document already soft-deleted at `FIXED_DATE`. */
 export function makeDeletedDocument(overrides: Partial<SerializedDocument> = {}): Document {
   const doc = makeDocument(overrides);
-  return Effect.runSync(doc.softDelete(FIXED_DATE));
+  return E.runSync(doc.softDelete(FIXED_DATE));
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +97,7 @@ export function makeDocumentVersion(
 ): DocumentVersion {
   const documentId = makeDocId() as string;
   const id = makeVersionId() as string;
-  return Effect.runSync(
+  return E.runSync(
     DocumentVersion.create({
       id,
       documentId,
@@ -118,7 +118,7 @@ export function makeDocumentVersion(
 
 /** Creates a user-specific (subject) policy. */
 export function makeSubjectPolicy(overrides: Partial<SerializedAccessPolicy> = {}): AccessPolicy {
-  return Effect.runSync(
+  return E.runSync(
     AccessPolicy.create({
       id: makeAccessPolicyId() as string,
       documentId: makeDocId() as string,
@@ -134,7 +134,7 @@ export function makeSubjectPolicy(overrides: Partial<SerializedAccessPolicy> = {
 
 /** Creates a role-based policy. */
 export function makeRolePolicy(overrides: Partial<SerializedAccessPolicy> = {}): AccessPolicy {
-  return Effect.runSync(
+  return E.runSync(
     AccessPolicy.create({
       id: makeAccessPolicyId() as string,
       documentId: makeDocId() as string,

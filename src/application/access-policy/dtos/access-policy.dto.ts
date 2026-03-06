@@ -1,4 +1,4 @@
-import { Option, Schema as S } from "effect";
+import { Option as O, Schema as S } from "effect";
 import { Role } from "@domain/utils/enums.ts";
 import {
   PermissionAction,
@@ -56,7 +56,9 @@ export const ListDocumentPoliciesQuerySchema = S.Struct({
   actor: ActorCommandSchema,
   documentId: DocumentSchema.fields.id,
 });
-export type ListDocumentPoliciesQueryEncoded = S.Schema.Encoded<typeof ListDocumentPoliciesQuerySchema>;
+export type ListDocumentPoliciesQueryEncoded = S.Schema.Encoded<
+  typeof ListDocumentPoliciesQuerySchema
+>;
 export type ListDocumentPoliciesQuery = S.Schema.Type<typeof ListDocumentPoliciesQuerySchema>;
 
 // ===========================================================================
@@ -72,8 +74,8 @@ export function toAccessPolicyDTO(policy: AccessPolicy): AccessPolicyDTO {
   return {
     id: policy.id,
     documentId: policy.documentId,
-    subjectId: Option.getOrNull(policy.subjectId),
-    subjectRole: Option.getOrNull(policy.subjectRole),
+    subjectId: O.getOrNull(policy.subjectId),
+    subjectRole: O.getOrNull(policy.subjectRole),
     action: policy.action,
     effect: policy.effect,
     createdAt: policy.createdAt.toISOString(),

@@ -7,16 +7,9 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { AppConfig } from "@infra/config/env.ts";
 import type { BucketKey } from "@domain/utils/refined.types.ts";
-import { Effect } from "effect";
+import { Effect as E } from "effect";
 import { AppError } from "@infra/errors.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
-
-// ---------------------------------------------------------------------------
-// createS3Storage
-// S3/MinIO implementation of IStorage. The S3Client is instantiated once
-// inside the factory closure — no module-level singletons, fully injectable.
-// Swap endpoint/credentials to target MinIO, GCS (via compat layer), etc.
-// ---------------------------------------------------------------------------
 
 export function createS3Storage(
   s3Config: AppConfig["s3"],
@@ -38,8 +31,8 @@ export function createS3Storage(
       key: BucketKey,
       body: ReadableStream | Uint8Array | Buffer | string,
       contentType: string,
-    ): Effect.Effect<void, AppError> {
-      return Effect.tryPromise({
+    ): E.Effect<void, AppError> {
+      return E.tryPromise({
         try: () =>
           client.send(
             new PutObjectCommand({
@@ -50,14 +43,14 @@ export function createS3Storage(
             }),
           ),
         catch: (e) => AppError.storage(e),
-      }).pipe(Effect.as(undefined));
+      }).pipe(E.as(undefined));
     },
 
     getPresignedDownloadUrl(
       key: BucketKey,
       expiresInSeconds: number = presignTtlSeconds,
-    ): Effect.Effect<string, AppError> {
-      return Effect.tryPromise({
+    ): E.Effect<string, AppError> {
+      return E.tryPromise({
         try: () =>
           getSignedUrl(
             client,
@@ -71,8 +64,8 @@ export function createS3Storage(
       });
     },
 
-    deleteFile(key: BucketKey): Effect.Effect<void, AppError> {
-      return Effect.tryPromise({
+    deleteFile(key: BucketKey): E.Effect<void, AppError> {
+      return E.tryPromise({
         try: () =>
           client.send(
             new DeleteObjectCommand({
@@ -81,7 +74,7 @@ export function createS3Storage(
             }),
           ),
         catch: (e) => AppError.storage(e),
-      }).pipe(Effect.as(undefined));
+      }).pipe(E.as(undefined));
     },
   };
 }

@@ -1,19 +1,12 @@
-import { Effect } from "effect";
+import { Effect as E } from "effect";
 import type { IAuditRepository } from "./audit.repository.port.ts";
 import { AuditAction, AuditResourceType } from "@domain/utils/enums.ts";
 import { DocumentEvent } from "@domain/events/document.events.ts";
 import { AccessPolicyEvent } from "@domain/events/access-policy.events.ts";
 import { eventBus } from "@infra/event-bus.ts";
 
-// ---------------------------------------------------------------------------
-// createAuditListeners
-//
-// Binds domain events to audit-log writes via the IAuditRepository port.
-// Call register() once at startup.
-// ---------------------------------------------------------------------------
-
-function fire(effect: Effect.Effect<unknown, unknown>): void {
-  Effect.runFork(Effect.ignoreLogged(effect));
+function fire(effect: E.Effect<unknown, unknown>): void {
+  E.runFork(E.ignoreLogged(effect));
 }
 
 export function createAuditListeners(auditRepo: IAuditRepository): { register(): void } {

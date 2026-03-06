@@ -1,4 +1,4 @@
-import { Effect, pipe } from "effect";
+import { Effect as E, pipe } from "effect";
 import { Role } from "@domain/utils/enums.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
@@ -39,17 +39,17 @@ export type RegisterUserDeps = {
 export function registerUser(
   deps: RegisterUserDeps,
   raw: RegisterUserCommandEncoded,
-): Effect.Effect<UserDTO, WorkflowError> {
+): E.Effect<UserDTO, WorkflowError> {
   return pipe(
     decodeCommand(RegisterUserCommandSchema, raw, UserWorkflowError.invalidInput),
-    Effect.flatMap((cmd) =>
+    E.flatMap((cmd) =>
       pipe(
         parseEmail(cmd.email),
-        Effect.flatMap((email) =>
+        E.flatMap((email) =>
           pipe(
             requireNoEmailConflict(deps.userRepo, email, cmd.email),
-            Effect.flatMap(() => Effect.promise(() => deps.hashPassword(cmd.password))),
-            Effect.flatMap((passwordHash) =>
+            E.flatMap(() => E.promise(() => deps.hashPassword(cmd.password))),
+            E.flatMap((passwordHash) =>
               buildUser({
                 id: crypto.randomUUID(),
                 createdAt: new Date().toISOString(),
@@ -59,12 +59,7 @@ export function registerUser(
                 role: cmd.role ?? Role.User,
               }),
             ),
-            Effect.flatMap((user) =>
-              pipe(
-                saveNewUser(deps.userRepo, user),
-                Effect.as(toUserDTO(user)),
-              ),
-            ),
+            E.flatMap((user) => pipe(saveNewUser(deps.userRepo, user), E.as(toUserDTO(user)))),
           ),
         ),
       ),

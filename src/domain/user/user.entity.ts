@@ -1,4 +1,4 @@
-import { Effect, ParseResult, Schema } from "effect";
+import { Effect as E, ParseResult, Schema } from "effect";
 import { BaseEntity, type IEntity } from "@domain/utils/base.entity.ts";
 import type { Email, HashedPassword, UserId } from "@domain/utils/refined.types.ts";
 import {
@@ -22,19 +22,11 @@ export type UserType = Schema.Schema.Type<typeof UserSchema>;
 
 export type SerializedUser = Schema.Schema.Encoded<typeof UserSchema>;
 
-// ---------------------------------------------------------------------------
-// Domain interface
-// ---------------------------------------------------------------------------
-
 export interface IUser extends IEntity<UserId> {
   readonly email: Email;
   readonly passwordHash: HashedPassword;
   readonly role: Role;
 }
-
-// ---------------------------------------------------------------------------
-// User entity class
-// ---------------------------------------------------------------------------
 
 export class User extends BaseEntity<UserId> implements IUser {
   readonly email: Email;
@@ -49,7 +41,7 @@ export class User extends BaseEntity<UserId> implements IUser {
     Object.freeze(this);
   }
 
-  serialized(): Effect.Effect<SerializedUser, ParseResult.ParseError> {
+  serialized(): E.Effect<SerializedUser, ParseResult.ParseError> {
     return Schema.encode(UserSchema)({
       id: this.id,
       email: this.email,
@@ -76,13 +68,11 @@ export class User extends BaseEntity<UserId> implements IUser {
     });
   }
 
-  static create(input: SerializedUser): Effect.Effect<User, ParseResult.ParseError> {
-    return Schema.decodeUnknown(UserSchema)(input).pipe(Effect.map((data) => new User(data)));
+  static create(input: SerializedUser): E.Effect<User, ParseResult.ParseError> {
+    return Schema.decodeUnknown(UserSchema)(input).pipe(E.map((data) => new User(data)));
   }
 
   static reconstitute(data: UserType): User {
     return new User(data);
   }
-
-  // equals() is inherited from BaseEntity — identity by id.
 }

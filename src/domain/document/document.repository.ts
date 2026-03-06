@@ -1,4 +1,4 @@
-import type { Option } from "effect";
+import type { Option as O } from "effect";
 import type { Document } from "@domain/document/document.entity.ts";
 import type { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { DocumentId, UserId, VersionId } from "@domain/utils/refined.types.ts";
@@ -14,9 +14,9 @@ import type { Paginated, PaginationParams } from "@domain/utils/pagination.ts";
 // ---------------------------------------------------------------------------
 
 export interface IDocumentRepository {
-  findById(id: DocumentId): RepositoryEffect<Option.Option<Document>>;
+  findById(id: DocumentId): RepositoryEffect<O.Option<Document>>;
 
-  findActiveById(id: DocumentId): RepositoryEffect<Option.Option<Document>>;
+  findActiveById(id: DocumentId): RepositoryEffect<O.Option<Document>>;
 
   findByOwner(ownerId: UserId, pagination: PaginationParams): RepositoryEffect<Paginated<Document>>;
 
@@ -34,7 +34,7 @@ export interface IDocumentRepository {
   /**
    * Find a single version by its primary key.
    */
-  findVersionById(versionId: VersionId): RepositoryEffect<Option.Option<DocumentVersion>>;
+  findVersionById(versionId: VersionId): RepositoryEffect<O.Option<DocumentVersion>>;
 
   // -------------------------------------------------------------------------
   // Writes

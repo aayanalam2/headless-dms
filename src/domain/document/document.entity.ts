@@ -1,4 +1,4 @@
-import { Effect, Option, ParseResult, Schema } from "effect";
+import { Effect as E, Option as O, ParseResult, Schema } from "effect";
 import { BaseEntity, type IEntity } from "@domain/utils/base.entity.ts";
 import type { DocumentId, UserId, VersionId } from "@domain/utils/refined.types.ts";
 import {
@@ -28,38 +28,28 @@ export const DocumentSchema = Schema.Struct({
   deletedAt: Schema.OptionFromNullOr(Schema.DateFromString),
 });
 
-/** Domain form — UUID-branded IDs, Date, Option<T>. */
 export type DocumentType = Schema.Schema.Type<typeof DocumentSchema>;
 
-/** Wire / persistence form — plain strings, ISO dates, null for absent optionals. */
 export type SerializedDocument = Schema.Schema.Encoded<typeof DocumentSchema>;
-
-// ---------------------------------------------------------------------------
-// Domain interface
-// ---------------------------------------------------------------------------
 
 export interface IDocument extends IEntity<DocumentId> {
   readonly ownerId: UserId;
   readonly name: string;
   readonly contentType: ContentType;
-  readonly currentVersionId: Option.Option<VersionId>;
+  readonly currentVersionId: O.Option<VersionId>;
   readonly tags: readonly string[];
   readonly metadata: Readonly<Record<string, string>>;
-  readonly deletedAt: Option.Option<Date>;
+  readonly deletedAt: O.Option<Date>;
 }
-
-// ---------------------------------------------------------------------------
-// Document entity class
-// ---------------------------------------------------------------------------
 
 export class Document extends BaseEntity<DocumentId> implements IDocument {
   readonly ownerId: UserId;
   readonly name: string;
   readonly contentType: ContentType;
-  readonly currentVersionId: Option.Option<VersionId>;
+  readonly currentVersionId: O.Option<VersionId>;
   readonly tags: readonly string[];
   readonly metadata: Readonly<Record<string, string>>;
-  readonly deletedAt: Option.Option<Date>;
+  readonly deletedAt: O.Option<Date>;
 
   private constructor(data: DocumentType) {
     super(data.id, data.createdAt, data.updatedAt);
@@ -73,12 +63,11 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
     Object.freeze(this);
   }
 
-  /** Convenience boolean — `true` when `deletedAt` is `Some`. */
   get isDeleted(): boolean {
-    return Option.isSome(this.deletedAt);
+    return O.isSome(this.deletedAt);
   }
 
-  serialized(): Effect.Effect<SerializedDocument, ParseResult.ParseError> {
+  serialized(): E.Effect<SerializedDocument, ParseResult.ParseError> {
     return Schema.encode(DocumentSchema)({
       id: this.id,
       ownerId: this.ownerId,
@@ -93,10 +82,10 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
     });
   }
 
-  static create(input: SerializedDocument): Effect.Effect<Document, InvalidContentTypeError> {
+  static create(input: SerializedDocument): E.Effect<Document, InvalidContentTypeError> {
     return Schema.decodeUnknown(DocumentSchema)(input).pipe(
-      Effect.map((data) => new Document(data)),
-      Effect.mapError(() => new InvalidContentTypeError(input.contentType)),
+      E.map((data) => new Document(data)),
+      E.mapError(() => new InvalidContentTypeError(input.contentType)),
     );
   }
 
@@ -120,29 +109,29 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
     });
   }
 
-  softDelete(now = new Date()): Effect.Effect<Document, DocumentAlreadyDeletedError> {
-    if (this.isDeleted) return Effect.fail(new DocumentAlreadyDeletedError(this.id));
-    return Effect.succeed(this.with({ deletedAt: Option.some(now), updatedAt: now }));
+  softDelete(now = new Date()): E.Effect<Document, DocumentAlreadyDeletedError> {
+    if (this.isDeleted) return E.fail(new DocumentAlreadyDeletedError(this.id));
+    return E.succeed(this.with({ deletedAt: O.some(now), updatedAt: now }));
   }
 
-  rename(name: string, now = new Date()): Effect.Effect<Document, DocumentAlreadyDeletedError> {
-    if (this.isDeleted) return Effect.fail(new DocumentAlreadyDeletedError(this.id));
-    return Effect.succeed(this.with({ name, updatedAt: now }));
+  rename(name: string, now = new Date()): E.Effect<Document, DocumentAlreadyDeletedError> {
+    if (this.isDeleted) return E.fail(new DocumentAlreadyDeletedError(this.id));
+    return E.succeed(this.with({ name, updatedAt: now }));
   }
 
   setTags(
     tags: readonly string[],
     now = new Date(),
-  ): Effect.Effect<Document, DocumentAlreadyDeletedError> {
-    if (this.isDeleted) return Effect.fail(new DocumentAlreadyDeletedError(this.id));
-    return Effect.succeed(this.with({ tags: [...tags], updatedAt: now }));
+  ): E.Effect<Document, DocumentAlreadyDeletedError> {
+    if (this.isDeleted) return E.fail(new DocumentAlreadyDeletedError(this.id));
+    return E.succeed(this.with({ tags: [...tags], updatedAt: now }));
   }
 
   setCurrentVersion(
     versionId: VersionId,
     now = new Date(),
-  ): Effect.Effect<Document, DocumentAlreadyDeletedError> {
-    if (this.isDeleted) return Effect.fail(new DocumentAlreadyDeletedError(this.id));
-    return Effect.succeed(this.with({ currentVersionId: Option.some(versionId), updatedAt: now }));
+  ): E.Effect<Document, DocumentAlreadyDeletedError> {
+    if (this.isDeleted) return E.fail(new DocumentAlreadyDeletedError(this.id));
+    return E.succeed(this.with({ currentVersionId: O.some(versionId), updatedAt: now }));
   }
 }

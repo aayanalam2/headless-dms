@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Effect, Either } from "effect";
+import { Effect as E, Either } from "effect";
 import { UserWorkflows } from "@application/users/user.workflows.ts";
 import { UserWorkflowErrorTag } from "@application/users/user-workflow.errors.ts";
 import type { ChangeUserRoleCommandEncoded } from "@application/users/dtos/user.dto.ts";
@@ -11,15 +11,12 @@ import { makeAdminUser, makeUser, makeUserId } from "../../domain/factories.ts";
 // Helpers
 // ---------------------------------------------------------------------------
 
-function runWith(
-  raw: ChangeUserRoleCommandEncoded,
-  initialUsers: ReturnType<typeof makeUser>[],
-) {
+function runWith(raw: ChangeUserRoleCommandEncoded, initialUsers: ReturnType<typeof makeUser>[]) {
   const userRepo = createInMemoryUserRepository({ users: initialUsers });
   // AuthService is not used by changeRole — safe to omit.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const workflows = new UserWorkflows(userRepo, null as any);
-  return Effect.runPromise(Effect.either(workflows.changeRole(raw)));
+  return E.runPromise(E.either(workflows.changeRole(raw)));
 }
 
 const adminActor = { userId: makeUserId() as string, role: Role.Admin };

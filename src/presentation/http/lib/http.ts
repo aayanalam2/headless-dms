@@ -1,15 +1,7 @@
-import { Effect, Either } from "effect";
+import { Effect as E, Either } from "effect";
 import { StatusCode } from "status-code-enum";
 import { type AppError, ErrorTag } from "@infra/errors.ts";
 import { logger } from "./logger.ts";
-
-// ---------------------------------------------------------------------------
-// mapErrorToResponse
-//
-// Pure function that converts a typed AppError into an HTTP status code and
-// a JSON-serialisable error body. Used identically in every controller so
-// error handling is consistent across the entire API.
-// ---------------------------------------------------------------------------
 
 export type HttpErrorResponse = {
   readonly status: number;
@@ -66,16 +58,11 @@ export function mapErrorToResponse(err: AppError): HttpErrorResponse {
   }
 }
 
-// ---------------------------------------------------------------------------
-// run — shared Effect executor used by all controllers.
-// Runs the effect, maps any AppError to the appropriate HTTP status + body,
-// and returns the success value directly when the effect succeeds.
-// ---------------------------------------------------------------------------
 export async function run<T>(
   set: { status?: number | string | undefined },
-  effect: Effect.Effect<T, AppError>,
+  effect: E.Effect<T, AppError>,
 ): Promise<T | ReturnType<typeof mapErrorToResponse>["body"]> {
-  const either = await Effect.runPromise(Effect.either(effect));
+  const either = await E.runPromise(E.either(effect));
   if (Either.isLeft(either)) {
     const err = either.left;
     const mapped = mapErrorToResponse(err);

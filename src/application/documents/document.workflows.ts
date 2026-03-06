@@ -1,5 +1,5 @@
 import { inject, injectable } from "tsyringe";
-import { Effect, Option, pipe } from "effect";
+import { Effect as E, Option as O, pipe } from "effect";
 import { Document } from "@domain/document/document.entity.ts";
 import type { ContentType } from "@domain/document/value-objects/content-type.vo.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
@@ -61,10 +61,6 @@ import {
   type DocumentWorkflowError as WorkflowError,
 } from "./document-workflow.errors.ts";
 
-// ---------------------------------------------------------------------------
-// Result types (consumed by controllers)
-// ---------------------------------------------------------------------------
-
 export type UploadDocumentResult = {
   readonly document: DocumentDTO;
   readonly version: VersionDTO;
@@ -72,56 +68,44 @@ export type UploadDocumentResult = {
 
 export type UploadVersionResult = { readonly version: VersionDTO };
 
-// ---------------------------------------------------------------------------
-// Module-level error mapper
-// ---------------------------------------------------------------------------
-
 const unavailable =
   (op: string) =>
   (e: unknown): WorkflowError =>
     DocumentWorkflowError.unavailable(op, e);
 
-// Parallel SHA-256 hash and S3 upload — returns the checksum on success.
 function uploadAndHash(
   storage: IStorage,
   bucketKey: BucketKey,
   buffer: ArrayBuffer,
   contentType: string,
-): Effect.Effect<Checksum, WorkflowError> {
+): E.Effect<Checksum, WorkflowError> {
   return pipe(
-    Effect.all([
+    E.all([
       hashBuffer(buffer),
       pipe(
         storage.uploadFile(bucketKey, Buffer.from(buffer), contentType),
-        Effect.mapError(unavailable("storage.uploadFile")),
+        E.mapError(unavailable("storage.uploadFile")),
       ),
     ]),
-    Effect.map(([checksum]) => checksum),
+    E.map(([checksum]) => checksum),
   );
 }
 
-// Generates a presigned download URL and returns the PresignedDownloadDTO shape.
 function buildPresignedResponse(
   storage: IStorage,
   version: DocumentVersion,
   ttl: number,
-): Effect.Effect<PresignedDownloadDTO, WorkflowError> {
+): E.Effect<PresignedDownloadDTO, WorkflowError> {
   return pipe(
     storage.getPresignedDownloadUrl(version.bucketKey, ttl),
-    Effect.mapError((e) =>
-      DocumentWorkflowError.unavailable("storage.getPresignedDownloadUrl", e),
-    ),
-    Effect.map((url) => ({
+    E.mapError((e) => DocumentWorkflowError.unavailable("storage.getPresignedDownloadUrl", e)),
+    E.map((url) => ({
       url,
       expiresAt: new Date(Date.now() + ttl * 1000).toISOString(),
       version: toVersionDTO(version),
     })),
   );
 }
-
-// ---------------------------------------------------------------------------
-// DocumentWorkflows — injectable application service
-// ---------------------------------------------------------------------------
 
 @injectable()
 export class DocumentWorkflows {
@@ -132,17 +116,13 @@ export class DocumentWorkflows {
     @inject(TOKENS.UserRepository) private readonly userRepo: IUserRepository,
   ) {}
 
-  // -------------------------------------------------------------------------
-  // upload
-  // -------------------------------------------------------------------------
-
   upload(
     rawMeta: UploadDocumentMetaEncoded,
     file: File,
-  ): Effect.Effect<UploadDocumentResult, WorkflowError> {
+  ): E.Effect<UploadDocumentResult, WorkflowError> {
     return pipe(
       decodeCommand(UploadDocumentMetaSchema, rawMeta, DocumentWorkflowError.invalidInput),
-      Effect.flatMap((meta) => {
+      E.flatMap((meta) => {
         const now = new Date();
         const docId = crypto.randomUUID();
         const verId = crypto.randomUUID();
@@ -151,19 +131,14 @@ export class DocumentWorkflows {
         const bucketKey = buildBucketKey(docId, verId, filename);
 
         return pipe(
-          // parse params
-          Effect.all([
-            parseMetadata(meta.rawMetadata),
-            Effect.promise(() => file.arrayBuffer()),
-          ]),
-          Effect.map(([metadata, buffer]) => ({
+          E.all([parseMetadata(meta.rawMetadata), E.promise(() => file.arrayBuffer())]),
+          E.map(([metadata, buffer]) => ({
             metadata,
             buffer,
-            tags: parseTags(Option.fromNullable(meta.rawTags)),
+            tags: parseTags(O.fromNullable(meta.rawTags)),
           })),
 
-          // create doc
-          Effect.flatMap(({ metadata, buffer, tags }) =>
+          E.flatMap(({ metadata, buffer, tags }) =>
             pipe(
               Document.create({
                 id: docId,
@@ -177,30 +152,27 @@ export class DocumentWorkflows {
                 updatedAt: now.toISOString(),
                 deletedAt: null,
               }),
-              Effect.mapError((e) => DocumentWorkflowError.invalidContentType(e.contentType)),
-              Effect.map((doc) => ({ doc, buffer })),
+              E.mapError((e) => DocumentWorkflowError.invalidContentType(e.contentType)),
+              E.map((doc) => ({ doc, buffer })),
             ),
           ),
 
-          // upload
-          Effect.flatMap(({ doc, buffer }) =>
+          E.flatMap(({ doc, buffer }) =>
             pipe(
               uploadAndHash(this.storage, bucketKey, buffer, doc.contentType),
-              Effect.map((checksum) => ({ doc, buffer, checksum })),
+              E.map((checksum) => ({ doc, buffer, checksum })),
             ),
           ),
 
-          // save
-          Effect.flatMap(({ doc, buffer, checksum }) =>
+          E.flatMap(({ doc, buffer, checksum }) =>
             pipe(
               this.documentRepo.save(doc),
-              Effect.mapError(unavailable("repo.save")),
-              Effect.as({ doc, buffer, checksum }),
+              E.mapError(unavailable("repo.save")),
+              E.as({ doc, buffer, checksum }),
             ),
           ),
 
-          // save version
-          Effect.flatMap(({ doc, buffer, checksum }) =>
+          E.flatMap(({ doc, buffer, checksum }) =>
             pipe(
               DocumentVersion.create({
                 id: verId,
@@ -212,15 +184,12 @@ export class DocumentWorkflows {
                 uploadedBy: meta.actor.userId as string,
                 createdAt: now.toISOString(),
               }),
-              Effect.mapError((e) =>
-                DocumentWorkflowError.unavailable("DocumentVersion.create", e),
-              ),
-              Effect.flatMap((version) => commitVersion(this.documentRepo, doc, version, now)),
+              E.mapError((e) => DocumentWorkflowError.unavailable("DocumentVersion.create", e)),
+              E.flatMap((version) => commitVersion(this.documentRepo, doc, version, now)),
             ),
           ),
 
-          // emit event
-          Effect.tap(({ updated, version }) =>
+          E.tap(({ updated, version }) =>
             emitDocumentUploaded({
               actorId: meta.actor.userId,
               resourceId: updated.id as string,
@@ -230,7 +199,7 @@ export class DocumentWorkflows {
             }),
           ),
 
-          Effect.map(({ updated, version }) => ({
+          E.map(({ updated, version }) => ({
             document: toDocumentDTO(updated),
             version: toVersionDTO(version),
           })),
@@ -239,30 +208,25 @@ export class DocumentWorkflows {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // uploadVersion
-  // -------------------------------------------------------------------------
-
   uploadVersion(
     rawMeta: UploadVersionMetaEncoded,
     file: File,
-  ): Effect.Effect<UploadVersionResult, WorkflowError> {
+  ): E.Effect<UploadVersionResult, WorkflowError> {
     return pipe(
       decodeCommand(UploadVersionMetaSchema, rawMeta, DocumentWorkflowError.invalidInput),
-      Effect.flatMap((meta) => {
+      E.flatMap((meta) => {
         const now = new Date();
         const verId = crypto.randomUUID();
 
         return pipe(
-          // load doc + version history in parallel
-          Effect.all([
+          E.all([
             requireActiveDocument(this.documentRepo, meta.documentId),
             pipe(
               this.documentRepo.findVersionsByDocument(meta.documentId),
-              Effect.mapError(unavailable("repo.findVersionsByDocument")),
+              E.mapError(unavailable("repo.findVersionsByDocument")),
             ),
           ]),
-          Effect.map(([document, versions]) => {
+          E.map(([document, versions]) => {
             const filename = meta.name?.trim() || file.name || document.name;
             const contentType = file.type || document.contentType;
             const versionNumber =
@@ -273,21 +237,26 @@ export class DocumentWorkflows {
             return { document, filename, contentType, versionNumber, bucketKey };
           }),
 
-          // upload
-          Effect.flatMap(({ document, filename, contentType, versionNumber, bucketKey }) =>
+          E.flatMap(({ document, filename, contentType, versionNumber, bucketKey }) =>
             pipe(
-              Effect.promise(() => file.arrayBuffer()),
-              Effect.flatMap((buffer) =>
+              E.promise(() => file.arrayBuffer()),
+              E.flatMap((buffer) =>
                 pipe(
                   uploadAndHash(this.storage, bucketKey, buffer, contentType),
-                  Effect.map((checksum) => ({ document, filename, versionNumber, bucketKey, buffer, checksum })),
+                  E.map((checksum) => ({
+                    document,
+                    filename,
+                    versionNumber,
+                    bucketKey,
+                    buffer,
+                    checksum,
+                  })),
                 ),
               ),
             ),
           ),
 
-          // save version
-          Effect.flatMap(({ document, filename, versionNumber, bucketKey, buffer, checksum }) =>
+          E.flatMap(({ document, filename, versionNumber, bucketKey, buffer, checksum }) =>
             pipe(
               DocumentVersion.create({
                 id: verId,
@@ -299,20 +268,17 @@ export class DocumentWorkflows {
                 uploadedBy: meta.actor.userId as string,
                 createdAt: now.toISOString(),
               }),
-              Effect.mapError((e) =>
-                DocumentWorkflowError.unavailable("DocumentVersion.create", e),
-              ),
-              Effect.flatMap((version) =>
+              E.mapError((e) => DocumentWorkflowError.unavailable("DocumentVersion.create", e)),
+              E.flatMap((version) =>
                 pipe(
                   commitVersion(this.documentRepo, document, version, now),
-                  Effect.as({ version, versionNumber, filename }),
+                  E.as({ version, versionNumber, filename }),
                 ),
               ),
             ),
           ),
 
-          // emit event
-          Effect.tap(({ version, versionNumber, filename }) =>
+          E.tap(({ version, versionNumber, filename }) =>
             emitVersionCreated({
               actorId: meta.actor.userId,
               resourceId: meta.documentId as string,
@@ -322,36 +288,35 @@ export class DocumentWorkflows {
             }),
           ),
 
-          Effect.map(({ version }) => ({ version: toVersionDTO(version) })),
+          E.map(({ version }) => ({ version: toVersionDTO(version) })),
         );
       }),
     );
   }
 
-  // -------------------------------------------------------------------------
-  // get
-  // -------------------------------------------------------------------------
-
-  get(raw: GetDocumentQueryEncoded): Effect.Effect<DocumentDTO, WorkflowError> {
+  get(raw: GetDocumentQueryEncoded): E.Effect<DocumentDTO, WorkflowError> {
     return pipe(
       decodeCommand(GetDocumentQuerySchema, raw, DocumentWorkflowError.invalidInput),
-      Effect.flatMap((query) =>
+      E.flatMap((query) =>
         pipe(
-          requireAccessibleDocument(this.documentRepo, this.policyRepo, this.userRepo, query.documentId, query.actor, PermissionAction.Read),
-          Effect.map(toDocumentDTO),
+          requireAccessibleDocument(
+            this.documentRepo,
+            this.policyRepo,
+            this.userRepo,
+            query.documentId,
+            query.actor,
+            PermissionAction.Read,
+          ),
+          E.map(toDocumentDTO),
         ),
       ),
     );
   }
 
-  // -------------------------------------------------------------------------
-  // list
-  // -------------------------------------------------------------------------
-
-  list(raw: ListDocumentsQueryEncoded): Effect.Effect<PaginatedDocumentsDTO, WorkflowError> {
+  list(raw: ListDocumentsQueryEncoded): E.Effect<PaginatedDocumentsDTO, WorkflowError> {
     return pipe(
       decodeCommand(ListDocumentsQuerySchema, raw, DocumentWorkflowError.invalidInput),
-      Effect.flatMap((query) =>
+      E.flatMap((query) =>
         withPagination(
           query,
           (pagination) => {
@@ -363,7 +328,7 @@ export class DocumentWorkflows {
                 : this.documentRepo.search(query.name?.trim() ?? "", pagination);
             return pipe(
               search,
-              Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.listDocuments", e)),
+              E.mapError((e) => DocumentWorkflowError.unavailable("repo.listDocuments", e)),
             );
           },
           toPaginatedDocumentsDTO,
@@ -372,57 +337,57 @@ export class DocumentWorkflows {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // download
-  // -------------------------------------------------------------------------
-
-  download(raw: DownloadDocumentQueryEncoded): Effect.Effect<PresignedDownloadDTO, WorkflowError> {
+  download(raw: DownloadDocumentQueryEncoded): E.Effect<PresignedDownloadDTO, WorkflowError> {
     return pipe(
       decodeCommand(DownloadDocumentQuerySchema, raw, DocumentWorkflowError.invalidInput),
-      Effect.flatMap((query) => {
+      E.flatMap((query) => {
         const ttl = query.expiresInSeconds ?? DEFAULT_PRESIGNED_URL_TTL_SECONDS;
         return pipe(
-          requireAccessibleDocument(this.documentRepo, this.policyRepo, this.userRepo, query.documentId, query.actor, PermissionAction.Read),
-          Effect.flatMap((document) => requireCurrentVersion(this.documentRepo, document)),
-          Effect.flatMap((version) => buildPresignedResponse(this.storage, version, ttl)),
+          requireAccessibleDocument(
+            this.documentRepo,
+            this.policyRepo,
+            this.userRepo,
+            query.documentId,
+            query.actor,
+            PermissionAction.Read,
+          ),
+          E.flatMap((document) => requireCurrentVersion(this.documentRepo, document)),
+          E.flatMap((version) => buildPresignedResponse(this.storage, version, ttl)),
         );
       }),
     );
   }
 
-  // -------------------------------------------------------------------------
-  // downloadVersion
-  // -------------------------------------------------------------------------
-
-  downloadVersion(
-    raw: DownloadVersionQueryEncoded,
-  ): Effect.Effect<PresignedDownloadDTO, WorkflowError> {
+  downloadVersion(raw: DownloadVersionQueryEncoded): E.Effect<PresignedDownloadDTO, WorkflowError> {
     return pipe(
       decodeCommand(DownloadVersionQuerySchema, raw, DocumentWorkflowError.invalidInput),
-      Effect.flatMap((query) => {
+      E.flatMap((query) => {
         const ttl = query.expiresInSeconds ?? DEFAULT_PRESIGNED_URL_TTL_SECONDS;
         return pipe(
-          requireAccessibleDocument(this.documentRepo, this.policyRepo, this.userRepo, query.documentId, query.actor, PermissionAction.Read),
-          Effect.flatMap((document) =>
+          requireAccessibleDocument(
+            this.documentRepo,
+            this.policyRepo,
+            this.userRepo,
+            query.documentId,
+            query.actor,
+            PermissionAction.Read,
+          ),
+          E.flatMap((document) =>
             pipe(
               requireVersion(this.documentRepo, query.versionId),
-              Effect.flatMap((version) => requireVersionOfDocument(version, document)),
+              E.flatMap((version) => requireVersionOfDocument(version, document)),
             ),
           ),
-          Effect.flatMap((version) => buildPresignedResponse(this.storage, version, ttl)),
+          E.flatMap((version) => buildPresignedResponse(this.storage, version, ttl)),
         );
       }),
     );
   }
 
-  // -------------------------------------------------------------------------
-  // listVersions
-  // -------------------------------------------------------------------------
-
-  listVersions(raw: ListVersionsQueryEncoded): Effect.Effect<readonly VersionDTO[], WorkflowError> {
+  listVersions(raw: ListVersionsQueryEncoded): E.Effect<readonly VersionDTO[], WorkflowError> {
     return pipe(
       decodeCommand(ListVersionsQuerySchema, raw, DocumentWorkflowError.invalidInput),
-      Effect.flatMap((query) =>
+      E.flatMap((query) =>
         pipe(
           requireAccessibleDocument(
             this.documentRepo,
@@ -432,44 +397,40 @@ export class DocumentWorkflows {
             query.actor,
             PermissionAction.Read,
           ),
-          Effect.flatMap((document) =>
+          E.flatMap((document) =>
             pipe(
               this.documentRepo.findVersionsByDocument(document.id),
-              Effect.mapError((e) =>
+              E.mapError((e) =>
                 DocumentWorkflowError.unavailable("repo.findVersionsByDocument", e),
               ),
             ),
           ),
-          Effect.map((versions) => versions.map(toVersionDTO)),
+          E.map((versions) => versions.map(toVersionDTO)),
         ),
       ),
     );
   }
 
-  // -------------------------------------------------------------------------
-  // delete
-  // -------------------------------------------------------------------------
-
-  delete(raw: DeleteDocumentCommandEncoded): Effect.Effect<void, WorkflowError> {
+  delete(raw: DeleteDocumentCommandEncoded): E.Effect<void, WorkflowError> {
     return pipe(
       decodeCommand(DeleteDocumentCommandSchema, raw, DocumentWorkflowError.invalidInput),
-      Effect.flatMap((cmd) =>
+      E.flatMap((cmd) =>
         pipe(
           assertAdminOnly(cmd.actor, PermissionAction.Delete),
-          Effect.flatMap(() => requireDocument(this.documentRepo, cmd.documentId)),
-          Effect.flatMap((document) =>
+          E.flatMap(() => requireDocument(this.documentRepo, cmd.documentId)),
+          E.flatMap((document) =>
             pipe(
               document.softDelete(),
-              Effect.mapError((e) => DocumentWorkflowError.conflict(e.message)),
+              E.mapError((e) => DocumentWorkflowError.conflict(e.message)),
             ),
           ),
-          Effect.flatMap((deleted) =>
+          E.flatMap((deleted) =>
             pipe(
               this.documentRepo.update(deleted),
-              Effect.mapError((e) => DocumentWorkflowError.unavailable("repo.update", e)),
+              E.mapError((e) => DocumentWorkflowError.unavailable("repo.update", e)),
             ),
           ),
-          Effect.tap(() =>
+          E.tap(() =>
             emitDocumentDeleted({
               actorId: cmd.actor.userId,
               resourceId: cmd.documentId,

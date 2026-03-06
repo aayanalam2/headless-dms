@@ -9,7 +9,7 @@
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, setDefaultTimeout } from "bun:test";
-import { Effect, Either, Option } from "effect";
+import { Effect as E, Either, Option as O } from "effect";
 
 import { makeDocument, makeRolePolicy, makeSubjectPolicy, makeUser } from "../domain/factories.ts";
 import type { TestDb } from "./helpers/db.ts";
@@ -51,9 +51,9 @@ beforeEach(async () => {
   await truncateAll();
   // Seed a shared owner + document for every test (FK requirements)
   owner = makeUser();
-  await Effect.runPromise(userRepo.save(owner));
+  await E.runPromise(userRepo.save(owner));
   doc = makeDocument({ ownerId: owner.id });
-  await Effect.runPromise(docRepo.save(doc));
+  await E.runPromise(docRepo.save(doc));
 });
 
 // ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ beforeEach(async () => {
 
 describe("findByDocument", () => {
   it("returns empty array when document has no policies", async () => {
-    const policies = await Effect.runPromise(repo.findByDocument(doc.id));
+    const policies = await E.runPromise(repo.findByDocument(doc.id));
     expect(policies).toHaveLength(0);
   });
 
@@ -77,20 +77,20 @@ describe("findByDocument", () => {
       subjectId: owner.id,
       action: PermissionAction.Write,
     });
-    await Promise.all([Effect.runPromise(repo.save(p1)), Effect.runPromise(repo.save(p2))]);
+    await Promise.all([E.runPromise(repo.save(p1)), E.runPromise(repo.save(p2))]);
 
-    const policies = await Effect.runPromise(repo.findByDocument(doc.id));
+    const policies = await E.runPromise(repo.findByDocument(doc.id));
     expect(policies).toHaveLength(2);
   });
 
   it("does not return policies for a different document", async () => {
     const otherDoc = makeDocument({ ownerId: owner.id });
-    await Effect.runPromise(docRepo.save(otherDoc));
+    await E.runPromise(docRepo.save(otherDoc));
 
     const p = makeSubjectPolicy({ documentId: otherDoc.id, subjectId: owner.id });
-    await Effect.runPromise(repo.save(p));
+    await E.runPromise(repo.save(p));
 
-    const policies = await Effect.runPromise(repo.findByDocument(doc.id));
+    const policies = await E.runPromise(repo.findByDocument(doc.id));
     expect(policies).toHaveLength(0);
   });
 });
@@ -102,18 +102,15 @@ describe("findByDocument", () => {
 describe("findByDocumentAndSubject", () => {
   it("returns only policies for the given subject", async () => {
     const otherUser = makeUser();
-    await Effect.runPromise(userRepo.save(otherUser));
+    await E.runPromise(userRepo.save(otherUser));
 
     const myPolicy = makeSubjectPolicy({ documentId: doc.id, subjectId: owner.id });
     const theirPolicy = makeSubjectPolicy({ documentId: doc.id, subjectId: otherUser.id });
-    await Promise.all([
-      Effect.runPromise(repo.save(myPolicy)),
-      Effect.runPromise(repo.save(theirPolicy)),
-    ]);
+    await Promise.all([E.runPromise(repo.save(myPolicy)), E.runPromise(repo.save(theirPolicy))]);
 
-    const result = await Effect.runPromise(repo.findByDocumentAndSubject(doc.id, owner.id));
+    const result = await E.runPromise(repo.findByDocumentAndSubject(doc.id, owner.id));
     expect(result).toHaveLength(1);
-    if (Option.isSome(result[0]!.subjectId)) {
+    if (O.isSome(result[0]!.subjectId)) {
       expect(result[0]!.subjectId.value).toBe(owner.id);
     }
   });
@@ -135,20 +132,17 @@ describe("findByDocumentAndRole", () => {
       subjectRole: Role.User,
       action: PermissionAction.Read,
     });
-    await Promise.all([
-      Effect.runPromise(repo.save(adminPolicy)),
-      Effect.runPromise(repo.save(userPolicy)),
-    ]);
+    await Promise.all([E.runPromise(repo.save(adminPolicy)), E.runPromise(repo.save(userPolicy))]);
 
-    const adminPolicies = await Effect.runPromise(repo.findByDocumentAndRole(doc.id, Role.Admin));
+    const adminPolicies = await E.runPromise(repo.findByDocumentAndRole(doc.id, Role.Admin));
     expect(adminPolicies).toHaveLength(1);
-    if (Option.isSome(adminPolicies[0]!.subjectRole)) {
+    if (O.isSome(adminPolicies[0]!.subjectRole)) {
       expect(adminPolicies[0]!.subjectRole.value).toBe(Role.Admin);
     }
   });
 
   it("returns empty when no role policies exist for a role", async () => {
-    const result = await Effect.runPromise(repo.findByDocumentAndRole(doc.id, Role.Admin));
+    const result = await E.runPromise(repo.findByDocumentAndRole(doc.id, Role.Admin));
     expect(result).toHaveLength(0);
   });
 });
@@ -169,12 +163,9 @@ describe("findByDocumentSubjectAndAction", () => {
       subjectId: owner.id,
       action: PermissionAction.Write,
     });
-    await Promise.all([
-      Effect.runPromise(repo.save(readPolicy)),
-      Effect.runPromise(repo.save(writePolicy)),
-    ]);
+    await Promise.all([E.runPromise(repo.save(readPolicy)), E.runPromise(repo.save(writePolicy))]);
 
-    const result = await Effect.runPromise(
+    const result = await E.runPromise(
       repo.findByDocumentSubjectAndAction(doc.id, owner.id, PermissionAction.Read),
     );
     expect(result).toHaveLength(1);
@@ -194,9 +185,9 @@ describe("save", () => {
       action: PermissionAction.Delete,
       effect: PolicyEffect.Deny,
     });
-    await Effect.runPromise(repo.save(policy));
+    await E.runPromise(repo.save(policy));
 
-    const found = await Effect.runPromise(repo.findByDocument(doc.id));
+    const found = await E.runPromise(repo.findByDocument(doc.id));
     expect(found).toHaveLength(1);
     expect(found[0]!.id).toBe(policy.id);
     expect(found[0]!.action).toBe(PermissionAction.Delete);
@@ -209,12 +200,12 @@ describe("save", () => {
       subjectRole: Role.User,
       action: PermissionAction.Read,
     });
-    await Effect.runPromise(repo.save(policy));
+    await E.runPromise(repo.save(policy));
 
-    const found = await Effect.runPromise(repo.findByDocument(doc.id));
+    const found = await E.runPromise(repo.findByDocument(doc.id));
     expect(found).toHaveLength(1);
-    expect(Option.isNone(found[0]!.subjectId)).toBe(true);
-    expect(Option.isSome(found[0]!.subjectRole)).toBe(true);
+    expect(O.isNone(found[0]!.subjectId)).toBe(true);
+    expect(O.isSome(found[0]!.subjectRole)).toBe(true);
   });
 });
 
@@ -225,17 +216,17 @@ describe("save", () => {
 describe("delete", () => {
   it("removes the policy from findByDocument", async () => {
     const policy = makeSubjectPolicy({ documentId: doc.id, subjectId: owner.id });
-    await Effect.runPromise(repo.save(policy));
+    await E.runPromise(repo.save(policy));
 
-    await Effect.runPromise(repo.delete(policy.id));
+    await E.runPromise(repo.delete(policy.id));
 
-    const found = await Effect.runPromise(repo.findByDocument(doc.id));
+    const found = await E.runPromise(repo.findByDocument(doc.id));
     expect(found).toHaveLength(0);
   });
 
   it("returns AccessPolicyNotFoundError for unknown id", async () => {
     const id = AccessPolicyId.create(crypto.randomUUID()).unwrap();
-    const result = await Effect.runPromise(Effect.either(repo.delete(id)));
+    const result = await E.runPromise(E.either(repo.delete(id)));
 
     expect(Either.isLeft(result)).toBe(true);
     if (Either.isLeft(result)) {
@@ -260,25 +251,25 @@ describe("deleteByDocument", () => {
       subjectRole: Role.User,
       action: PermissionAction.Write,
     });
-    await Promise.all([Effect.runPromise(repo.save(p1)), Effect.runPromise(repo.save(p2))]);
+    await Promise.all([E.runPromise(repo.save(p1)), E.runPromise(repo.save(p2))]);
 
-    await Effect.runPromise(repo.deleteByDocument(doc.id));
+    await E.runPromise(repo.deleteByDocument(doc.id));
 
-    const found = await Effect.runPromise(repo.findByDocument(doc.id));
+    const found = await E.runPromise(repo.findByDocument(doc.id));
     expect(found).toHaveLength(0);
   });
 
   it("does not affect policies for a different document", async () => {
     const otherDoc = makeDocument({ ownerId: owner.id });
-    await Effect.runPromise(docRepo.save(otherDoc));
+    await E.runPromise(docRepo.save(otherDoc));
 
     const p1 = makeSubjectPolicy({ documentId: doc.id, subjectId: owner.id });
     const p2 = makeSubjectPolicy({ documentId: otherDoc.id, subjectId: owner.id });
-    await Promise.all([Effect.runPromise(repo.save(p1)), Effect.runPromise(repo.save(p2))]);
+    await Promise.all([E.runPromise(repo.save(p1)), E.runPromise(repo.save(p2))]);
 
-    await Effect.runPromise(repo.deleteByDocument(doc.id));
+    await E.runPromise(repo.deleteByDocument(doc.id));
 
-    const otherPolicies = await Effect.runPromise(repo.findByDocument(otherDoc.id));
+    const otherPolicies = await E.runPromise(repo.findByDocument(otherDoc.id));
     expect(otherPolicies).toHaveLength(1);
   });
 });
@@ -295,15 +286,15 @@ describe("round-trip serialization", () => {
       action: PermissionAction.Share,
       effect: PolicyEffect.Allow,
     });
-    await Effect.runPromise(repo.save(policy));
+    await E.runPromise(repo.save(policy));
 
-    const found = await Effect.runPromise(repo.findByDocument(doc.id));
+    const found = await E.runPromise(repo.findByDocument(doc.id));
     expect(found).toHaveLength(1);
     const p = found[0]!;
     expect(p.id).toBe(policy.id);
     expect(p.documentId).toBe(doc.id);
-    expect(Option.isSome(p.subjectId)).toBe(true);
-    expect(Option.isNone(p.subjectRole)).toBe(true);
+    expect(O.isSome(p.subjectId)).toBe(true);
+    expect(O.isNone(p.subjectRole)).toBe(true);
     expect(p.action).toBe(PermissionAction.Share);
     expect(p.effect).toBe(PolicyEffect.Allow);
   });
@@ -315,14 +306,14 @@ describe("round-trip serialization", () => {
       action: PermissionAction.Delete,
       effect: PolicyEffect.Allow,
     });
-    await Effect.runPromise(repo.save(policy));
+    await E.runPromise(repo.save(policy));
 
-    const found = await Effect.runPromise(repo.findByDocument(doc.id));
+    const found = await E.runPromise(repo.findByDocument(doc.id));
     expect(found).toHaveLength(1);
     const p = found[0]!;
-    expect(Option.isNone(p.subjectId)).toBe(true);
-    expect(Option.isSome(p.subjectRole)).toBe(true);
-    if (Option.isSome(p.subjectRole)) {
+    expect(O.isNone(p.subjectId)).toBe(true);
+    expect(O.isSome(p.subjectRole)).toBe(true);
+    if (O.isSome(p.subjectRole)) {
       expect(p.subjectRole.value).toBe(Role.Admin);
     }
     expect(p.action).toBe(PermissionAction.Delete);

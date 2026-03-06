@@ -1,17 +1,17 @@
-import { Option } from "effect";
+import { Option as O } from "effect";
 
-export type Maybe<T> = T | Option.Option<T> | null | undefined;
+export type Maybe<T> = T | O.Option<T> | null | undefined;
 
-export const normalizeMaybe = <T>(value: Maybe<T>): Option.Option<T> => {
+export const normalizeMaybe = <T>(value: Maybe<T>): O.Option<T> => {
   if (value === null || value === undefined) {
-    return Option.none();
+    return O.none();
   }
-  if (Option.isOption(value)) {
+  if (O.isOption(value)) {
     return value;
   }
-  return Option.some(value);
+  return O.some(value);
 };
 
-export const optionToMaybe = <T>(option: Option.Option<T>): Maybe<T> => {
-  return Option.getOrNull(option) as Maybe<T>;
+export const optionToMaybe = <T>(option: O.Option<T>): Maybe<T> => {
+  return O.getOrNull(option) as Maybe<T>;
 };

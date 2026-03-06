@@ -6,18 +6,18 @@ A headless REST API for uploading, versioning, searching, and securely downloadi
 
 ## Features
 
-| Capability                    | Details                                                                                                 |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------- |
-| **File upload**               | Multipart upload with SHA-256 checksum, MIME-type validation, and deterministic S3 key generation       |
-| **Immutable versioning**      | Every upload creates a new version; existing objects in S3 are never overwritten                        |
-| **Presigned downloads**       | Time-limited (default 5 min) pre-signed URLs — files never pass through the API server                  |
-| **Access policies**           | Fine-grained Allow/Deny policies scoped to a user or a role per document                                |
-| **Role-based defaults**       | `admin` bypasses all policy checks; `user` falls through to subject → role → owner precedence           |
-| **Rich search**               | Filter by name (ILIKE), content-type, owner, tags (array containment), and arbitrary JSONB metadata     |
-| **Soft delete**               | Documents are marked `deleted_at`; all queries exclude them without physically removing data            |
-| **Audit log**                 | Append-only record of every significant action, written via a decoupled event bus                       |
-| **Structured logging**        | pino NDJSON to stdout in production; pretty-printed in development                                      |
-| **Swagger UI**                | Auto-generated at `/swagger` for interactive exploration                                                |
+| Capability               | Details                                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------- |
+| **File upload**          | Multipart upload with SHA-256 checksum, MIME-type validation, and deterministic S3 key generation   |
+| **Immutable versioning** | Every upload creates a new version; existing objects in S3 are never overwritten                    |
+| **Presigned downloads**  | Time-limited (default 5 min) pre-signed URLs — files never pass through the API server              |
+| **Access policies**      | Fine-grained Allow/Deny policies scoped to a user or a role per document                            |
+| **Role-based defaults**  | `admin` bypasses all policy checks; `user` falls through to subject → role → owner precedence       |
+| **Rich search**          | Filter by name (ILIKE), content-type, owner, tags (array containment), and arbitrary JSONB metadata |
+| **Soft delete**          | Documents are marked `deleted_at`; all queries exclude them without physically removing data        |
+| **Audit log**            | Append-only record of every significant action, written via a decoupled event bus                   |
+| **Structured logging**   | pino NDJSON to stdout in production; pretty-printed in development                                  |
+| **Swagger UI**           | Auto-generated at `/swagger` for interactive exploration                                            |
 
 ---
 
@@ -54,12 +54,12 @@ The codebase is divided into four concentric layers. **Dependencies only point i
 
 ### Layer responsibilities
 
-| Layer            | Directory             | Responsibility                                                                                                |
-| ---------------- | --------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Domain**       | `src/domain/`         | Entities, value objects, repository interfaces (ports), domain services, domain errors. No I/O of any kind.  |
-| **Application**  | `src/application/`    | Workflow classes that compose domain operations into use-cases. DTOs, helpers, event listeners.               |
-| **Infra**        | `src/infra/`          | Adapter implementations: Drizzle ORM repositories, S3 storage, tsyringe DI container, event bus.             |
-| **Presentation** | `src/presentation/`   | Elysia HTTP routes. Authentication middleware, error mapping, Swagger registration.                           |
+| Layer            | Directory           | Responsibility                                                                                              |
+| ---------------- | ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Domain**       | `src/domain/`       | Entities, value objects, repository interfaces (ports), domain services, domain errors. No I/O of any kind. |
+| **Application**  | `src/application/`  | Workflow classes that compose domain operations into use-cases. DTOs, helpers, event listeners.             |
+| **Infra**        | `src/infra/`        | Adapter implementations: Drizzle ORM repositories, S3 storage, tsyringe DI container, event bus.            |
+| **Presentation** | `src/presentation/` | Elysia HTTP routes. Authentication middleware, error mapping, Swagger registration.                         |
 
 ### Ports & Adapters
 
@@ -83,12 +83,12 @@ The DI container (`src/infra/di/container.ts`) wires adapters to their ports at 
 
 Entities are immutable value-carrying objects created and validated through **Effect Schema**. Construction always returns `Effect<Entity, ParseError>` — a malformed entity cannot exist at runtime.
 
-| Entity              | Key invariants                                                                                     |
-| ------------------- | -------------------------------------------------------------------------------------------------- |
-| `User`              | Branded `UserId`, validated `Email`, hashed password, `Role` enum (`admin` \| `user`)             |
-| `Document`          | Branded `DocumentId`, owner reference, optional `currentVersionId`, soft-delete timestamp          |
-| `DocumentVersion`   | Branded `VersionId`, immutable `BucketKey`, `Checksum`, MIME type, version number                 |
-| `AccessPolicy`      | Exactly one of `subjectId` or `subjectRole` must be set (domain invariant enforced on creation)   |
+| Entity            | Key invariants                                                                                  |
+| ----------------- | ----------------------------------------------------------------------------------------------- |
+| `User`            | Branded `UserId`, validated `Email`, hashed password, `Role` enum (`admin` \| `user`)           |
+| `Document`        | Branded `DocumentId`, owner reference, optional `currentVersionId`, soft-delete timestamp       |
+| `DocumentVersion` | Branded `VersionId`, immutable `BucketKey`, `Checksum`, MIME type, version number               |
+| `AccessPolicy`    | Exactly one of `subjectId` or `subjectRole` must be set (domain invariant enforced on creation) |
 
 ### Value objects & branded types
 
@@ -103,9 +103,9 @@ export type DocumentId = typeof DocumentId.$infer; // string & Brand<"DocumentId
 
 Logic that spans multiple aggregates lives in pure domain services:
 
-| Service                  | Responsibility                                                                            |
-| ------------------------ | ----------------------------------------------------------------------------------------- |
-| `DocumentAccessService`  | Evaluates `Effect` ↔ `Allow/Deny` policy precedence for a given actor + document + action |
+| Service                 | Responsibility                                                                            |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| `DocumentAccessService` | Evaluates `Effect` ↔ `Allow/Deny` policy precedence for a given actor + document + action |
 
 ---
 
@@ -153,13 +153,13 @@ getDocument(raw) {
 
 Module-level named step functions are extracted to `*.helpers.ts` files so the workflow file contains only orchestration. All three helper files share common combinators from `src/application/shared/workflow.helpers.ts`:
 
-| Combinator        | Purpose                                                                     |
-| ----------------- | --------------------------------------------------------------------------- |
-| `makeUnavailable` | Lifts an error constructor into a curried `op → cause → E` factory          |
-| `requireFound`    | Repo lookup + `Option` unwrap; maps absence to a `notFound` domain error    |
+| Combinator        | Purpose                                                                        |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `makeUnavailable` | Lifts an error constructor into a curried `op → cause → E` factory             |
+| `requireFound`    | Repo lookup + `Option` unwrap; maps absence to a `notFound` domain error       |
 | `requireAbsent`   | Inverse — asserts the row does not exist; maps presence to a `duplicate` error |
-| `assertOrFail`    | Boolean guard that passes a value through on success                        |
-| `assertGuard`     | Void specialisation of `assertOrFail` (role-only gates)                     |
+| `assertOrFail`    | Boolean guard that passes a value through on success                           |
+| `assertGuard`     | Void specialisation of `assertOrFail` (role-only gates)                        |
 
 Each `*.helpers.ts` then reduces to partial applications:
 
@@ -168,10 +168,8 @@ Each `*.helpers.ts` then reduces to partial applications:
 export const unavailable = makeUnavailable(AccessPolicyWorkflowError.unavailable);
 
 export function requirePolicy(repo, policyId) {
-  return requireFound(
-    repo.findById(policyId),
-    unavailable("policyRepo.findById"),
-    () => AccessPolicyWorkflowError.notFound(`Access policy '${policyId}'`),
+  return requireFound(repo.findById(policyId), unavailable("policyRepo.findById"), () =>
+    AccessPolicyWorkflowError.notFound(`Access policy '${policyId}'`),
   );
 }
 ```
@@ -196,12 +194,12 @@ This means audit behaviour can be changed, tested, or replaced without touching 
 | Concern           | Technology                                      |
 | ----------------- | ----------------------------------------------- |
 | Runtime           | [Bun](https://bun.sh) v1.x                      |
-| HTTP framework    | [Elysia](https://elysiajs.com) v1.4              |
-| Effect system     | [Effect](https://effect.website) v3              |
+| HTTP framework    | [Elysia](https://elysiajs.com) v1.4             |
+| Effect system     | [Effect](https://effect.website) v3             |
 | Schema / decoding | Effect Schema (replaces Zod at domain boundary) |
 | Branded types     | `@carbonteq/refined-type`                       |
 | DI container      | tsyringe (reflect-metadata)                     |
-| ORM               | [Drizzle ORM](https://orm.drizzle.team)          |
+| ORM               | [Drizzle ORM](https://orm.drizzle.team)         |
 | Database          | PostgreSQL 16                                   |
 | Object storage    | MinIO (dev) / AWS S3 (prod)                     |
 | Auth              | HS256 JWT via `@elysiajs/jwt`                   |
@@ -322,13 +320,13 @@ All endpoints (except `/auth/*`) require `Authorization: Bearer <token>`. Obtain
 
 ### Access Policies
 
-| Method   | Path                      | Auth  | Description                                              |
-| -------- | ------------------------- | ----- | -------------------------------------------------------- |
-| `POST`   | `/policies`               | Any   | Grant a subject or role access to a document             |
-| `PATCH`  | `/policies/:id`           | Any   | Change the effect (Allow/Deny) of an existing policy     |
-| `DELETE` | `/policies/:id`           | Any   | Revoke a policy                                          |
-| `GET`    | `/policies/check`         | Any   | Check whether the actor can perform an action            |
-| `GET`    | `/policies/document/:id`  | Any   | List all policies for a document                         |
+| Method   | Path                     | Auth | Description                                          |
+| -------- | ------------------------ | ---- | ---------------------------------------------------- |
+| `POST`   | `/policies`              | Any  | Grant a subject or role access to a document         |
+| `PATCH`  | `/policies/:id`          | Any  | Change the effect (Allow/Deny) of an existing policy |
+| `DELETE` | `/policies/:id`          | Any  | Revoke a policy                                      |
+| `GET`    | `/policies/check`        | Any  | Check whether the actor can perform an action        |
+| `GET`    | `/policies/document/:id` | Any  | List all policies for a document                     |
 
 ### Audit
 
@@ -495,7 +493,7 @@ Workflows never write to the audit log directly. They emit typed domain events o
 Rather than repeating `parsePagination` + `Effect.map(toDTO)` in every list workflow, a generic `withPagination` higher-order function in `pagination.ts` encapsulates the pattern:
 
 ```typescript
-withPagination(query, (pagination) => repo.search(q, pagination), toPaginatedDocumentsDTO)
+withPagination(query, (pagination) => repo.search(q, pagination), toPaginatedDocumentsDTO);
 ```
 
 ---
@@ -507,13 +505,13 @@ bun test            # run all tests
 bun test --watch    # re-run on file changes
 ```
 
-| Suite                            | What is tested                                                                          |
-| -------------------------------- | --------------------------------------------------------------------------------------- |
-| `domain/*.test.ts`               | Entity invariants and domain service logic — no mocks, no I/O                           |
-| `application/users/*.test.ts`    | Workflow logic with in-memory repository fakes                                          |
-| `infra/*.repository.test.ts`     | Repository adapters against a real PostgreSQL instance (integration)                    |
-| `presentation/http/*.test.ts`    | HTTP contract tests — status codes, body shapes, auth middleware                        |
-| `helpers/mocks.ts`               | Shared in-memory port implementations used across workflow unit tests                  |
+| Suite                         | What is tested                                                        |
+| ----------------------------- | --------------------------------------------------------------------- |
+| `domain/*.test.ts`            | Entity invariants and domain service logic — no mocks, no I/O         |
+| `application/users/*.test.ts` | Workflow logic with in-memory repository fakes                        |
+| `infra/*.repository.test.ts`  | Repository adapters against a real PostgreSQL instance (integration)  |
+| `presentation/http/*.test.ts` | HTTP contract tests — status codes, body shapes, auth middleware      |
+| `helpers/mocks.ts`            | Shared in-memory port implementations used across workflow unit tests |
 
 Domain tests require no mocks because entities are pure functions. Repository integration tests use the same database provisioned by `docker compose`.
 

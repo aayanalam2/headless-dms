@@ -1,4 +1,4 @@
-import { Effect, Option } from "effect";
+import { Effect as E, Option as O } from "effect";
 import { and, eq } from "drizzle-orm";
 import type { AppDb } from "@infra/database/utils/connection.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
@@ -15,27 +15,19 @@ import type { RepositoryEffect } from "@domain/utils/repository.types.ts";
 export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
   constructor(private readonly db: AppDb) {}
 
-  // -------------------------------------------------------------------------
-  // Row ↔ entity
-  // -------------------------------------------------------------------------
-
   private static readonly fromRow = (row: AccessPolicyRow): AccessPolicy => {
     return AccessPolicy.reconstitute({
       id: AccessPolicyId.create(row.id).unwrap(),
       documentId: DocumentId.create(row.documentId).unwrap(),
-      subjectId: row.subjectId ? Option.some(UserId.create(row.subjectId).unwrap()) : Option.none(),
-      subjectRole: row.subjectRole ? Option.some(row.subjectRole) : Option.none(),
+      subjectId: row.subjectId ? O.some(UserId.create(row.subjectId).unwrap()) : O.none(),
+      subjectRole: row.subjectRole ? O.some(row.subjectRole) : O.none(),
       action: row.action,
       effect: row.effect,
       createdAt: row.createdAt,
     });
   };
 
-  // -------------------------------------------------------------------------
-  // Queries
-  // -------------------------------------------------------------------------
-
-  findById(id: AccessPolicyId): RepositoryEffect<Option.Option<AccessPolicy>> {
+  findById(id: AccessPolicyId): RepositoryEffect<O.Option<AccessPolicy>> {
     return fetchSingle(
       () => this.db.select().from(accessPoliciesTable).where(eq(accessPoliciesTable.id, id)),
       DrizzleAccessPolicyRepository.fromRow,
@@ -112,17 +104,13 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Writes
-  // -------------------------------------------------------------------------
-
   save(policy: AccessPolicy): RepositoryEffect<void> {
     return executeQuery(() =>
       this.db.insert(accessPoliciesTable).values({
         id: policy.id,
         documentId: policy.documentId,
-        subjectId: Option.getOrNull(policy.subjectId),
-        subjectRole: Option.getOrNull(policy.subjectRole),
+        subjectId: O.getOrNull(policy.subjectId),
+        subjectRole: O.getOrNull(policy.subjectRole),
         action: policy.action,
         effect: policy.effect,
         createdAt: policy.createdAt,
@@ -132,14 +120,14 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
   }
 
   delete(id: AccessPolicyId): RepositoryEffect<void, AccessPolicyNotFoundError> {
-    return Effect.flatMap(
+    return E.flatMap(
       executeQuery(() =>
         this.db
           .delete(accessPoliciesTable)
           .where(eq(accessPoliciesTable.id, id))
           .returning({ id: accessPoliciesTable.id }),
       ),
-      (rows) => (rows.length > 0 ? Effect.void : Effect.fail(new AccessPolicyNotFoundError(id))),
+      (rows) => (rows.length > 0 ? E.void : E.fail(new AccessPolicyNotFoundError(id))),
     );
   }
 

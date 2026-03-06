@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Effect, Either, Option } from "effect";
+import { Effect as E, Either, Option as O } from "effect";
 import { Document } from "@domain/document/document.entity.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import {
@@ -28,7 +28,7 @@ const FIXED_ISO = FIXED_DATE.toISOString();
 
 /** Build a minimal valid Document for use in tests. */
 function makeDocument(overrides: Partial<Parameters<typeof Document.create>[0]> = {}) {
-  return Effect.runSync(
+  return E.runSync(
     Document.create({
       id: makeDocId() as string,
       ownerId: makeUserId() as string,
@@ -54,7 +54,7 @@ describe("Document entity", () => {
     it("creates a document with a valid content type", () => {
       const id = makeDocId();
       const ownerId = makeUserId();
-      const result = Effect.runSync(
+      const result = E.runSync(
         Document.create({
           id: id as string,
           ownerId: ownerId as string,
@@ -74,16 +74,16 @@ describe("Document entity", () => {
       expect(result.ownerId).toBe(ownerId);
       expect(result.name).toBe("spec.pdf");
       expect(result.contentType).toBe("application/pdf");
-      expect(Option.isNone(result.currentVersionId)).toBe(true);
+      expect(O.isNone(result.currentVersionId)).toBe(true);
       expect(result.tags).toEqual(["finance", "q1"]);
       expect(result.metadata).toEqual({ project: "alpha" });
       expect(result.isDeleted).toBe(false);
-      expect(Option.isNone(result.deletedAt)).toBe(true);
+      expect(O.isNone(result.deletedAt)).toBe(true);
     });
 
     it("fails with InvalidContentTypeError for a disallowed MIME type", () => {
-      const result = Effect.runSync(
-        Effect.either(
+      const result = E.runSync(
+        E.either(
           Document.create({
             id: makeDocId() as string,
             ownerId: makeUserId() as string,
@@ -108,8 +108,8 @@ describe("Document entity", () => {
     });
 
     it("fails with InvalidContentTypeError for an empty string", () => {
-      const result = Effect.runSync(
-        Effect.either(
+      const result = E.runSync(
+        E.either(
           Document.create({
             id: makeDocId() as string,
             ownerId: makeUserId() as string,
@@ -140,7 +140,7 @@ describe("Document entity", () => {
       ] as const;
 
       for (const contentType of allowed) {
-        const result = Effect.runSync(
+        const result = E.runSync(
           Document.create({
             id: makeDocId() as string,
             ownerId: makeUserId() as string,
@@ -163,11 +163,11 @@ describe("Document entity", () => {
     it("marks an active document as deleted", () => {
       const doc = makeDocument();
       const now = new Date("2025-06-01T12:00:00.000Z");
-      const result = Effect.runSync(doc.softDelete(now));
+      const result = E.runSync(doc.softDelete(now));
 
       expect(result.isDeleted).toBe(true);
-      expect(Option.isSome(result.deletedAt)).toBe(true);
-      if (Option.isSome(result.deletedAt)) {
+      expect(O.isSome(result.deletedAt)).toBe(true);
+      if (O.isSome(result.deletedAt)) {
         expect(result.deletedAt.value).toEqual(now);
       }
       expect(result.updatedAt).toEqual(now);
@@ -175,9 +175,9 @@ describe("Document entity", () => {
 
     it("fails with DocumentAlreadyDeletedError when called on a deleted document", () => {
       const doc = makeDocument();
-      const deleted = Effect.runSync(doc.softDelete());
+      const deleted = E.runSync(doc.softDelete());
 
-      const second = Effect.runSync(Effect.either(deleted.softDelete()));
+      const second = E.runSync(E.either(deleted.softDelete()));
       expect(Either.isLeft(second)).toBe(true);
       if (Either.isLeft(second)) {
         expect(second.left).toBeInstanceOf(DocumentAlreadyDeletedError);
@@ -186,7 +186,7 @@ describe("Document entity", () => {
 
     it("does not mutate the original document (immutability)", () => {
       const doc = makeDocument();
-      const result = Effect.runSync(doc.softDelete());
+      const result = E.runSync(doc.softDelete());
 
       expect(doc.isDeleted).toBe(false);
       expect(result).not.toBe(doc);
@@ -197,7 +197,7 @@ describe("Document entity", () => {
     it("returns a new document with the updated name", () => {
       const doc = makeDocument();
       const now = new Date("2025-06-02T08:00:00.000Z");
-      const result = Effect.runSync(doc.rename("renamed.pdf", now));
+      const result = E.runSync(doc.rename("renamed.pdf", now));
 
       expect(result.name).toBe("renamed.pdf");
       expect(result.id).toBe(doc.id);
@@ -206,9 +206,9 @@ describe("Document entity", () => {
 
     it("fails with DocumentAlreadyDeletedError when renaming a deleted document", () => {
       const doc = makeDocument();
-      const deleted = Effect.runSync(doc.softDelete());
+      const deleted = E.runSync(doc.softDelete());
 
-      const result = Effect.runSync(Effect.either(deleted.rename("too-late.pdf")));
+      const result = E.runSync(E.either(deleted.rename("too-late.pdf")));
       expect(Either.isLeft(result)).toBe(true);
       if (Either.isLeft(result)) {
         expect(result.left).toBeInstanceOf(DocumentAlreadyDeletedError);
@@ -219,7 +219,7 @@ describe("Document entity", () => {
   describe("setTags", () => {
     it("returns a new document with the new tag list", () => {
       const doc = makeDocument();
-      const result = Effect.runSync(doc.setTags(["legal", "2025"]));
+      const result = E.runSync(doc.setTags(["legal", "2025"]));
 
       expect(result.tags).toEqual(["legal", "2025"]);
       expect(doc.tags).toEqual([]); // original unchanged
@@ -227,9 +227,9 @@ describe("Document entity", () => {
 
     it("fails with DocumentAlreadyDeletedError on a deleted document", () => {
       const doc = makeDocument();
-      const deleted = Effect.runSync(doc.softDelete());
+      const deleted = E.runSync(doc.softDelete());
 
-      const result = Effect.runSync(Effect.either(deleted.setTags(["x"])));
+      const result = E.runSync(E.either(deleted.setTags(["x"])));
       expect(Either.isLeft(result)).toBe(true);
       if (Either.isLeft(result)) {
         expect(result.left).toBeInstanceOf(DocumentAlreadyDeletedError);
@@ -241,19 +241,19 @@ describe("Document entity", () => {
     it("sets the current version ID", () => {
       const doc = makeDocument();
       const versionId = makeVersionId();
-      const result = Effect.runSync(doc.setCurrentVersion(versionId));
+      const result = E.runSync(doc.setCurrentVersion(versionId));
 
-      expect(Option.isSome(result.currentVersionId)).toBe(true);
-      if (Option.isSome(result.currentVersionId)) {
+      expect(O.isSome(result.currentVersionId)).toBe(true);
+      if (O.isSome(result.currentVersionId)) {
         expect(result.currentVersionId.value).toBe(versionId);
       }
     });
 
     it("fails with DocumentAlreadyDeletedError on a deleted document", () => {
       const doc = makeDocument();
-      const deleted = Effect.runSync(doc.softDelete());
+      const deleted = E.runSync(doc.softDelete());
 
-      const result = Effect.runSync(Effect.either(deleted.setCurrentVersion(makeVersionId())));
+      const result = E.runSync(E.either(deleted.setCurrentVersion(makeVersionId())));
       expect(Either.isLeft(result)).toBe(true);
       if (Either.isLeft(result)) {
         expect(result.left).toBeInstanceOf(DocumentAlreadyDeletedError);
@@ -289,7 +289,7 @@ describe("DocumentVersion entity", () => {
     const bucketKey = BucketKey.create(`${documentId}/${id}/report.pdf`).unwrap();
     const checksum = Checksum.create("a".repeat(64)).unwrap();
 
-    const version = Effect.runSync(
+    const version = E.runSync(
       DocumentVersion.create({
         id: id as string,
         documentId: documentId as string,
@@ -329,8 +329,8 @@ describe("DocumentVersion entity", () => {
       createdAt: FIXED_ISO,
     };
 
-    const v1 = Effect.runSync(DocumentVersion.create(baseProps));
-    const v2 = Effect.runSync(DocumentVersion.create(baseProps));
+    const v1 = E.runSync(DocumentVersion.create(baseProps));
+    const v2 = E.runSync(DocumentVersion.create(baseProps));
     expect(v1.equals(v2)).toBe(true);
   });
 
@@ -342,7 +342,7 @@ describe("DocumentVersion entity", () => {
       const id = makeVersionId();
       const bucketKey = `${documentId}/${id}/f.pdf`;
       const checksum = "c".repeat(64);
-      return Effect.runSync(
+      return E.runSync(
         DocumentVersion.create({
           id: id as string,
           documentId: documentId as string,
@@ -387,7 +387,7 @@ describe("Document guards", () => {
 
     it("isDeleted returns true after softDelete", () => {
       const doc = makeDocument();
-      const result = Effect.runSync(doc.softDelete());
+      const result = E.runSync(doc.softDelete());
       expect(isDeleted(result)).toBe(true);
       expect(isActive(result)).toBe(false);
     });
@@ -401,7 +401,7 @@ describe("Document guards", () => {
 
     it("returns true after setCurrentVersion", () => {
       const doc = makeDocument();
-      const result = Effect.runSync(doc.setCurrentVersion(makeVersionId()));
+      const result = E.runSync(doc.setCurrentVersion(makeVersionId()));
       expect(hasVersion(result)).toBe(true);
     });
   });

@@ -1,9 +1,5 @@
-import type { Effect } from "effect";
+import type { Effect as E } from "effect";
 import { DomainError } from "@domain/utils/base.errors.ts";
-
-// ---------------------------------------------------------------------------
-// Repository-layer error types and Effect alias
-// ---------------------------------------------------------------------------
 
 export class RepositoryError extends DomainError {
   readonly _tag = "RepositoryError" as const;
@@ -18,4 +14,4 @@ export class RepositoryError extends DomainError {
   }
 }
 
-export type RepositoryEffect<A, E = never> = Effect.Effect<A, E | RepositoryError>;
+export type RepositoryEffect<A, Err = never> = E.Effect<A, Err | RepositoryError>;

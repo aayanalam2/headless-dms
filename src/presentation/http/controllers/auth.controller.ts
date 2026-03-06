@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia";
-import { Effect, Either, pipe } from "effect";
+import { Effect as E, Either, pipe } from "effect";
 import { jwtPlugin } from "../middleware/auth.plugin.ts";
 import { StatusCode } from "status-code-enum";
 import { Role } from "@domain/utils/enums.ts";
@@ -10,10 +10,6 @@ import {
   UserWorkflowErrorTag,
   type UserWorkflowError,
 } from "@application/users/user-workflow.errors.ts";
-
-// ---------------------------------------------------------------------------
-// Error bridge — maps UserWorkflowError to the controller-layer AppError.
-// ---------------------------------------------------------------------------
 
 function toAppError(e: UserWorkflowError): AppError {
   switch (e._tag) {
@@ -34,19 +30,12 @@ function toAppError(e: UserWorkflowError): AppError {
   }
 }
 
-// ---------------------------------------------------------------------------
-// createAuthController
-// ---------------------------------------------------------------------------
-
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createAuthController(workflows: UserWorkflows) {
   return (
     new Elysia({ prefix: "/auth" })
       .use(jwtPlugin)
 
-      // -----------------------------------------------------------------------
-      // POST /auth/register
-      // -----------------------------------------------------------------------
       .post(
         "/register",
         ({ body, jwt, set }) =>
@@ -54,13 +43,13 @@ export function createAuthController(workflows: UserWorkflows) {
             set,
             pipe(
               workflows.register(body),
-              Effect.mapError(toAppError),
-              Effect.flatMap((user) =>
+              E.mapError(toAppError),
+              E.flatMap((user) =>
                 pipe(
-                  Effect.promise(() =>
+                  E.promise(() =>
                     jwt.sign({ userId: user.id, email: user.email, role: user.role }),
                   ),
-                  Effect.map((token) => ({ token, user })),
+                  E.map((token) => ({ token, user })),
                 ),
               ),
             ),
@@ -75,17 +64,11 @@ export function createAuthController(workflows: UserWorkflows) {
         },
       )
 
-      // -----------------------------------------------------------------------
-      // POST /auth/login
-      //
-      // Security: always respond with 401 on any failure — avoids user
-      // enumeration regardless of whether the email exists, the password is
-      // wrong, or a database error occurred.
-      // -----------------------------------------------------------------------
+      // Security: always respond with 401 on any failure — avoids user enumeration.
       .post(
         "/login",
         async ({ body, jwt, set }) => {
-          const either = await Effect.runPromise(Effect.either(workflows.login(body)));
+          const either = await E.runPromise(E.either(workflows.login(body)));
 
           if (Either.isLeft(either)) {
             set.status = StatusCode.ClientErrorUnauthorized;
