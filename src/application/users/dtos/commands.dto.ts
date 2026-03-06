@@ -1,5 +1,6 @@
 import { Schema as S } from "effect";
 import { Role } from "@domain/utils/enums.ts";
+import { UserSchema } from "@domain/user/user.entity.ts";
 import { ActorCommandSchema } from "@application/documents/dtos/commands.dto.ts";
 
 // ---------------------------------------------------------------------------
@@ -40,7 +41,7 @@ export type LoginCommand = S.Schema.Type<typeof LoginCommandSchema>;
 
 export const ChangeUserRoleCommandSchema = S.Struct({
   actor: ActorCommandSchema,
-  targetUserId: S.String,
+  targetUserId: UserSchema.fields.id,
   newRole: S.Enums(Role),
 });
 export type ChangeUserRoleCommandEncoded = S.Schema.Encoded<typeof ChangeUserRoleCommandSchema>;
