@@ -58,11 +58,21 @@ export function mapErrorToResponse(err: AppError): HttpErrorResponse {
   }
 }
 
-export async function run<T>(
+export function makeRun<Err>(
+  toAppError: (e: Err) => AppError,
+): <T>(
   set: { status?: number | string | undefined },
-  effect: E.Effect<T, AppError>,
+  effect: E.Effect<T, Err>,
+) => Promise<T | HttpErrorResponse["body"]> {
+  return (set, effect) => run(set, effect, toAppError);
+}
+
+export async function run<T, Err>(
+  set: { status?: number | string | undefined },
+  effect: E.Effect<T, Err>,
+  toAppError: (e: Err) => AppError,
 ): Promise<T | ReturnType<typeof mapErrorToResponse>["body"]> {
-  const either = await E.runPromise(E.either(effect));
+  const either = await E.runPromise(E.either(E.mapError(effect, toAppError)));
   if (Either.isLeft(either)) {
     const err = either.left;
     const mapped = mapErrorToResponse(err);

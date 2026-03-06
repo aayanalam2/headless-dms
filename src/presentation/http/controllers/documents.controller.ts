@@ -1,9 +1,11 @@
 import { Elysia, t } from "elysia";
 import { Effect as E, pipe } from "effect";
 import { authPlugin } from "../middleware/auth.plugin.ts";
-import { run } from "../lib/http.ts";
+import { makeRun } from "../lib/http.ts";
 import type { DocumentWorkflows } from "@application/documents/document.workflows.ts";
 import { documentWorkflowToHttp } from "../lib/error-map.ts";
+
+const run = makeRun(documentWorkflowToHttp);
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createDocumentsController(workflows: DocumentWorkflows) {
@@ -15,12 +17,9 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
       ({ body, user, set }) =>
         run(
           set,
-          pipe(
-            workflows.upload(
-              { actor: user, name: body.name, rawTags: body.tags, rawMetadata: body.metadata },
-              body.file,
-            ),
-            E.mapError(documentWorkflowToHttp),
+          workflows.upload(
+            { actor: user, name: body.name, rawTags: body.tags, rawMetadata: body.metadata },
+            body.file,
           ),
         ),
       {
@@ -40,16 +39,13 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
       ({ query, user, set }) =>
         run(
           set,
-          pipe(
-            workflows.list({
-              actor: user,
-              name: query.name,
-              ownerId: query.ownerId,
-              page: query.page,
-              limit: query.limit,
-            }),
-            E.mapError(documentWorkflowToHttp),
-          ),
+          workflows.list({
+            actor: user,
+            name: query.name,
+            ownerId: query.ownerId,
+            page: query.page,
+            limit: query.limit,
+          }),
         ),
       {
         query: t.Object({
@@ -64,14 +60,7 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
 
     .get(
       "/:id",
-      ({ params, user, set }) =>
-        run(
-          set,
-          pipe(
-            workflows.get({ documentId: params.id, actor: user }),
-            E.mapError(documentWorkflowToHttp),
-          ),
-        ),
+      ({ params, user, set }) => run(set, workflows.get({ documentId: params.id, actor: user })),
       {
         params: t.Object({ id: t.String({ format: "uuid" }) }),
         detail: { summary: "Get a document by ID", tags: ["Documents"] },
@@ -81,13 +70,7 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
     .get(
       "/:id/download",
       ({ params, user, set }) =>
-        run(
-          set,
-          pipe(
-            workflows.download({ documentId: params.id, actor: user }),
-            E.mapError(documentWorkflowToHttp),
-          ),
-        ),
+        run(set, workflows.download({ documentId: params.id, actor: user })),
       {
         params: t.Object({ id: t.String({ format: "uuid" }) }),
         detail: {
@@ -102,12 +85,9 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
       ({ params, body, user, set }) =>
         run(
           set,
-          pipe(
-            workflows.uploadVersion(
-              { actor: user, documentId: params.id, name: body.name },
-              body.file,
-            ),
-            E.mapError(documentWorkflowToHttp),
+          workflows.uploadVersion(
+            { actor: user, documentId: params.id, name: body.name },
+            body.file,
           ),
         ),
       {
@@ -124,13 +104,7 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
     .get(
       "/:id/versions",
       ({ params, user, set }) =>
-        run(
-          set,
-          pipe(
-            workflows.listVersions({ documentId: params.id, actor: user }),
-            E.mapError(documentWorkflowToHttp),
-          ),
-        ),
+        run(set, workflows.listVersions({ documentId: params.id, actor: user })),
       {
         params: t.Object({ id: t.String({ format: "uuid" }) }),
         detail: { summary: "List all versions of a document", tags: ["Documents"] },
@@ -142,14 +116,11 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
       ({ params, user, set }) =>
         run(
           set,
-          pipe(
-            workflows.downloadVersion({
-              documentId: params.id,
-              versionId: params.versionId,
-              actor: user,
-            }),
-            E.mapError(documentWorkflowToHttp),
-          ),
+          workflows.downloadVersion({
+            documentId: params.id,
+            versionId: params.versionId,
+            actor: user,
+          }),
         ),
       {
         params: t.Object({
@@ -170,7 +141,6 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
           set,
           pipe(
             workflows.delete({ documentId: params.id, actor: user }),
-            E.mapError(documentWorkflowToHttp),
             E.map(() => ({ message: "Document deleted successfully" })),
           ),
         ),

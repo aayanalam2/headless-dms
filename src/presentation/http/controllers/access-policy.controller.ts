@@ -1,7 +1,6 @@
 import { Elysia, t } from "elysia";
-import { Effect as E, pipe } from "effect";
 import { authPlugin } from "../middleware/auth.plugin.ts";
-import { run } from "../lib/http.ts";
+import { makeRun } from "../lib/http.ts";
 import type { AccessPolicyWorkflows } from "@application/access-policy/access-policy.workflows.ts";
 import { accessPolicyWorkflowToHttp } from "../lib/error-map.ts";
 import {
@@ -9,6 +8,8 @@ import {
   PolicyEffect,
 } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { Role } from "@domain/utils/enums.ts";
+
+const run = makeRun(accessPolicyWorkflowToHttp);
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
@@ -20,17 +21,14 @@ export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
       ({ body, user, set }) =>
         run(
           set,
-          pipe(
-            workflows.grantAccess({
-              actor: user,
-              documentId: body.documentId,
-              subjectId: body.subjectId,
-              subjectRole: body.subjectRole,
-              action: body.action as PermissionAction,
-              effect: body.effect as PolicyEffect,
-            }),
-            E.mapError(accessPolicyWorkflowToHttp),
-          ),
+          workflows.grantAccess({
+            actor: user,
+            documentId: body.documentId,
+            subjectId: body.subjectId,
+            subjectRole: body.subjectRole,
+            action: body.action as PermissionAction,
+            effect: body.effect as PolicyEffect,
+          }),
         ),
       {
         body: t.Object({
@@ -59,13 +57,10 @@ export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
       ({ params, user, set }) =>
         run(
           set,
-          pipe(
-            workflows.listDocumentPolicies({
-              actor: user,
-              documentId: params.documentId,
-            }),
-            E.mapError(accessPolicyWorkflowToHttp),
-          ),
+          workflows.listDocumentPolicies({
+            actor: user,
+            documentId: params.documentId,
+          }),
         ),
       {
         params: t.Object({ documentId: t.String({ format: "uuid" }) }),
@@ -78,14 +73,11 @@ export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
       ({ params, body, user, set }) =>
         run(
           set,
-          pipe(
-            workflows.updateAccess({
-              actor: user,
-              policyId: params.policyId,
-              effect: body.effect as PolicyEffect,
-            }),
-            E.mapError(accessPolicyWorkflowToHttp),
-          ),
+          workflows.updateAccess({
+            actor: user,
+            policyId: params.policyId,
+            effect: body.effect as PolicyEffect,
+          }),
         ),
       {
         params: t.Object({ policyId: t.String({ format: "uuid" }) }),
@@ -104,13 +96,7 @@ export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
     .delete(
       "/:policyId",
       ({ params, user, set }) =>
-        run(
-          set,
-          pipe(
-            workflows.revokeAccess({ actor: user, policyId: params.policyId }),
-            E.mapError(accessPolicyWorkflowToHttp),
-          ),
-        ),
+        run(set, workflows.revokeAccess({ actor: user, policyId: params.policyId })),
       {
         params: t.Object({ policyId: t.String({ format: "uuid" }) }),
         detail: { summary: "Revoke an access policy", tags: ["Access Policies"] },
@@ -122,14 +108,11 @@ export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
       ({ query, user, set }) =>
         run(
           set,
-          pipe(
-            workflows.checkAccess({
-              actor: user,
-              documentId: query.documentId,
-              action: query.action as PermissionAction,
-            }),
-            E.mapError(accessPolicyWorkflowToHttp),
-          ),
+          workflows.checkAccess({
+            actor: user,
+            documentId: query.documentId,
+            action: query.action as PermissionAction,
+          }),
         ),
       {
         query: t.Object({
