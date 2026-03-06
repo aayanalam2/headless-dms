@@ -1,10 +1,26 @@
 import { Effect as E, Option as O } from "effect";
+import type { AppDb } from "@infra/database/utils/connection.ts";
 import { RepositoryError } from "@domain/utils/repository.types.ts";
 
 export function executeQuery<T>(query: () => Promise<T>): E.Effect<T, RepositoryError> {
   return E.tryPromise({
     try: query,
     catch: (e) => new RepositoryError("executeQuery", e),
+  });
+}
+
+/**
+ * Run `work` inside a single Postgres transaction. If any query inside throws
+ * the transaction is automatically rolled back and the effect fails with a
+ * RepositoryError.
+ */
+export function executeTransaction<T>(
+  db: AppDb,
+  work: (tx: AppDb) => Promise<T>,
+): E.Effect<T, RepositoryError> {
+  return E.tryPromise({
+    try: () => db.transaction((tx) => work(tx as unknown as AppDb)),
+    catch: (e) => new RepositoryError("executeTransaction", e),
   });
 }
 

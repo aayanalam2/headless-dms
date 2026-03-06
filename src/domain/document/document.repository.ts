@@ -41,19 +41,26 @@ export interface IDocumentRepository {
   // -------------------------------------------------------------------------
 
   /**
-   * Persist a new document (INSERT).
+   * Atomically INSERT a version row and UPDATE the document's currentVersionId
+   * in a single transaction.
    */
-  save(document: Document): RepositoryEffect<void>;
+  insertVersionAndUpdate(version: DocumentVersion, updatedDoc: Document): RepositoryEffect<void>;
 
   /**
-   * Persist a new document version (INSERT).
+   * Atomically INSERT the document row, INSERT its first version row, and
+   * UPDATE the document's currentVersionId in a single transaction.
    */
-  saveVersion(version: DocumentVersion): RepositoryEffect<void>;
+  insertDocumentWithVersion(
+    doc: Document,
+    version: DocumentVersion,
+    updatedDoc: Document,
+  ): RepositoryEffect<void>;
 
   /**
-   * Persist changes to an existing document (UPDATE).
+   * Soft-delete a document by stamping deletedAt. Fails if the document row
+   * does not exist.
    */
-  update(document: Document): RepositoryEffect<void, DocumentNotFoundError>;
+  softDelete(document: Document): RepositoryEffect<void, DocumentNotFoundError>;
 
   /**
    * Physically remove a document version row (used when an upload is aborted

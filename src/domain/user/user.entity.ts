@@ -34,7 +34,7 @@ export class User extends BaseEntity<UserId> implements IUser {
   readonly role: Role;
 
   private constructor(data: UserType) {
-    super(data.id, data.createdAt, data.createdAt);
+    super(data.id, data.createdAt, data.updatedAt);
     this.email = data.email;
     this.passwordHash = data.passwordHash;
     this.role = data.role;

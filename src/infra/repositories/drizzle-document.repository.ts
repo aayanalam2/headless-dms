@@ -15,7 +15,12 @@ import { buildPageInfo } from "@domain/utils/pagination.ts";
 import type { ContentType } from "@domain/document/value-objects/content-type.vo.ts";
 import { documentsTable } from "@infra/database/models/document.table.ts";
 import { documentVersionsTable } from "@infra/database/models/document-version.table.ts";
-import { executeQuery, fetchMultiple, fetchSingle } from "@infra/database/utils/query-helpers.ts";
+import {
+  executeQuery,
+  executeTransaction,
+  fetchMultiple,
+  fetchSingle,
+} from "@infra/database/utils/query-helpers.ts";
 import type { RepositoryEffect } from "@domain/utils/repository.types.ts";
 
 export class DrizzleDocumentRepository implements IDocumentRepository {
@@ -200,6 +205,22 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
     );
   }
 
+  softDelete(document: Document): RepositoryEffect<void, DocumentNotFoundError> {
+    return E.flatMap(
+      executeQuery(() =>
+        this.db
+          .update(documentsTable)
+          .set({
+            deletedAt: O.getOrNull(document.deletedAt),
+            updatedAt: document.updatedAt,
+          })
+          .where(eq(documentsTable.id, document.id))
+          .returning({ id: documentsTable.id }),
+      ),
+      (rows) => (rows.length > 0 ? E.void : E.fail(new DocumentNotFoundError(document.id))),
+    );
+  }
+
   deleteVersion(versionId: VersionId): RepositoryEffect<void, DocumentVersionNotFoundError> {
     return E.flatMap(
       executeQuery(() =>
@@ -210,5 +231,78 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
       ),
       (rows) => (rows.length > 0 ? E.void : E.fail(new DocumentVersionNotFoundError(versionId))),
     );
+  }
+
+  // ── save / saveVersion / update remain as public methods for infra test fixtures.
+  // They are intentionally absent from IDocumentRepository.
+
+  insertVersionAndUpdate(version: DocumentVersion, updatedDoc: Document): RepositoryEffect<void> {
+    return executeTransaction(this.db, async (tx) => {
+      await tx.insert(documentVersionsTable).values({
+        id: version.id,
+        documentId: version.documentId,
+        versionNumber: version.versionNumber,
+        bucketKey: version.bucketKey,
+        sizeBytes: version.sizeBytes,
+        checksum: version.checksum,
+        uploadedBy: version.uploadedBy,
+        createdAt: version.createdAt,
+        updatedAt: version.createdAt,
+      });
+      await tx
+        .update(documentsTable)
+        .set({
+          name: updatedDoc.name,
+          currentVersionId: O.getOrNull(updatedDoc.currentVersionId),
+          tags: [...updatedDoc.tags],
+          metadata: updatedDoc.metadata,
+          deletedAt: O.getOrNull(updatedDoc.deletedAt),
+          updatedAt: updatedDoc.updatedAt,
+        })
+        .where(eq(documentsTable.id, updatedDoc.id));
+    });
+  }
+
+  insertDocumentWithVersion(
+    doc: Document,
+    version: DocumentVersion,
+    updatedDoc: Document,
+  ): RepositoryEffect<void> {
+    return executeTransaction(this.db, async (tx) => {
+      await tx.insert(documentsTable).values({
+        id: doc.id,
+        ownerId: doc.ownerId,
+        name: doc.name,
+        contentType: doc.contentType,
+        currentVersionId: O.getOrNull(doc.currentVersionId),
+        tags: [...doc.tags],
+        metadata: doc.metadata,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt,
+        deletedAt: O.getOrNull(doc.deletedAt),
+      });
+      await tx.insert(documentVersionsTable).values({
+        id: version.id,
+        documentId: version.documentId,
+        versionNumber: version.versionNumber,
+        bucketKey: version.bucketKey,
+        sizeBytes: version.sizeBytes,
+        checksum: version.checksum,
+        uploadedBy: version.uploadedBy,
+        createdAt: version.createdAt,
+        updatedAt: version.createdAt,
+      });
+      await tx
+        .update(documentsTable)
+        .set({
+          name: updatedDoc.name,
+          currentVersionId: O.getOrNull(updatedDoc.currentVersionId),
+          tags: [...updatedDoc.tags],
+          metadata: updatedDoc.metadata,
+          deletedAt: O.getOrNull(updatedDoc.deletedAt),
+          updatedAt: updatedDoc.updatedAt,
+        })
+        .where(eq(documentsTable.id, updatedDoc.id));
+    });
   }
 }

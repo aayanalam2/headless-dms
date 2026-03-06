@@ -166,19 +166,13 @@ export function commitVersion(
   now: Date,
 ): E.Effect<{ readonly version: DocumentVersion; readonly updated: Document }, WorkflowError> {
   return pipe(
-    repo.saveVersion(version),
-    E.mapError((e) => DocumentWorkflowError.unavailable("repo.saveVersion", e)),
-    E.flatMap(() =>
+    doc.setCurrentVersion(version.id, now),
+    E.mapError((e) => DocumentWorkflowError.conflict(e.message)),
+    E.flatMap((updatedDoc) =>
       pipe(
-        doc.setCurrentVersion(version.id, now),
-        E.mapError((e) => DocumentWorkflowError.conflict(e.message)),
-      ),
-    ),
-    E.flatMap((updated) =>
-      pipe(
-        repo.update(updated),
-        E.mapError((e) => DocumentWorkflowError.unavailable("repo.update", e)),
-        E.as({ version, updated }),
+        repo.insertVersionAndUpdate(version, updatedDoc),
+        E.mapError((e) => DocumentWorkflowError.unavailable("repo.insertVersionAndUpdate", e)),
+        E.as({ version, updated: updatedDoc }),
       ),
     ),
   );

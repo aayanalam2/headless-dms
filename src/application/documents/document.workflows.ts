@@ -166,14 +166,6 @@ export class DocumentWorkflows {
 
           E.flatMap(({ doc, buffer, checksum }) =>
             pipe(
-              this.documentRepo.save(doc),
-              E.mapError(unavailable("repo.save")),
-              E.as({ doc, buffer, checksum }),
-            ),
-          ),
-
-          E.flatMap(({ doc, buffer, checksum }) =>
-            pipe(
               DocumentVersion.create({
                 id: verId,
                 documentId: docId,
@@ -185,7 +177,21 @@ export class DocumentWorkflows {
                 createdAt: now.toISOString(),
               }),
               E.mapError((e) => DocumentWorkflowError.unavailable("DocumentVersion.create", e)),
-              E.flatMap((version) => commitVersion(this.documentRepo, doc, version, now)),
+              E.flatMap((version) =>
+                pipe(
+                  doc.setCurrentVersion(version.id, now),
+                  E.mapError((e) => DocumentWorkflowError.conflict(e.message)),
+                  E.flatMap((updatedDoc) =>
+                    pipe(
+                      this.documentRepo.insertDocumentWithVersion(doc, version, updatedDoc),
+                      E.mapError((e) =>
+                        DocumentWorkflowError.unavailable("repo.insertDocumentWithVersion", e),
+                      ),
+                      E.as({ version, updated: updatedDoc }),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
 
@@ -426,8 +432,8 @@ export class DocumentWorkflows {
           ),
           E.flatMap((deleted) =>
             pipe(
-              this.documentRepo.update(deleted),
-              E.mapError((e) => DocumentWorkflowError.unavailable("repo.update", e)),
+              this.documentRepo.softDelete(deleted),
+              E.mapError((e) => DocumentWorkflowError.unavailable("repo.softDelete", e)),
             ),
           ),
           E.tap(() =>

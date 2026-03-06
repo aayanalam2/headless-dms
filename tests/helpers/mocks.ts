@@ -81,17 +81,7 @@ export function createInMemoryDocumentRepository(initial?: {
       return E.succeed(version ? O.some(version) : O.none());
     },
 
-    save(document: Document) {
-      docs.push(document);
-      return E.succeed(undefined);
-    },
-
-    saveVersion(version: DocumentVersion) {
-      versions.push(version);
-      return E.succeed(undefined);
-    },
-
-    update(document: Document) {
+    softDelete(document: Document) {
       const idx = docs.findIndex((d) => d.id === document.id);
       if (idx === -1) return E.fail(new DocumentNotFoundError(document.id));
       docs[idx] = document;
@@ -102,6 +92,21 @@ export function createInMemoryDocumentRepository(initial?: {
       const idx = versions.findIndex((v) => v.id === versionId);
       if (idx === -1) return E.fail(new DocumentVersionNotFoundError(versionId));
       versions.splice(idx, 1);
+      return E.succeed(undefined);
+    },
+
+    insertVersionAndUpdate(version: DocumentVersion, updatedDoc: Document) {
+      versions.push(version);
+      const idx = docs.findIndex((d) => d.id === updatedDoc.id);
+      if (idx !== -1) docs[idx] = updatedDoc;
+      return E.succeed(undefined);
+    },
+
+    insertDocumentWithVersion(doc: Document, version: DocumentVersion, updatedDoc: Document) {
+      docs.push(doc);
+      versions.push(version);
+      const idx = docs.findIndex((d) => d.id === updatedDoc.id);
+      if (idx !== -1) docs[idx] = updatedDoc;
       return E.succeed(undefined);
     },
   };
