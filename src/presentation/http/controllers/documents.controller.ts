@@ -67,7 +67,10 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
       ({ params, user, set }) =>
         run(
           set,
-          pipe(workflows.get({ documentId: params.id, actor: user }), E.mapError(documentWorkflowToHttp)),
+          pipe(
+            workflows.get({ documentId: params.id, actor: user }),
+            E.mapError(documentWorkflowToHttp),
+          ),
         ),
       {
         params: t.Object({ id: t.String({ format: "uuid" }) }),
@@ -80,7 +83,10 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
       ({ params, user, set }) =>
         run(
           set,
-          pipe(workflows.download({ documentId: params.id, actor: user }), E.mapError(documentWorkflowToHttp)),
+          pipe(
+            workflows.download({ documentId: params.id, actor: user }),
+            E.mapError(documentWorkflowToHttp),
+          ),
         ),
       {
         params: t.Object({ id: t.String({ format: "uuid" }) }),
