@@ -3,32 +3,9 @@ import { Effect as E, Either, pipe } from "effect";
 import { jwtPlugin } from "../middleware/auth.plugin.ts";
 import { StatusCode } from "status-code-enum";
 import { Role } from "@domain/utils/enums.ts";
-import { run, assertNever } from "../lib/http.ts";
-import { AppError } from "@infra/errors.ts";
+import { run } from "../lib/http.ts";
 import type { UserWorkflows } from "@application/users/user.workflows.ts";
-import {
-  UserWorkflowErrorTag,
-  type UserWorkflowError,
-} from "@application/users/user-workflow.errors.ts";
-
-function toAppError(e: UserWorkflowError): AppError {
-  switch (e._tag) {
-    case UserWorkflowErrorTag.InvalidInput:
-      return AppError.validation(e.message);
-    case UserWorkflowErrorTag.NotFound:
-      return AppError.notFound(e.resource);
-    case UserWorkflowErrorTag.Duplicate:
-      return AppError.conflict(e.message);
-    case UserWorkflowErrorTag.Unauthorized:
-      return AppError.accessDenied("Invalid credentials");
-    case UserWorkflowErrorTag.Forbidden:
-      return AppError.accessDenied(e.reason);
-    case UserWorkflowErrorTag.Unavailable:
-      return AppError.database(e.operation);
-    default:
-      return assertNever(e);
-  }
-}
+import { userWorkflowToHttp } from "../lib/error-map.ts";
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createAuthController(workflows: UserWorkflows) {
@@ -43,7 +20,7 @@ export function createAuthController(workflows: UserWorkflows) {
             set,
             pipe(
               workflows.register(body),
-              E.mapError(toAppError),
+              E.mapError(userWorkflowToHttp),
               E.flatMap((user) =>
                 pipe(
                   E.promise(() =>

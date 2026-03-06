@@ -1,25 +1,10 @@
 import { Elysia, t } from "elysia";
 import { Effect as E, pipe } from "effect";
 import { adminPlugin } from "../middleware/auth.plugin.ts";
-import {
-  AuditWorkflowErrorTag,
-  type AuditWorkflowError,
-} from "@application/audit/audit-workflow.errors.ts";
-import { AppError } from "@infra/errors.ts";
 import type { AuditResourceType } from "@domain/utils/enums.ts";
-import { run, assertNever } from "../lib/http.ts";
+import { run } from "../lib/http.ts";
 import type { AuditWorkflows } from "@application/audit/audit.workflows.ts";
-
-function toAppError(e: AuditWorkflowError): AppError {
-  switch (e._tag) {
-    case AuditWorkflowErrorTag.InvalidInput:
-      return AppError.validation(e.message);
-    case AuditWorkflowErrorTag.Unavailable:
-      return AppError.database(e.operation);
-    default:
-      return assertNever(e);
-  }
-}
+import { auditWorkflowToHttp } from "../lib/error-map.ts";
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createAuditController(workflows: AuditWorkflows) {
@@ -35,7 +20,7 @@ export function createAuditController(workflows: AuditWorkflows) {
             // workflow's decodeCommand will validate it against AuditResourceType enum.
             resourceType: query.resourceType as AuditResourceType | undefined,
           }),
-          E.mapError(toAppError),
+          E.mapError(auditWorkflowToHttp),
         ),
       ),
     {

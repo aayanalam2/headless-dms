@@ -1,35 +1,14 @@
 import { Elysia, t } from "elysia";
 import { Effect as E, pipe } from "effect";
 import { authPlugin } from "../middleware/auth.plugin.ts";
-import { run, assertNever } from "../lib/http.ts";
-import { AppError } from "@infra/errors.ts";
-import {
-  AccessPolicyWorkflowErrorTag,
-  type AccessPolicyWorkflowError,
-} from "@application/access-policy/access-policy-workflow.errors.ts";
+import { run } from "../lib/http.ts";
 import type { AccessPolicyWorkflows } from "@application/access-policy/access-policy.workflows.ts";
+import { accessPolicyWorkflowToHttp } from "../lib/error-map.ts";
 import {
   PermissionAction,
   PolicyEffect,
 } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { Role } from "@domain/utils/enums.ts";
-
-function toAppError(e: AccessPolicyWorkflowError): AppError {
-  switch (e._tag) {
-    case AccessPolicyWorkflowErrorTag.InvalidInput:
-      return AppError.validation(e.message);
-    case AccessPolicyWorkflowErrorTag.NotFound:
-      return AppError.notFound(e.resource);
-    case AccessPolicyWorkflowErrorTag.AccessDenied:
-      return AppError.accessDenied(e.reason);
-    case AccessPolicyWorkflowErrorTag.Conflict:
-      return AppError.conflict(e.message);
-    case AccessPolicyWorkflowErrorTag.Unavailable:
-      return AppError.database(e.operation);
-    default:
-      return assertNever(e);
-  }
-}
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
@@ -50,7 +29,7 @@ export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
               action: body.action as PermissionAction,
               effect: body.effect as PolicyEffect,
             }),
-            E.mapError(toAppError),
+            E.mapError(accessPolicyWorkflowToHttp),
           ),
         ),
       {
@@ -85,7 +64,7 @@ export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
               actor: user,
               documentId: params.documentId,
             }),
-            E.mapError(toAppError),
+            E.mapError(accessPolicyWorkflowToHttp),
           ),
         ),
       {
@@ -105,7 +84,7 @@ export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
               policyId: params.policyId,
               effect: body.effect as PolicyEffect,
             }),
-            E.mapError(toAppError),
+            E.mapError(accessPolicyWorkflowToHttp),
           ),
         ),
       {
@@ -129,7 +108,7 @@ export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
           set,
           pipe(
             workflows.revokeAccess({ actor: user, policyId: params.policyId }),
-            E.mapError(toAppError),
+            E.mapError(accessPolicyWorkflowToHttp),
           ),
         ),
       {
@@ -149,7 +128,7 @@ export function createAccessPolicyController(workflows: AccessPolicyWorkflows) {
               documentId: query.documentId,
               action: query.action as PermissionAction,
             }),
-            E.mapError(toAppError),
+            E.mapError(accessPolicyWorkflowToHttp),
           ),
         ),
       {

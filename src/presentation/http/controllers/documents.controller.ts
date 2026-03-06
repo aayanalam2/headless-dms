@@ -1,32 +1,9 @@
 import { Elysia, t } from "elysia";
 import { Effect as E, pipe } from "effect";
 import { authPlugin } from "../middleware/auth.plugin.ts";
-import { run, assertNever } from "../lib/http.ts";
-import { AppError } from "@infra/errors.ts";
-import {
-  DocumentWorkflowErrorTag,
-  type DocumentWorkflowError,
-} from "@application/documents/document-workflow.errors.ts";
+import { run } from "../lib/http.ts";
 import type { DocumentWorkflows } from "@application/documents/document.workflows.ts";
-
-function toAppError(e: DocumentWorkflowError): AppError {
-  switch (e._tag) {
-    case DocumentWorkflowErrorTag.InvalidInput:
-      return AppError.validation(e.message);
-    case DocumentWorkflowErrorTag.NotFound:
-      return AppError.notFound(e.resource);
-    case DocumentWorkflowErrorTag.AccessDenied:
-      return AppError.accessDenied(e.reason);
-    case DocumentWorkflowErrorTag.Conflict:
-      return AppError.conflict(e.message);
-    case DocumentWorkflowErrorTag.InvalidContentType:
-      return AppError.validation(`Unsupported content type: ${e.contentType}`);
-    case DocumentWorkflowErrorTag.Unavailable:
-      return AppError.database(e.operation);
-    default:
-      return assertNever(e);
-  }
-}
+import { documentWorkflowToHttp } from "../lib/error-map.ts";
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createDocumentsController(workflows: DocumentWorkflows) {
@@ -43,7 +20,7 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
               { actor: user, name: body.name, rawTags: body.tags, rawMetadata: body.metadata },
               body.file,
             ),
-            E.mapError(toAppError),
+            E.mapError(documentWorkflowToHttp),
           ),
         ),
       {
@@ -71,7 +48,7 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
               page: query.page,
               limit: query.limit,
             }),
-            E.mapError(toAppError),
+            E.mapError(documentWorkflowToHttp),
           ),
         ),
       {
@@ -90,7 +67,7 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
       ({ params, user, set }) =>
         run(
           set,
-          pipe(workflows.get({ documentId: params.id, actor: user }), E.mapError(toAppError)),
+          pipe(workflows.get({ documentId: params.id, actor: user }), E.mapError(documentWorkflowToHttp)),
         ),
       {
         params: t.Object({ id: t.String({ format: "uuid" }) }),
@@ -103,7 +80,7 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
       ({ params, user, set }) =>
         run(
           set,
-          pipe(workflows.download({ documentId: params.id, actor: user }), E.mapError(toAppError)),
+          pipe(workflows.download({ documentId: params.id, actor: user }), E.mapError(documentWorkflowToHttp)),
         ),
       {
         params: t.Object({ id: t.String({ format: "uuid" }) }),
@@ -124,7 +101,7 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
               { actor: user, documentId: params.id, name: body.name },
               body.file,
             ),
-            E.mapError(toAppError),
+            E.mapError(documentWorkflowToHttp),
           ),
         ),
       {
@@ -145,7 +122,7 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
           set,
           pipe(
             workflows.listVersions({ documentId: params.id, actor: user }),
-            E.mapError(toAppError),
+            E.mapError(documentWorkflowToHttp),
           ),
         ),
       {
@@ -165,7 +142,7 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
               versionId: params.versionId,
               actor: user,
             }),
-            E.mapError(toAppError),
+            E.mapError(documentWorkflowToHttp),
           ),
         ),
       {
@@ -187,7 +164,7 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
           set,
           pipe(
             workflows.delete({ documentId: params.id, actor: user }),
-            E.mapError(toAppError),
+            E.mapError(documentWorkflowToHttp),
             E.map(() => ({ message: "Document deleted successfully" })),
           ),
         ),

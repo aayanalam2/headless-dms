@@ -3,9 +3,10 @@ import { User, type SerializedUser } from "@domain/user/user.entity.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
 import { Email, type UserId } from "@domain/utils/refined.types.ts";
 import { Role } from "@domain/utils/enums.ts";
-import { UserErrorTags } from "@domain/user/user.errors.ts";
 import {
   UserWorkflowError,
+  fromUserSaveError,
+  fromUserUpdateError,
   type UserWorkflowError as WorkflowError,
 } from "./user-workflow.errors.ts";
 import {
@@ -82,14 +83,7 @@ export function buildUser(input: SerializedUser): E.Effect<User, WorkflowError> 
 export function saveNewUser(repo: IUserRepository, user: User): E.Effect<void, WorkflowError> {
   return pipe(
     repo.save(user),
-    E.mapError((e) =>
-      typeof e === "object" &&
-      e !== null &&
-      "_tag" in e &&
-      (e as { _tag: UserErrorTags })._tag === UserErrorTags.UserAlreadyExists
-        ? UserWorkflowError.duplicate((e as { message: string }).message)
-        : UserWorkflowError.unavailable("repo.save", e),
-    ),
+    E.mapError((e) => fromUserSaveError("repo.user.save", e)),
   );
 }
 
@@ -100,13 +94,6 @@ export function updateUser(
 ): E.Effect<void, WorkflowError> {
   return pipe(
     repo.update(user),
-    E.mapError((e) =>
-      typeof e === "object" &&
-      e !== null &&
-      "_tag" in e &&
-      (e as { _tag: UserErrorTags })._tag === UserErrorTags.UserNotFound
-        ? UserWorkflowError.notFound(label)
-        : UserWorkflowError.unavailable("repo.update", e),
-    ),
+    E.mapError((e) => fromUserUpdateError("repo.user.update", label, e)),
   );
 }
