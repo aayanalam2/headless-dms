@@ -65,16 +65,18 @@ export function registerUser(
 
         // ── 3. Hash password ───────────────────────────────────────────────
         const raw_hash = yield* Effect.promise(() => deps.hashPassword(cmd.password));
-        const passwordHash = HashedPassword.create(raw_hash).unwrap();
 
         // ── 4. Construct entity ────────────────────────────────────────────
-        const user = User.create({
-          id: UserId.create(crypto.randomUUID()).unwrap(),
-          createdAt: new Date(),
-          email,
-          passwordHash,
-          role: cmd.role ?? Role.User,
-        });
+        const user = yield* pipe(
+          User.create({
+            id: crypto.randomUUID(),
+            createdAt: new Date().toISOString(),
+            email: cmd.email,
+            passwordHash: raw_hash,
+            role: cmd.role ?? Role.User,
+          }),
+          Effect.mapError(() => UserWorkflowError.invalidInput("Failed to construct user entity")),
+        );
 
         // ── 5. Persist (save maps UserAlreadyExistsError → Duplicate) ──────
         yield* pipe(

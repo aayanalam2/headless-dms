@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
+import { Effect } from "effect";
 import { User } from "@domain/user/user.entity.ts";
 import { isAdmin, isRegularUser } from "@domain/user/user.guards.ts";
 import { Role } from "@domain/utils/enums.ts";
-import { Email, HashedPassword } from "@domain/utils/refined.types.ts";
+import { Email, HashedPassword, UserId } from "@domain/utils/refined.types.ts";
 import { FIXED_DATE, makeAdminUser, makeUser, makeUserId } from "./factories.ts";
 
 describe("User entity", () => {
@@ -13,21 +14,23 @@ describe("User entity", () => {
   describe("User.create", () => {
     it("creates a user with the correct properties", () => {
       const id = makeUserId();
-      const email = Email.create("alice@example.com").unwrap();
-      const passwordHash = HashedPassword.create("$2b$10$hash").unwrap();
+      const email = "alice@example.com";
+      const passwordHash = "$2b$10$hash";
 
-      const user = User.create({
-        id,
-        email,
-        passwordHash,
-        role: Role.User,
-        createdAt: FIXED_DATE,
-      });
+      const user = Effect.runSync(
+        User.create({
+          id: id as string,
+          email,
+          passwordHash,
+          role: Role.User,
+          createdAt: FIXED_DATE.toISOString(),
+        }),
+      );
 
       expect(user).toBeInstanceOf(User);
       expect(user.id).toBe(id);
-      expect(user.email).toBe(email);
-      expect(user.passwordHash).toBe(passwordHash);
+      expect(user.email).toBe(Email.create(email).unwrap());
+      expect(user.passwordHash).toBe(HashedPassword.create(passwordHash).unwrap());
       expect(user.role).toBe(Role.User);
       expect(user.createdAt).toEqual(FIXED_DATE);
     });
@@ -52,13 +55,13 @@ describe("User entity", () => {
       const id = makeUserId();
       const createdAt = new Date("2024-01-01T00:00:00.000Z");
       const updatedAt = new Date("2024-06-01T00:00:00.000Z");
-      const email = Email.create("bob@example.com").unwrap();
-      const passwordHash = HashedPassword.create("$2b$10$hash").unwrap();
 
-      const user = User.reconstitute(id, createdAt, {
-        email,
-        passwordHash,
+      const user = User.reconstitute({
+        id,
+        email: Email.create("bob@example.com").unwrap(),
+        passwordHash: HashedPassword.create("$2b$10$hash").unwrap(),
         role: Role.Admin,
+        createdAt,
       });
 
       // reconstitute sets updatedAt = createdAt (immutable entity)
@@ -103,8 +106,8 @@ describe("User entity", () => {
   describe("equals", () => {
     it("two users with the same id are equal", () => {
       const id = makeUserId();
-      const a = makeUser({ id });
-      const b = makeUser({ id });
+      const a = makeUser({ id: id as string });
+      const b = makeUser({ id: id as string });
       expect(a.equals(b)).toBe(true);
     });
 

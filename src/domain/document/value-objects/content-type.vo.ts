@@ -1,24 +1,6 @@
 import { Schema } from "effect";
 
-// ---------------------------------------------------------------------------
-// ContentType value object
-//
-// Represents a validated MIME type accepted by the document upload pipeline.
-// Using Schema.Literal produces a closed union so the compiler will catch any
-// unsupported MIME type at the boundary where user input is decoded.
-//
-// Design notes:
-//   • Value object — identified by its value, not an ID.
-//   • Encoded form (DB / wire) is a plain string; decoded form is a branded
-//     literal union — encode/decode round-trip is an identity for valid values.
-//   • Adding a new MIME type is a one-line change to ALLOWED_MIME_TYPES.
-// ---------------------------------------------------------------------------
 
-/**
- * The exhaustive set of MIME types the system accepts.
- * Declared `as const` so the element type is a tuple of string literals,
- * which Schema.Literal can spread into a union.
- */
 export const ALLOWED_MIME_TYPES = [
   // Documents
   "application/pdf",

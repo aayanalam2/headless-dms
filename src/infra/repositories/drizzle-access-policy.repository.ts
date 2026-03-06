@@ -6,7 +6,7 @@ import { AccessPolicyId, DocumentId, UserId } from "@domain/utils/refined.types.
 import { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
 import type { AccessPolicyRow } from "@infra/database/schema.ts";
 import { AccessPolicyNotFoundError } from "@domain/access-policy/access-policy.errors.ts";
-import type { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
+import type { PermissionAction, PolicyEffect } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import type { Role } from "@domain/utils/enums.ts";
 import { accessPoliciesTable } from "@infra/database/models/access-policy.table.ts";
 import { executeQuery, fetchMultiple, fetchSingle } from "@infra/database/utils/query-helpers.ts";
@@ -19,12 +19,14 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
   // -------------------------------------------------------------------------
 
   private static readonly fromRow = (row: AccessPolicyRow): AccessPolicy => {
-    return AccessPolicy.reconstitute(AccessPolicyId.create(row.id).unwrap(), row.createdAt, {
+    return AccessPolicy.reconstitute({
+      id: AccessPolicyId.create(row.id).unwrap(),
       documentId: DocumentId.create(row.documentId).unwrap(),
       subjectId: row.subjectId ? Option.some(UserId.create(row.subjectId).unwrap()) : Option.none(),
       subjectRole: row.subjectRole ? Option.some(row.subjectRole) : Option.none(),
       action: row.action,
       effect: row.effect,
+      createdAt: row.createdAt,
     });
   };
 

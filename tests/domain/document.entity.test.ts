@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Option } from "effect";
+import { Effect, Either, Option } from "effect";
 import { Document } from "@domain/document/document.entity.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import {
@@ -24,24 +24,25 @@ function makeUserId() {
 }
 
 const FIXED_DATE = new Date("2025-01-15T10:00:00.000Z");
+const FIXED_ISO = FIXED_DATE.toISOString();
 
 /** Build a minimal valid Document for use in tests. */
 function makeDocument(overrides: Partial<Parameters<typeof Document.create>[0]> = {}) {
-  const ownerId = makeUserId();
-  const result = Document.create({
-    id: makeDocId(),
-    ownerId,
-    name: "report.pdf",
-    contentType: "application/pdf",
-    currentVersionId: Option.none(),
-    tags: [],
-    metadata: {},
-    createdAt: FIXED_DATE,
-    deletedAt: Option.none(),
-    ...overrides,
-  });
-  if (result instanceof InvalidContentTypeError) throw result;
-  return result;
+  return Effect.runSync(
+    Document.create({
+      id: makeDocId() as string,
+      ownerId: makeUserId() as string,
+      name: "report.pdf",
+      contentType: "application/pdf",
+      currentVersionId: null,
+      tags: [],
+      metadata: {},
+      createdAt: FIXED_ISO,
+      updatedAt: FIXED_ISO,
+      deletedAt: null,
+      ...overrides,
+    }),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -53,66 +54,78 @@ describe("Document entity", () => {
     it("creates a document with a valid content type", () => {
       const id = makeDocId();
       const ownerId = makeUserId();
-      const result = Document.create({
-        id,
-        ownerId,
-        name: "spec.pdf",
-        contentType: "application/pdf",
-        currentVersionId: Option.none(),
-        tags: ["finance", "q1"],
-        metadata: { project: "alpha" },
-        createdAt: FIXED_DATE,
-        deletedAt: Option.none(),
-      });
+      const result = Effect.runSync(
+        Document.create({
+          id: id as string,
+          ownerId: ownerId as string,
+          name: "spec.pdf",
+          contentType: "application/pdf",
+          currentVersionId: null,
+          tags: ["finance", "q1"],
+          metadata: { project: "alpha" },
+          createdAt: FIXED_ISO,
+          updatedAt: FIXED_ISO,
+          deletedAt: null,
+        }),
+      );
 
       expect(result).toBeInstanceOf(Document);
-      if (result instanceof Document) {
-        expect(result.id).toBe(id);
-        expect(result.ownerId).toBe(ownerId);
-        expect(result.name).toBe("spec.pdf");
-        expect(result.contentType).toBe("application/pdf");
-        expect(Option.isNone(result.currentVersionId)).toBe(true);
-        expect(result.tags).toEqual(["finance", "q1"]);
-        expect(result.metadata).toEqual({ project: "alpha" });
-        expect(result.isDeleted).toBe(false);
-        expect(Option.isNone(result.deletedAt)).toBe(true);
+      expect(result.id).toBe(id);
+      expect(result.ownerId).toBe(ownerId);
+      expect(result.name).toBe("spec.pdf");
+      expect(result.contentType).toBe("application/pdf");
+      expect(Option.isNone(result.currentVersionId)).toBe(true);
+      expect(result.tags).toEqual(["finance", "q1"]);
+      expect(result.metadata).toEqual({ project: "alpha" });
+      expect(result.isDeleted).toBe(false);
+      expect(Option.isNone(result.deletedAt)).toBe(true);
+    });
+
+    it("fails with InvalidContentTypeError for a disallowed MIME type", () => {
+      const result = Effect.runSync(
+        Effect.either(
+          Document.create({
+            id: makeDocId() as string,
+            ownerId: makeUserId() as string,
+            name: "virus.exe",
+            contentType: "application/x-msdownload" as "application/pdf",
+            currentVersionId: null,
+            tags: [],
+            metadata: {},
+            createdAt: FIXED_ISO,
+            updatedAt: FIXED_ISO,
+            deletedAt: null,
+          }),
+        ),
+      );
+
+      expect(Either.isLeft(result)).toBe(true);
+      if (Either.isLeft(result)) {
+        expect(result.left).toBeInstanceOf(InvalidContentTypeError);
+        expect(result.left.contentType).toBe("application/x-msdownload");
+        expect(result.left.message).toContain("application/x-msdownload");
       }
     });
 
-    it("returns InvalidContentTypeError for a disallowed MIME type", () => {
-      const result = Document.create({
-        id: makeDocId(),
-        ownerId: makeUserId(),
-        name: "virus.exe",
-        contentType: "application/x-msdownload",
-        currentVersionId: Option.none(),
-        tags: [],
-        metadata: {},
-        createdAt: FIXED_DATE,
-        deletedAt: Option.none(),
-      });
+    it("fails with InvalidContentTypeError for an empty string", () => {
+      const result = Effect.runSync(
+        Effect.either(
+          Document.create({
+            id: makeDocId() as string,
+            ownerId: makeUserId() as string,
+            name: "empty.bin",
+            contentType: "" as "application/pdf",
+            currentVersionId: null,
+            tags: [],
+            metadata: {},
+            createdAt: FIXED_ISO,
+            updatedAt: FIXED_ISO,
+            deletedAt: null,
+          }),
+        ),
+      );
 
-      expect(result).toBeInstanceOf(InvalidContentTypeError);
-      if (result instanceof InvalidContentTypeError) {
-        expect(result.contentType).toBe("application/x-msdownload");
-        expect(result.message).toContain("application/x-msdownload");
-      }
-    });
-
-    it("returns InvalidContentTypeError for an empty string", () => {
-      const result = Document.create({
-        id: makeDocId(),
-        ownerId: makeUserId(),
-        name: "empty.bin",
-        contentType: "",
-        currentVersionId: Option.none(),
-        tags: [],
-        metadata: {},
-        createdAt: FIXED_DATE,
-        deletedAt: Option.none(),
-      });
-
-      expect(result).toBeInstanceOf(InvalidContentTypeError);
+      expect(Either.isLeft(result)).toBe(true);
     });
 
     it("accepts all permitted MIME types", () => {
@@ -124,20 +137,23 @@ describe("Document entity", () => {
         "text/csv",
         "image/jpeg",
         "image/png",
-      ];
+      ] as const;
 
       for (const contentType of allowed) {
-        const result = Document.create({
-          id: makeDocId(),
-          ownerId: makeUserId(),
-          name: "file",
-          contentType,
-          currentVersionId: Option.none(),
-          tags: [],
-          metadata: {},
-          createdAt: FIXED_DATE,
-          deletedAt: Option.none(),
-        });
+        const result = Effect.runSync(
+          Document.create({
+            id: makeDocId() as string,
+            ownerId: makeUserId() as string,
+            name: "file",
+            contentType,
+            currentVersionId: null,
+            tags: [],
+            metadata: {},
+            createdAt: FIXED_ISO,
+            updatedAt: FIXED_ISO,
+            deletedAt: null,
+          }),
+        );
         expect(result).toBeInstanceOf(Document);
       }
     });
@@ -147,33 +163,30 @@ describe("Document entity", () => {
     it("marks an active document as deleted", () => {
       const doc = makeDocument();
       const now = new Date("2025-06-01T12:00:00.000Z");
-      const result = doc.softDelete(now);
+      const result = Effect.runSync(doc.softDelete(now));
 
-      expect(result).toBeInstanceOf(Document);
-      if (result instanceof Document) {
-        expect(result.isDeleted).toBe(true);
-        expect(Option.isSome(result.deletedAt)).toBe(true);
-        if (Option.isSome(result.deletedAt)) {
-          expect(result.deletedAt.value).toEqual(now);
-        }
-        expect(result.updatedAt).toEqual(now);
+      expect(result.isDeleted).toBe(true);
+      expect(Option.isSome(result.deletedAt)).toBe(true);
+      if (Option.isSome(result.deletedAt)) {
+        expect(result.deletedAt.value).toEqual(now);
       }
+      expect(result.updatedAt).toEqual(now);
     });
 
-    it("returns DocumentAlreadyDeletedError when called on a deleted document", () => {
+    it("fails with DocumentAlreadyDeletedError when called on a deleted document", () => {
       const doc = makeDocument();
-      const deleted = doc.softDelete();
-      expect(deleted).toBeInstanceOf(Document);
+      const deleted = Effect.runSync(doc.softDelete());
 
-      if (deleted instanceof Document) {
-        const second = deleted.softDelete();
-        expect(second).toBeInstanceOf(DocumentAlreadyDeletedError);
+      const second = Effect.runSync(Effect.either(deleted.softDelete()));
+      expect(Either.isLeft(second)).toBe(true);
+      if (Either.isLeft(second)) {
+        expect(second.left).toBeInstanceOf(DocumentAlreadyDeletedError);
       }
     });
 
     it("does not mutate the original document (immutability)", () => {
       const doc = makeDocument();
-      const result = doc.softDelete();
+      const result = Effect.runSync(doc.softDelete());
 
       expect(doc.isDeleted).toBe(false);
       expect(result).not.toBe(doc);
@@ -184,24 +197,21 @@ describe("Document entity", () => {
     it("returns a new document with the updated name", () => {
       const doc = makeDocument();
       const now = new Date("2025-06-02T08:00:00.000Z");
-      const result = doc.rename("renamed.pdf", now);
+      const result = Effect.runSync(doc.rename("renamed.pdf", now));
 
-      expect(result).toBeInstanceOf(Document);
-      if (result instanceof Document) {
-        expect(result.name).toBe("renamed.pdf");
-        expect(result.id).toBe(doc.id);
-        expect(result.updatedAt).toEqual(now);
-      }
+      expect(result.name).toBe("renamed.pdf");
+      expect(result.id).toBe(doc.id);
+      expect(result.updatedAt).toEqual(now);
     });
 
-    it("returns DocumentAlreadyDeletedError when renaming a deleted document", () => {
+    it("fails with DocumentAlreadyDeletedError when renaming a deleted document", () => {
       const doc = makeDocument();
-      const deleted = doc.softDelete();
-      expect(deleted).toBeInstanceOf(Document);
+      const deleted = Effect.runSync(doc.softDelete());
 
-      if (deleted instanceof Document) {
-        const result = deleted.rename("too-late.pdf");
-        expect(result).toBeInstanceOf(DocumentAlreadyDeletedError);
+      const result = Effect.runSync(Effect.either(deleted.rename("too-late.pdf")));
+      expect(Either.isLeft(result)).toBe(true);
+      if (Either.isLeft(result)) {
+        expect(result.left).toBeInstanceOf(DocumentAlreadyDeletedError);
       }
     });
   });
@@ -209,22 +219,20 @@ describe("Document entity", () => {
   describe("setTags", () => {
     it("returns a new document with the new tag list", () => {
       const doc = makeDocument();
-      const result = doc.setTags(["legal", "2025"]);
+      const result = Effect.runSync(doc.setTags(["legal", "2025"]));
 
-      expect(result).toBeInstanceOf(Document);
-      if (result instanceof Document) {
-        expect(result.tags).toEqual(["legal", "2025"]);
-        expect(doc.tags).toEqual([]); // original unchanged
-      }
+      expect(result.tags).toEqual(["legal", "2025"]);
+      expect(doc.tags).toEqual([]); // original unchanged
     });
 
-    it("returns DocumentAlreadyDeletedError on a deleted document", () => {
+    it("fails with DocumentAlreadyDeletedError on a deleted document", () => {
       const doc = makeDocument();
-      const deleted = doc.softDelete();
-      expect(deleted).toBeInstanceOf(Document);
+      const deleted = Effect.runSync(doc.softDelete());
 
-      if (deleted instanceof Document) {
-        expect(deleted.setTags(["x"])).toBeInstanceOf(DocumentAlreadyDeletedError);
+      const result = Effect.runSync(Effect.either(deleted.setTags(["x"])));
+      expect(Either.isLeft(result)).toBe(true);
+      if (Either.isLeft(result)) {
+        expect(result.left).toBeInstanceOf(DocumentAlreadyDeletedError);
       }
     });
   });
@@ -233,26 +241,22 @@ describe("Document entity", () => {
     it("sets the current version ID", () => {
       const doc = makeDocument();
       const versionId = makeVersionId();
-      const result = doc.setCurrentVersion(versionId);
+      const result = Effect.runSync(doc.setCurrentVersion(versionId));
 
-      expect(result).toBeInstanceOf(Document);
-      if (result instanceof Document) {
-        expect(Option.isSome(result.currentVersionId)).toBe(true);
-        if (Option.isSome(result.currentVersionId)) {
-          expect(result.currentVersionId.value).toBe(versionId);
-        }
+      expect(Option.isSome(result.currentVersionId)).toBe(true);
+      if (Option.isSome(result.currentVersionId)) {
+        expect(result.currentVersionId.value).toBe(versionId);
       }
     });
 
-    it("returns DocumentAlreadyDeletedError on a deleted document", () => {
+    it("fails with DocumentAlreadyDeletedError on a deleted document", () => {
       const doc = makeDocument();
-      const deleted = doc.softDelete();
-      expect(deleted).toBeInstanceOf(Document);
+      const deleted = Effect.runSync(doc.softDelete());
 
-      if (deleted instanceof Document) {
-        expect(deleted.setCurrentVersion(makeVersionId())).toBeInstanceOf(
-          DocumentAlreadyDeletedError,
-        );
+      const result = Effect.runSync(Effect.either(deleted.setCurrentVersion(makeVersionId())));
+      expect(Either.isLeft(result)).toBe(true);
+      if (Either.isLeft(result)) {
+        expect(result.left).toBeInstanceOf(DocumentAlreadyDeletedError);
       }
     });
   });
@@ -260,8 +264,8 @@ describe("Document entity", () => {
   describe("equals", () => {
     it("two documents with the same id are equal", () => {
       const id = makeDocId();
-      const a = makeDocument({ id });
-      const b = makeDocument({ id });
+      const a = makeDocument({ id: id as string });
+      const b = makeDocument({ id: id as string });
       expect(a.equals(b)).toBe(true);
     });
 
@@ -285,16 +289,18 @@ describe("DocumentVersion entity", () => {
     const bucketKey = BucketKey.create(`${documentId}/${id}/report.pdf`).unwrap();
     const checksum = Checksum.create("a".repeat(64)).unwrap();
 
-    const version = DocumentVersion.create({
-      id,
-      documentId,
-      versionNumber: 1,
-      bucketKey,
-      sizeBytes: 20480,
-      checksum,
-      uploadedBy,
-      createdAt: FIXED_DATE,
-    });
+    const version = Effect.runSync(
+      DocumentVersion.create({
+        id: id as string,
+        documentId: documentId as string,
+        versionNumber: 1,
+        bucketKey: bucketKey as string,
+        sizeBytes: 20480,
+        checksum: checksum as string,
+        uploadedBy: uploadedBy as string,
+        createdAt: FIXED_ISO,
+      }),
+    );
 
     expect(version.id).toBe(id);
     expect(version.documentId).toBe(documentId);
@@ -312,19 +318,19 @@ describe("DocumentVersion entity", () => {
     const uploadedBy = makeUserId();
     const bucketKey = BucketKey.create(`${documentId}/${id}/f.pdf`).unwrap();
     const checksum = Checksum.create("b".repeat(64)).unwrap();
-    const props = {
-      id,
-      documentId,
+    const baseProps = {
+      id: id as string,
+      documentId: documentId as string,
       versionNumber: 1,
-      bucketKey,
+      bucketKey: bucketKey as string,
       sizeBytes: 1024,
-      checksum,
-      uploadedBy,
-      createdAt: FIXED_DATE,
+      checksum: checksum as string,
+      uploadedBy: uploadedBy as string,
+      createdAt: FIXED_ISO,
     };
 
-    const v1 = DocumentVersion.create(props);
-    const v2 = DocumentVersion.create(props);
+    const v1 = Effect.runSync(DocumentVersion.create(baseProps));
+    const v2 = Effect.runSync(DocumentVersion.create(baseProps));
     expect(v1.equals(v2)).toBe(true);
   });
 
@@ -334,18 +340,20 @@ describe("DocumentVersion entity", () => {
 
     const makeVersion = () => {
       const id = makeVersionId();
-      const bucketKey = BucketKey.create(`${documentId}/${id}/f.pdf`).unwrap();
-      const checksum = Checksum.create("c".repeat(64)).unwrap();
-      return DocumentVersion.create({
-        id,
-        documentId,
-        versionNumber: 1,
-        bucketKey,
-        sizeBytes: 512,
-        checksum,
-        uploadedBy,
-        createdAt: FIXED_DATE,
-      });
+      const bucketKey = `${documentId}/${id}/f.pdf`;
+      const checksum = "c".repeat(64);
+      return Effect.runSync(
+        DocumentVersion.create({
+          id: id as string,
+          documentId: documentId as string,
+          versionNumber: 1,
+          bucketKey,
+          sizeBytes: 512,
+          checksum,
+          uploadedBy: uploadedBy as string,
+          createdAt: FIXED_ISO,
+        }),
+      );
     };
 
     expect(makeVersion().equals(makeVersion())).toBe(false);
@@ -360,7 +368,7 @@ describe("Document guards", () => {
   describe("isOwner", () => {
     it("returns true for the document owner", () => {
       const ownerId = makeUserId();
-      const doc = makeDocument({ ownerId });
+      const doc = makeDocument({ ownerId: ownerId as string });
       expect(isOwner(doc, ownerId)).toBe(true);
     });
 
@@ -379,12 +387,9 @@ describe("Document guards", () => {
 
     it("isDeleted returns true after softDelete", () => {
       const doc = makeDocument();
-      const result = doc.softDelete();
-      expect(result).toBeInstanceOf(Document);
-      if (result instanceof Document) {
-        expect(isDeleted(result)).toBe(true);
-        expect(isActive(result)).toBe(false);
-      }
+      const result = Effect.runSync(doc.softDelete());
+      expect(isDeleted(result)).toBe(true);
+      expect(isActive(result)).toBe(false);
     });
   });
 
@@ -396,11 +401,8 @@ describe("Document guards", () => {
 
     it("returns true after setCurrentVersion", () => {
       const doc = makeDocument();
-      const result = doc.setCurrentVersion(makeVersionId());
-      expect(result).toBeInstanceOf(Document);
-      if (result instanceof Document) {
-        expect(hasVersion(result)).toBe(true);
-      }
+      const result = Effect.runSync(doc.setCurrentVersion(makeVersionId()));
+      expect(hasVersion(result)).toBe(true);
     });
   });
 });

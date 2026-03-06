@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Option } from "effect";
+import { Effect, Either, Option } from "effect";
 import { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
 import { PolicyTargetRequiredError } from "@domain/access-policy/access-policy.errors.ts";
 import {
@@ -59,49 +59,61 @@ describe("AccessPolicy entity", () => {
     });
 
     it("returns PolicyTargetRequiredError when neither subjectId nor subjectRole is set", () => {
-      const result = AccessPolicy.create({
-        id: makeAccessPolicyId(),
-        documentId: makeDocId(),
-        subjectId: null,
-        subjectRole: null,
-        action: PermissionAction.Read,
-        effect: PolicyEffect.Allow,
-        createdAt: FIXED_DATE,
-      });
+      const result = Effect.runSync(
+        Effect.either(
+          AccessPolicy.create({
+            id: crypto.randomUUID(),
+            documentId: crypto.randomUUID(),
+            subjectId: null,
+            subjectRole: null,
+            action: PermissionAction.Read,
+            effect: PolicyEffect.Allow,
+            createdAt: FIXED_DATE.toISOString(),
+          }),
+        ),
+      );
 
-      expect(result).toBeInstanceOf(PolicyTargetRequiredError);
+      expect(Either.isLeft(result)).toBe(true);
+      if (Either.isLeft(result)) expect(result.left).toBeInstanceOf(PolicyTargetRequiredError);
     });
 
     it("returns PolicyTargetRequiredError when both subjectId and subjectRole are set", () => {
-      const result = AccessPolicy.create({
-        id: makeAccessPolicyId(),
-        documentId: makeDocId(),
-        subjectId: makeUserId(),
-        subjectRole: Role.User,
-        action: PermissionAction.Read,
-        effect: PolicyEffect.Allow,
-        createdAt: FIXED_DATE,
-      });
+      const result = Effect.runSync(
+        Effect.either(
+          AccessPolicy.create({
+            id: crypto.randomUUID(),
+            documentId: crypto.randomUUID(),
+            subjectId: crypto.randomUUID(),
+            subjectRole: Role.User,
+            action: PermissionAction.Read,
+            effect: PolicyEffect.Allow,
+            createdAt: FIXED_DATE.toISOString(),
+          }),
+        ),
+      );
 
-      expect(result).toBeInstanceOf(PolicyTargetRequiredError);
+      expect(Either.isLeft(result)).toBe(true);
+      if (Either.isLeft(result)) expect(result.left).toBeInstanceOf(PolicyTargetRequiredError);
     });
 
-    it("accepts undefined as 'not provided' for optional targets", () => {
-      const result = AccessPolicy.create({
-        id: makeAccessPolicyId(),
-        documentId: makeDocId(),
-        subjectId: makeUserId(),
-        subjectRole: undefined,
-        action: PermissionAction.Read,
-        effect: PolicyEffect.Allow,
-        createdAt: FIXED_DATE,
-      });
+    it("accepts null as 'not provided' for optional targets", () => {
+      const user = Effect.runSync(
+        AccessPolicy.create({
+          id: crypto.randomUUID(),
+          documentId: crypto.randomUUID(),
+          subjectId: crypto.randomUUID(),
+          subjectRole: null,
+          action: PermissionAction.Read,
+          effect: PolicyEffect.Allow,
+          createdAt: FIXED_DATE.toISOString(),
+        }),
+      );
 
-      expect(result).toBeInstanceOf(AccessPolicy);
+      expect(user).toBeInstanceOf(AccessPolicy);
     });
 
     it("sets updatedAt equal to createdAt (immutable record)", () => {
-      const policy = makeSubjectPolicy({ createdAt: FIXED_DATE });
+      const policy = makeSubjectPolicy({ createdAt: FIXED_DATE.toISOString() });
       expect(policy.updatedAt).toEqual(policy.createdAt);
     });
   });
@@ -116,12 +128,14 @@ describe("AccessPolicy entity", () => {
       const userId = makeUserId();
       const docId = makeDocId();
 
-      const policy = AccessPolicy.reconstitute(id, FIXED_DATE, {
+      const policy = AccessPolicy.reconstitute({
+        id,
         documentId: docId,
         subjectId: Option.some(userId),
         subjectRole: Option.none(),
         action: PermissionAction.Delete,
         effect: PolicyEffect.Deny,
+        createdAt: FIXED_DATE,
       });
 
       expect(policy.id).toBe(id);
@@ -134,11 +148,11 @@ describe("AccessPolicy entity", () => {
   // Serialization
   // ---------------------------------------------------------------------------
 
-  describe("_serialize", () => {
+  describe("serialized", () => {
     it("serializes a subject policy with subjectRole as null", () => {
       const userId = makeUserId();
-      const policy = makeSubjectPolicy({ subjectId: userId });
-      const s = policy._serialize();
+      const policy = makeSubjectPolicy({ subjectId: userId as string });
+      const s = Effect.runSync(policy.serialized());
 
       expect(s.subjectId).toBe(userId);
       expect(s.subjectRole).toBeNull();
@@ -147,7 +161,7 @@ describe("AccessPolicy entity", () => {
 
     it("serializes a role policy with subjectId as null", () => {
       const policy = makeRolePolicy({ subjectRole: Role.Admin });
-      const s = policy._serialize();
+      const s = Effect.runSync(policy.serialized());
 
       expect(s.subjectId).toBeNull();
       expect(s.subjectRole).toBe(Role.Admin);
@@ -158,7 +172,7 @@ describe("AccessPolicy entity", () => {
         action: PermissionAction.Share,
         effect: PolicyEffect.Deny,
       });
-      const s = policy._serialize();
+      const s = Effect.runSync(policy.serialized());
 
       expect(s.action).toBe(PermissionAction.Share);
       expect(s.effect).toBe(PolicyEffect.Deny);

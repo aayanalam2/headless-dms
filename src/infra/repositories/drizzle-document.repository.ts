@@ -25,27 +25,32 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
   // -------------------------------------------------------------------------
 
   private static readonly fromDocumentRow = (row: DocumentRow): Document => {
-    return Document.reconstitute(DocumentId.create(row.id).unwrap(), row.createdAt, row.updatedAt, {
+    return Document.reconstitute({
+      id: DocumentId.create(row.id).unwrap(),
       ownerId: UserId.create(row.ownerId).unwrap(),
       name: row.name,
       contentType: row.contentType as ContentType,
-      currentVersionId: row.currentVersionId
-        ? Option.some(VersionId.create(row.currentVersionId).unwrap())
-        : Option.none(),
+      currentVersionId: Option.map(Option.fromNullable(row.currentVersionId), (v) =>
+        VersionId.create(v).unwrap(),
+      ),
       tags: row.tags,
       metadata: row.metadata ?? {},
-      deletedAt: row.deletedAt ? Option.some(row.deletedAt) : Option.none(),
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      deletedAt: Option.fromNullable(row.deletedAt),
     });
   };
 
   private static readonly fromVersionRow = (row: VersionRow): DocumentVersion => {
-    return DocumentVersion.reconstitute(VersionId.create(row.id).unwrap(), row.createdAt, {
+    return DocumentVersion.reconstitute({
+      id: VersionId.create(row.id).unwrap(),
       documentId: DocumentId.create(row.documentId).unwrap(),
       versionNumber: row.versionNumber,
       bucketKey: BucketKey.create(row.bucketKey).unwrap(),
       sizeBytes: row.sizeBytes,
       checksum: Checksum.create(row.checksum).unwrap(),
       uploadedBy: UserId.create(row.uploadedBy).unwrap(),
+      createdAt: row.createdAt,
     });
   };
 

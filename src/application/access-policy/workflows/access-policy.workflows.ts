@@ -86,41 +86,40 @@ export class AccessPolicyWorkflows {
               return Effect.fail<WorkflowError>(MANAGE_DENIED);
             }
 
-            const policyId = AccessPolicyId.create(crypto.randomUUID()).unwrap();
-            const result = AccessPolicy.create({
-              id: policyId,
-              createdAt: new Date(),
-              documentId: document.id,
-              subjectId: cmd.subjectId ? UserId.create(cmd.subjectId).unwrap() : null,
-              subjectRole: cmd.subjectRole ?? null,
-              action: cmd.action,
-              effect: cmd.effect,
-            });
-
-            if (result instanceof PolicyTargetRequiredError) {
-              return Effect.fail(AccessPolicyWorkflowError.invalidInput(result.message));
-            }
-
-            const policy = result;
-
             return pipe(
-              this.policyRepo.save(policy),
-              Effect.mapError(unavailable("policyRepo.save")),
-              Effect.flatMap(() =>
+              Effect.mapError(
+                AccessPolicy.create({
+                  id: crypto.randomUUID(),
+                  createdAt: new Date().toISOString(),
+                  documentId: document.id as string,
+                  subjectId: cmd.subjectId ?? null,
+                  subjectRole: cmd.subjectRole ?? null,
+                  action: cmd.action,
+                  effect: cmd.effect,
+                }),
+                () => AccessPolicyWorkflowError.invalidInput("Exactly one of subjectId or subjectRole must be provided"),
+              ),
+              Effect.flatMap((policy) =>
                 pipe(
-                  this.auditRepo.insertAuditLog({
-                    actorId: actorId,
-                    action: AuditAction.AccessPolicyGrant,
-                    resourceType: AuditResourceType.AccessPolicy,
-                    resourceId: policy.id,
-                    metadata: {
-                      documentId: cmd.documentId,
-                      action: cmd.action,
-                      effect: cmd.effect,
-                    },
-                  }),
-                  Effect.mapError(unavailable("auditRepo.insertAuditLog")),
-                  Effect.as(toAccessPolicyDTO(policy)),
+                  this.policyRepo.save(policy),
+                  Effect.mapError(unavailable("policyRepo.save")),
+                  Effect.flatMap(() =>
+                    pipe(
+                      this.auditRepo.insertAuditLog({
+                        actorId: actorId,
+                        action: AuditAction.AccessPolicyGrant,
+                        resourceType: AuditResourceType.AccessPolicy,
+                        resourceId: policy.id,
+                        metadata: {
+                          documentId: cmd.documentId,
+                          action: cmd.action,
+                          effect: cmd.effect,
+                        },
+                      }),
+                      Effect.mapError(unavailable("auditRepo.insertAuditLog")),
+                      Effect.as(toAccessPolicyDTO(policy)),
+                    ),
+                  ),
                 ),
               ),
             );
@@ -171,45 +170,44 @@ export class AccessPolicyWorkflows {
                   return Effect.fail<WorkflowError>(MANAGE_DENIED);
                 }
 
-                const newId = AccessPolicyId.create(crypto.randomUUID()).unwrap();
-                const newPolicy = AccessPolicy.create({
-                  id: newId,
-                  createdAt: new Date(),
-                  documentId: existing.documentId,
-                  subjectId: existing.subjectId,
-                  subjectRole: existing.subjectRole,
-                  action: existing.action,
-                  effect: cmd.effect,
-                });
-
-                if (newPolicy instanceof PolicyTargetRequiredError) {
-                  return Effect.fail(AccessPolicyWorkflowError.invalidInput(newPolicy.message));
-                }
-
-                const replacement = newPolicy;
-
                 return pipe(
-                  this.policyRepo.delete(policyId),
-                  Effect.mapError(unavailable("policyRepo.delete")),
-                  Effect.flatMap(() =>
+                  Effect.mapError(
+                    AccessPolicy.create({
+                      id: crypto.randomUUID(),
+                      createdAt: new Date().toISOString(),
+                      documentId: existing.documentId as string,
+                      subjectId: Option.getOrNull(existing.subjectId) as string | null,
+                      subjectRole: Option.getOrNull(existing.subjectRole),
+                      action: existing.action,
+                      effect: cmd.effect,
+                    }),
+                    () => AccessPolicyWorkflowError.invalidInput("Policy reconstruction failed"),
+                  ),
+                  Effect.flatMap((replacement) =>
                     pipe(
-                      this.policyRepo.save(replacement),
-                      Effect.mapError(unavailable("policyRepo.save")),
+                      this.policyRepo.delete(policyId),
+                      Effect.mapError(unavailable("policyRepo.delete")),
                       Effect.flatMap(() =>
                         pipe(
-                          this.auditRepo.insertAuditLog({
-                            actorId: actorId,
-                            action: AuditAction.AccessPolicyUpdate,
-                            resourceType: AuditResourceType.AccessPolicy,
-                            resourceId: replacement.id,
-                            metadata: {
-                              previousPolicyId: cmd.policyId,
-                              documentId: String(existing.documentId),
-                              effect: cmd.effect,
-                            },
-                          }),
-                          Effect.mapError(unavailable("auditRepo.insertAuditLog")),
-                          Effect.as(toAccessPolicyDTO(replacement)),
+                          this.policyRepo.save(replacement),
+                          Effect.mapError(unavailable("policyRepo.save")),
+                          Effect.flatMap(() =>
+                            pipe(
+                              this.auditRepo.insertAuditLog({
+                                actorId: actorId,
+                                action: AuditAction.AccessPolicyUpdate,
+                                resourceType: AuditResourceType.AccessPolicy,
+                                resourceId: replacement.id,
+                                metadata: {
+                                  previousPolicyId: cmd.policyId,
+                                  documentId: String(existing.documentId),
+                                  effect: cmd.effect,
+                                },
+                              }),
+                              Effect.mapError(unavailable("auditRepo.insertAuditLog")),
+                              Effect.as(toAccessPolicyDTO(replacement)),
+                            ),
+                          ),
                         ),
                       ),
                     ),

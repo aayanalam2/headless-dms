@@ -76,8 +76,7 @@ describe("findById", () => {
     const doc = makeDocument({ ownerId: owner.id });
     await Effect.runPromise(repo.save(doc));
 
-    const deleted = doc.softDelete();
-    if (deleted instanceof Error) throw deleted;
+    const deleted = Effect.runSync(doc.softDelete());
     await Effect.runPromise(repo.update(deleted));
 
     const result = await Effect.runPromise(repo.findById(doc.id));
@@ -93,8 +92,7 @@ describe("findActiveById", () => {
     const doc = makeDocument({ ownerId: owner.id });
     await Effect.runPromise(repo.save(doc));
 
-    const deleted = doc.softDelete();
-    if (deleted instanceof Error) throw deleted;
+    const deleted = Effect.runSync(doc.softDelete());
     await Effect.runPromise(repo.update(deleted));
 
     const result = await Effect.runPromise(repo.findActiveById(doc.id));
@@ -129,8 +127,7 @@ describe("findByOwner", () => {
       Effect.runPromise(repo.save(active)),
       Effect.runPromise(repo.save(toDelete)),
     ]);
-    const deleted = toDelete.softDelete();
-    if (deleted instanceof Error) throw deleted;
+    const deleted = Effect.runSync(toDelete.softDelete());
     await Effect.runPromise(repo.update(deleted));
 
     const result = await Effect.runPromise(repo.findByOwner(owner.id, { page: 1, limit: 10 }));
@@ -196,8 +193,7 @@ describe("search", () => {
   it("excludes soft-deleted documents from search results", async () => {
     const doc = makeDocument({ ownerId: owner.id, name: "Deleted Spec.pdf" });
     await Effect.runPromise(repo.save(doc));
-    const deleted = doc.softDelete();
-    if (deleted instanceof Error) throw deleted;
+    const deleted = Effect.runSync(doc.softDelete());
     await Effect.runPromise(repo.update(deleted));
 
     const result = await Effect.runPromise(repo.search("Deleted", { page: 1, limit: 10 }));
@@ -244,8 +240,7 @@ describe("update", () => {
     const doc = makeDocument({ ownerId: owner.id, name: "old-name.pdf" });
     await Effect.runPromise(repo.save(doc));
 
-    const renamed = doc.rename("new-name.pdf");
-    if (renamed instanceof Error) throw renamed;
+    const renamed = Effect.runSync(doc.rename("new-name.pdf"));
     await Effect.runPromise(repo.update(renamed));
 
     const found = await Effect.runPromise(repo.findById(doc.id));
@@ -370,8 +365,7 @@ describe("E2E round-trip", () => {
     await Effect.runPromise(repo.saveVersion(v1));
 
     // 3. Point document at version 1
-    const docWithV1 = doc.setCurrentVersion(v1.id);
-    if (docWithV1 instanceof Error) throw docWithV1;
+    const docWithV1 = Effect.runSync(doc.setCurrentVersion(v1.id));
     await Effect.runPromise(repo.update(docWithV1));
 
     // 4. Add version 2
@@ -383,10 +377,8 @@ describe("E2E round-trip", () => {
     await Effect.runPromise(repo.saveVersion(v2));
 
     // 5. Rename + point at version 2
-    const docWithV2 = docWithV1.rename("spec-v2.pdf");
-    if (docWithV2 instanceof Error) throw docWithV2;
-    const docFinal = docWithV2.setCurrentVersion(v2.id);
-    if (docFinal instanceof Error) throw docFinal;
+    const docWithV2 = Effect.runSync(docWithV1.rename("spec-v2.pdf"));
+    const docFinal = Effect.runSync(docWithV2.setCurrentVersion(v2.id));
     await Effect.runPromise(repo.update(docFinal));
 
     // 6. Fetch active document
@@ -408,8 +400,7 @@ describe("E2E round-trip", () => {
     expect(versions[1]!.versionNumber).toBe(2);
 
     // 8. Soft-delete and verify findActiveById returns None
-    const docDeleted = docFinal.softDelete();
-    if (docDeleted instanceof Error) throw docDeleted;
+    const docDeleted = Effect.runSync(docFinal.softDelete());
     await Effect.runPromise(repo.update(docDeleted));
 
     const afterDeleteResult = await Effect.runPromise(repo.findActiveById(doc.id));

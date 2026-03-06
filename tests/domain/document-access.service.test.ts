@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { describe, expect, it } from "bun:test";
-import { Option } from "effect";
+
 import { DocumentAccessService } from "@domain/services/document-access.service.ts";
 import {
   PermissionAction,
@@ -155,8 +155,8 @@ describe("DocumentAccessService", () => {
       const user = makeUser({ role: Role.User });
       const doc = makeDocument();
       const roleAllow = makeRolePolicy({
-        documentId: doc.id,
-        subjectRole: Option.some(Role.User),
+        documentId: doc.id as string,
+        subjectRole: Role.User,
         action: PermissionAction.Read,
         effect: PolicyEffect.Allow,
       });
@@ -167,8 +167,8 @@ describe("DocumentAccessService", () => {
       const user = makeUser({ role: Role.User });
       const doc = makeDocument();
       const roleDeny = makeRolePolicy({
-        documentId: doc.id,
-        subjectRole: Option.some(Role.User),
+        documentId: doc.id as string,
+        subjectRole: Role.User,
         action: PermissionAction.Delete,
         effect: PolicyEffect.Deny,
       });
@@ -179,8 +179,8 @@ describe("DocumentAccessService", () => {
       const user = makeUser({ role: Role.User });
       const doc = makeDocument();
       const adminRoleAllow = makeRolePolicy({
-        documentId: doc.id,
-        subjectRole: Option.some(Role.Admin),
+        documentId: doc.id as string,
+        subjectRole: Role.Admin,
         action: PermissionAction.Read,
         effect: PolicyEffect.Allow,
       });
@@ -198,14 +198,14 @@ describe("DocumentAccessService", () => {
       const doc = makeDocument();
 
       const subjectDeny = makeSubjectPolicy({
-        documentId: doc.id,
-        subjectId: user.id,
+        documentId: doc.id as string,
+        subjectId: user.id as string,
         action: PermissionAction.Write,
         effect: PolicyEffect.Deny,
       });
       const roleAllow = makeRolePolicy({
-        documentId: doc.id,
-        subjectRole: Option.some(Role.User),
+        documentId: doc.id as string,
+        subjectRole: Role.User,
         action: PermissionAction.Write,
         effect: PolicyEffect.Allow,
       });
@@ -218,14 +218,14 @@ describe("DocumentAccessService", () => {
       const doc = makeDocument();
 
       const subjectAllow = makeSubjectPolicy({
-        documentId: doc.id,
-        subjectId: user.id,
+        documentId: doc.id as string,
+        subjectId: user.id as string,
         action: PermissionAction.Read,
         effect: PolicyEffect.Allow,
       });
       const roleDeny = makeRolePolicy({
-        documentId: doc.id,
-        subjectRole: Option.some(Role.User),
+        documentId: doc.id as string,
+        subjectRole: Role.User,
         action: PermissionAction.Read,
         effect: PolicyEffect.Deny,
       });

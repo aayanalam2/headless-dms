@@ -1,4 +1,5 @@
 import { createRefinedType } from "@carbonteq/refined-type";
+import { ParseResult, Schema } from "effect";
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -76,3 +77,45 @@ export const Checksum = createRefinedType(
   z.string().regex(/^[a-f0-9]{64}$/, "Checksum must be a 64-character lowercase hex string"),
 );
 export type Checksum = typeof Checksum.$infer;
+
+// ---------------------------------------------------------------------------
+// Effect Schema transforms
+// ---------------------------------------------------------------------------
+
+/**
+ * Internal factory: creates an Effect Schema transform backed by a
+ * `@carbonteq/refined-type` factory.
+ *   Encoded = plain `string`
+ *   Type    = the factory's branded type (e.g. DocumentId, Email …)
+ * All validation is delegated to the factory's own Zod schema.
+ */
+function makeRefinedSchema<T extends string>(factory: {
+  create: (s: string) => { isOk(): boolean; unwrap(): T };
+}) {
+  return Schema.transformOrFail(
+    Schema.String,
+    Schema.String as unknown as Schema.Schema<T, string>,
+    {
+      strict: false,
+      decode: (value, _, ast) => {
+        const result = factory.create(value);
+        return result.isOk()
+          ? ParseResult.succeed(result.unwrap())
+          : ParseResult.fail(new ParseResult.Type(ast, value, "Validation failed"));
+      },
+      encode: (id) => ParseResult.succeed(id as unknown as string),
+    },
+  );
+}
+
+// UUID-based ID schemas
+export const StringToDocumentId = makeRefinedSchema(DocumentId);
+export const StringToVersionId = makeRefinedSchema(VersionId);
+export const StringToUserId = makeRefinedSchema(UserId);
+export const StringToAccessPolicyId = makeRefinedSchema(AccessPolicyId);
+
+// Other validated-string schemas
+export const StringToEmail = makeRefinedSchema(Email);
+export const StringToHashedPassword = makeRefinedSchema(HashedPassword);
+export const StringToBucketKey = makeRefinedSchema(BucketKey);
+export const StringToChecksum = makeRefinedSchema(Checksum);

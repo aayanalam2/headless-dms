@@ -1,8 +1,8 @@
 import { Effect, Option, pipe } from "effect";
 import { Document } from "@domain/document/document.entity.ts";
+import type { ContentType } from "@domain/document/value-objects/content-type.vo.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
-import { InvalidContentTypeError } from "@domain/document/document.errors.ts";
 import { DocumentId, VersionId, Checksum, UserId } from "@domain/utils/refined.types.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
 import { buildBucketKey, parseTags, parseOptionalJson } from "../document.helpers.ts";
@@ -76,26 +76,21 @@ export function uploadDocument(
         const verId = VersionId.create(crypto.randomUUID()).unwrap();
         const bucketKey = buildBucketKey(docId, verId, filename);
 
-        const docResult = Document.create({
-          id: docId,
-          createdAt: now,
-          ownerId: actorId,
-          name: filename,
-          contentType,
-          currentVersionId: null,
-          tags,
-          metadata,
-          deletedAt: null,
-        });
-
-        if (docResult instanceof InvalidContentTypeError) {
-          return yield* Effect.fail(
-            DocumentWorkflowError.invalidContentType(docResult.contentType),
-          );
-        }
-        if (docResult instanceof Error) {
-          return yield* Effect.fail(DocumentWorkflowError.conflict(docResult.message));
-        }
+        const docResult = yield* p(
+          Document.create({
+            id: docId as string,
+            ownerId: actorId as string,
+            name: filename,
+            contentType: contentType as ContentType,
+            currentVersionId: null,
+            tags,
+            metadata,
+            createdAt: now.toISOString(),
+            updatedAt: now.toISOString(),
+            deletedAt: null,
+          }),
+          Effect.mapError((e) => DocumentWorkflowError.invalidContentType(e.contentType)),
+        );
 
         const fileBuffer = yield* Effect.promise(() => file.arrayBuffer());
         const hashBuffer = yield* Effect.promise(() => crypto.subtle.digest("SHA-256", fileBuffer));
@@ -108,26 +103,29 @@ export function uploadDocument(
 
         yield* p(deps.documentRepo.save(docResult), Effect.mapError(unavailable("repo.save")));
 
-        const version = DocumentVersion.create({
-          id: verId,
-          createdAt: now,
-          documentId: docId,
-          versionNumber: 1,
-          bucketKey,
-          sizeBytes: fileBuffer.byteLength,
-          checksum,
-          uploadedBy: actorId,
-        });
+        const version = yield* pipe(
+          DocumentVersion.create({
+            id: verId as string,
+            createdAt: now.toISOString(),
+            documentId: docId as string,
+            versionNumber: 1,
+            bucketKey: bucketKey as string,
+            sizeBytes: fileBuffer.byteLength,
+            checksum: checksum as string,
+            uploadedBy: actorId as string,
+          }),
+          Effect.mapError((e) => DocumentWorkflowError.unavailable("DocumentVersion.create", e)),
+        );
 
         yield* p(
           deps.documentRepo.saveVersion(version),
           Effect.mapError(unavailable("repo.saveVersion")),
         );
 
-        const updated = docResult.setCurrentVersion(verId, now);
-        if (updated instanceof Error) {
-          return yield* Effect.fail(DocumentWorkflowError.conflict(updated.message));
-        }
+        const updated = yield* p(
+          docResult.setCurrentVersion(verId, now),
+          Effect.mapError((e) => DocumentWorkflowError.conflict(e.message)),
+        );
 
         yield* p(deps.documentRepo.update(updated), Effect.mapError(unavailable("repo.update")));
 

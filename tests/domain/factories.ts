@@ -1,27 +1,21 @@
-import { Option } from "effect";
-import { Document, type CreateDocumentInput } from "@domain/document/document.entity.ts";
+import { Effect } from "effect";
+import { Document, type SerializedDocument } from "@domain/document/document.entity.ts";
 import {
   DocumentVersion,
-  type CreateDocumentVersionInput,
+  type SerializedDocumentVersion,
 } from "@domain/document/document-version.entity.ts";
-import { InvalidContentTypeError } from "@domain/document/document.errors.ts";
-import { User, type CreateUserInput } from "@domain/user/user.entity.ts";
+import { User, type SerializedUser } from "@domain/user/user.entity.ts";
 import {
   AccessPolicy,
-  type CreateAccessPolicyInput,
+  type SerializedAccessPolicy,
 } from "@domain/access-policy/access-policy.entity.ts";
-import { PolicyTargetRequiredError } from "@domain/access-policy/access-policy.errors.ts";
 import {
   PermissionAction,
   PolicyEffect,
 } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import {
   AccessPolicyId,
-  BucketKey,
-  Checksum,
   DocumentId,
-  Email,
-  HashedPassword,
   UserId,
   VersionId,
 } from "@domain/utils/refined.types.ts";
@@ -32,6 +26,7 @@ import { Role } from "@domain/utils/enums.ts";
 // ---------------------------------------------------------------------------
 
 export const FIXED_DATE = new Date("2025-01-15T10:00:00.000Z");
+export const FIXED_ISO = FIXED_DATE.toISOString();
 export const FIXED_UUID = "00000000-0000-0000-0000-000000000001";
 
 // ---------------------------------------------------------------------------
@@ -52,18 +47,20 @@ export const fixedUserId = () => UserId.create(FIXED_UUID).unwrap();
 
 const DEFAULT_HASH = "$2b$10$hashedpasswordplaceholder1234567890abcdefghijklmnopqrs";
 
-export function makeUser(overrides: Partial<CreateUserInput> = {}): User {
-  return User.create({
-    id: makeUserId(),
-    email: Email.create(`user-${crypto.randomUUID().slice(0, 8)}@example.com`).unwrap(),
-    passwordHash: HashedPassword.create(DEFAULT_HASH).unwrap(),
-    role: Role.User,
-    createdAt: FIXED_DATE,
-    ...overrides,
-  });
+export function makeUser(overrides: Partial<SerializedUser> = {}): User {
+  return Effect.runSync(
+    User.create({
+      id: makeUserId() as string,
+      email: `user-${crypto.randomUUID().slice(0, 8)}@example.com`,
+      passwordHash: DEFAULT_HASH,
+      role: Role.User,
+      createdAt: FIXED_ISO,
+      ...overrides,
+    }),
+  );
 }
 
-export function makeAdminUser(overrides: Partial<CreateUserInput> = {}): User {
+export function makeAdminUser(overrides: Partial<SerializedUser> = {}): User {
   return makeUser({ role: Role.Admin, ...overrides });
 }
 
@@ -71,29 +68,28 @@ export function makeAdminUser(overrides: Partial<CreateUserInput> = {}): User {
 // Document factory
 // ---------------------------------------------------------------------------
 
-export function makeDocument(overrides: Partial<CreateDocumentInput> = {}): Document {
-  const result = Document.create({
-    id: makeDocId(),
-    ownerId: makeUserId(),
-    name: "report.pdf",
-    contentType: "application/pdf",
-    currentVersionId: null,
-    tags: [],
-    metadata: {},
-    createdAt: FIXED_DATE,
-    deletedAt: null,
-    ...overrides,
-  });
-  if (result instanceof InvalidContentTypeError) throw result;
-  return result;
+export function makeDocument(overrides: Partial<SerializedDocument> = {}): Document {
+  return Effect.runSync(
+    Document.create({
+      id: makeDocId() as string,
+      ownerId: makeUserId() as string,
+      name: "report.pdf",
+      contentType: "application/pdf",
+      currentVersionId: null,
+      tags: [],
+      metadata: {},
+      createdAt: FIXED_ISO,
+      updatedAt: FIXED_ISO,
+      deletedAt: null,
+      ...overrides,
+    }),
+  );
 }
 
 /** A document already soft-deleted at `FIXED_DATE`. */
-export function makeDeletedDocument(overrides: Partial<CreateDocumentInput> = {}): Document {
+export function makeDeletedDocument(overrides: Partial<SerializedDocument> = {}): Document {
   const doc = makeDocument(overrides);
-  const result = doc.softDelete(FIXED_DATE);
-  if (result instanceof Document) return result;
-  throw result;
+  return Effect.runSync(doc.softDelete(FIXED_DATE));
 }
 
 // ---------------------------------------------------------------------------
@@ -101,21 +97,23 @@ export function makeDeletedDocument(overrides: Partial<CreateDocumentInput> = {}
 // ---------------------------------------------------------------------------
 
 export function makeDocumentVersion(
-  overrides: Partial<CreateDocumentVersionInput> = {},
+  overrides: Partial<SerializedDocumentVersion> = {},
 ): DocumentVersion {
-  const documentId = makeDocId();
-  const id = makeVersionId();
-  return DocumentVersion.create({
-    id,
-    documentId,
-    versionNumber: 1,
-    bucketKey: BucketKey.create(`${documentId}/${id}/report.pdf`).unwrap(),
-    sizeBytes: 20_480,
-    uploadedBy: makeUserId(),
-    checksum: Checksum.create("a".repeat(64)).unwrap(),
-    createdAt: FIXED_DATE,
-    ...overrides,
-  });
+  const documentId = makeDocId() as string;
+  const id = makeVersionId() as string;
+  return Effect.runSync(
+    DocumentVersion.create({
+      id,
+      documentId,
+      versionNumber: 1,
+      bucketKey: `${documentId}/${id}/report.pdf`,
+      sizeBytes: 20_480,
+      uploadedBy: makeUserId() as string,
+      checksum: "a".repeat(64),
+      createdAt: FIXED_ISO,
+      ...overrides,
+    }),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -123,35 +121,35 @@ export function makeDocumentVersion(
 // ---------------------------------------------------------------------------
 
 /** Creates a user-specific (subject) policy. */
-export function makeSubjectPolicy(overrides: Partial<CreateAccessPolicyInput> = {}): AccessPolicy {
-  const result = AccessPolicy.create({
-    id: makeAccessPolicyId(),
-    documentId: makeDocId(),
-    subjectId: makeUserId(),
-    subjectRole: null,
-    action: PermissionAction.Read,
-    effect: PolicyEffect.Allow,
-    createdAt: FIXED_DATE,
-    ...overrides,
-  });
-  if (result instanceof PolicyTargetRequiredError) throw result;
-  return result;
+export function makeSubjectPolicy(overrides: Partial<SerializedAccessPolicy> = {}): AccessPolicy {
+  return Effect.runSync(
+    AccessPolicy.create({
+      id: makeAccessPolicyId() as string,
+      documentId: makeDocId() as string,
+      subjectId: makeUserId() as string,
+      subjectRole: null,
+      action: PermissionAction.Read,
+      effect: PolicyEffect.Allow,
+      createdAt: FIXED_ISO,
+      ...overrides,
+    }),
+  );
 }
 
 /** Creates a role-based policy. */
-export function makeRolePolicy(overrides: Partial<CreateAccessPolicyInput> = {}): AccessPolicy {
-  const result = AccessPolicy.create({
-    id: makeAccessPolicyId(),
-    documentId: makeDocId(),
-    subjectId: null,
-    subjectRole: Option.some(Role.User),
-    action: PermissionAction.Read,
-    effect: PolicyEffect.Allow,
-    createdAt: FIXED_DATE,
-    ...overrides,
-  });
-  if (result instanceof PolicyTargetRequiredError) throw result;
-  return result;
+export function makeRolePolicy(overrides: Partial<SerializedAccessPolicy> = {}): AccessPolicy {
+  return Effect.runSync(
+    AccessPolicy.create({
+      id: makeAccessPolicyId() as string,
+      documentId: makeDocId() as string,
+      subjectId: null,
+      subjectRole: Role.User,
+      action: PermissionAction.Read,
+      effect: PolicyEffect.Allow,
+      createdAt: FIXED_ISO,
+      ...overrides,
+    }),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -168,12 +166,12 @@ export function makeAllowAllScenario(): {
   allowAllPolicies: AccessPolicy[];
 } {
   const user = makeUser();
-  const document = makeDocument({ ownerId: user.id });
+  const document = makeDocument({ ownerId: user.id as string });
 
   const allowAllPolicies = Object.values(PermissionAction).map((action) =>
     makeSubjectPolicy({
-      documentId: document.id,
-      subjectId: user.id,
+      documentId: document.id as string,
+      subjectId: user.id as string,
       action,
       effect: PolicyEffect.Allow,
     }),
@@ -181,3 +179,4 @@ export function makeAllowAllScenario(): {
 
   return { user, document, allowAllPolicies };
 }
+

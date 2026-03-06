@@ -28,10 +28,12 @@ export class DrizzleUserRepository implements IUserRepository {
   // -------------------------------------------------------------------------
 
   private static readonly fromRow = (row: UserRow): User => {
-    return User.reconstitute(UserIdBrand.create(row.id).unwrap(), row.createdAt, {
+    return User.reconstitute({
+      id: UserIdBrand.create(row.id).unwrap(),
       email: EmailBrand.create(row.email).unwrap(),
       passwordHash: HashedPassword.create(row.passwordHash).unwrap(),
       role: row.role,
+      createdAt: row.createdAt,
     });
   };
 

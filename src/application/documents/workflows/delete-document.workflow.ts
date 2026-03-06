@@ -57,10 +57,10 @@ export function deleteDocument(
           return yield* Effect.fail(DocumentWorkflowError.notFound(`Document '${cmd.documentId}'`));
         }
 
-        const deleted = opt.value.softDelete();
-        if (deleted instanceof Error) {
-          return yield* Effect.fail(DocumentWorkflowError.conflict(deleted.message));
-        }
+        const deleted = yield* pipe(
+          opt.value.softDelete(),
+          Effect.mapError((e) => DocumentWorkflowError.conflict(e.message)),
+        );
 
         yield* pipe(
           deps.documentRepo.update(deleted),

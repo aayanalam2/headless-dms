@@ -82,26 +82,29 @@ export function uploadVersion(
           Effect.mapError(unavailable("storage.uploadFile")),
         );
 
-        const version = DocumentVersion.create({
-          id: verId,
-          createdAt: now,
-          documentId: docId,
-          versionNumber,
-          bucketKey,
-          sizeBytes: fileBuffer.byteLength,
-          checksum,
-          uploadedBy: actorId,
-        });
+        const version = yield* pipe(
+          DocumentVersion.create({
+            id: verId as string,
+            createdAt: now.toISOString(),
+            documentId: docId as string,
+            versionNumber,
+            bucketKey: bucketKey as string,
+            sizeBytes: fileBuffer.byteLength,
+            checksum: checksum as string,
+            uploadedBy: actorId as string,
+          }),
+          Effect.mapError((e) => DocumentWorkflowError.unavailable("DocumentVersion.create", e)),
+        );
 
         yield* p(
           deps.documentRepo.saveVersion(version),
           Effect.mapError(unavailable("repo.saveVersion")),
         );
 
-        const updated = document.setCurrentVersion(verId, now);
-        if (updated instanceof Error) {
-          return yield* Effect.fail(DocumentWorkflowError.conflict(updated.message));
-        }
+        const updated = yield* p(
+          document.setCurrentVersion(verId, now),
+          Effect.mapError((e) => DocumentWorkflowError.conflict(e.message)),
+        );
 
         yield* p(deps.documentRepo.update(updated), Effect.mapError(unavailable("repo.update")));
 

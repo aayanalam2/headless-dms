@@ -1,11 +1,29 @@
-import {
-  BaseEntity,
-  type EntityCreateInput,
-  type IEntity,
-  type SerializedEntity,
-} from "@domain/utils/base.entity.ts";
+import { Effect, ParseResult, Schema } from "effect";
+import { BaseEntity, type IEntity } from "@domain/utils/base.entity.ts";
 import type { Email, HashedPassword, UserId } from "@domain/utils/refined.types.ts";
+import {
+  StringToEmail,
+  StringToHashedPassword,
+  StringToUserId,
+} from "@domain/utils/refined.types.ts";
 import type { Role } from "@domain/utils/enums.ts";
+import { Role as RoleEnum } from "@domain/utils/enums.ts";
+
+export const UserSchema = Schema.Struct({
+  id: StringToUserId,
+  email: StringToEmail,
+  passwordHash: StringToHashedPassword,
+  role: Schema.Enums(RoleEnum),
+  createdAt: Schema.DateFromString,
+});
+
+export type UserType = Schema.Schema.Type<typeof UserSchema>;
+
+export type SerializedUser = Schema.Schema.Encoded<typeof UserSchema>;
+
+// ---------------------------------------------------------------------------
+// Domain interface
+// ---------------------------------------------------------------------------
 
 export interface IUser extends IEntity<UserId> {
   readonly email: Email;
@@ -14,104 +32,41 @@ export interface IUser extends IEntity<UserId> {
 }
 
 // ---------------------------------------------------------------------------
-// Serialized form
-// ---------------------------------------------------------------------------
-
-export type SerializedUser = SerializedEntity<UserId> & {
-  readonly email: string;
-  readonly passwordHash: string;
-  readonly role: string;
-};
-
-// ---------------------------------------------------------------------------
-// Factory input
-// ---------------------------------------------------------------------------
-
-/**
- * Input for User.create().
- * All fields are already in their final branded/validated domain types —
- * the caller (registration workflow) is responsible for decoding raw input
- * before calling this factory.
- */
-export type CreateUserInput = EntityCreateInput<IUser>;
-
-// ---------------------------------------------------------------------------
 // User entity class
 // ---------------------------------------------------------------------------
 
 export class User extends BaseEntity<UserId> implements IUser {
-  private constructor(
-    id: UserId,
-    createdAt: Date,
-    private readonly data: Omit<IUser, keyof IEntity<UserId>>,
-  ) {
-    // User accounts are immutable — no dedicated updatedAt column.
-    super(id, createdAt, createdAt);
-    Object.freeze(this.data);
+  readonly email: Email;
+  readonly passwordHash: HashedPassword;
+  readonly role: Role;
+
+  private constructor(data: UserType) {
+    // User accounts are immutable — updatedAt always equals createdAt.
+    super(data.id, data.createdAt, data.createdAt);
+    this.email = data.email;
+    this.passwordHash = data.passwordHash;
+    this.role = data.role;
+    Object.freeze(this);
   }
 
-  // -------------------------------------------------------------------------
-  // IUser accessors
-  // -------------------------------------------------------------------------
-
-  get email(): Email {
-    return this.data.email;
-  }
-
-  /**
-   * The stored password hash (bcrypt / argon2).
-   * Never expose this over the wire — use it only for verification.
-   */
-  get passwordHash(): HashedPassword {
-    return this.data.passwordHash;
-  }
-
-  get role(): Role {
-    return this.data.role;
-  }
-
-  // -------------------------------------------------------------------------
-  // Serialization
-  // -------------------------------------------------------------------------
-
-  override _serialize(): SerializedUser {
-    return {
-      ...super._serialize(),
-      email: this.data.email,
-      passwordHash: this.data.passwordHash,
-      role: this.data.role,
-    };
-  }
-
-  // -------------------------------------------------------------------------
-  // Static factory — User.create (primary factory)
-  // -------------------------------------------------------------------------
-
-  /**
-   * Creates a User from fully-validated, branded inputs.
-   *
-   * Validation of raw strings (email format, password hashing) is the
-   * responsibility of the caller — this factory is intentionally pure and
-   * dependency-free.
-   */
-  static create(input: CreateUserInput): User {
-    return new User(input.id, input.createdAt, {
-      email: input.email,
-      passwordHash: input.passwordHash,
-      role: input.role,
+  serialized(): Effect.Effect<SerializedUser, ParseResult.ParseError> {
+    return Schema.encode(UserSchema)({
+      id: this.id,
+      email: this.email,
+      passwordHash: this.passwordHash,
+      role: this.role,
+      createdAt: this.createdAt,
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Static factory — User.reconstitute (trusted, from persistence)
-  // -------------------------------------------------------------------------
+  static create(input: SerializedUser): Effect.Effect<User, ParseResult.ParseError> {
+    return Schema.decodeUnknown(UserSchema)(input).pipe(
+      Effect.map((data) => new User(data)),
+    );
+  }
 
-  static reconstitute(
-    id: UserId,
-    createdAt: Date,
-    props: Omit<IUser, keyof IEntity<UserId>>,
-  ): User {
-    return new User(id, createdAt, props);
+  static reconstitute(data: UserType): User {
+    return new User(data);
   }
 
   // equals() is inherited from BaseEntity — identity by id.
