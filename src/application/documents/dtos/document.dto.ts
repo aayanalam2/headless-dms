@@ -8,6 +8,7 @@ import { UserSchema } from "@domain/user/user.entity.ts";
 import type { Paginated } from "@domain/utils/pagination.ts";
 import { ActorCommandSchema } from "@application/shared/actor.ts";
 import type { ActorCommandEncoded, ActorCommand } from "@application/shared/actor.ts";
+import { PaginationQuerySchema } from "@application/shared/pagination.ts";
 
 export { ActorCommandSchema };
 export type { ActorCommandEncoded, ActorCommand };
@@ -44,11 +45,10 @@ export type GetDocumentQueryEncoded = S.Schema.Encoded<typeof GetDocumentQuerySc
 export type GetDocumentQueryDecoded = S.Schema.Type<typeof GetDocumentQuerySchema>;
 
 export const ListDocumentsQuerySchema = S.Struct({
+  ...PaginationQuerySchema.fields,
   actor: ActorCommandSchema,
   name: S.optional(S.String),
   ownerId: S.optional(UserSchema.fields.id),
-  page: S.optional(S.Union(S.Number, S.NumberFromString)),
-  limit: S.optional(S.Union(S.Number, S.NumberFromString)),
 });
 export type ListDocumentsQueryEncoded = S.Schema.Encoded<typeof ListDocumentsQuerySchema>;
 export type ListDocumentsQueryDecoded = S.Schema.Type<typeof ListDocumentsQuerySchema>;

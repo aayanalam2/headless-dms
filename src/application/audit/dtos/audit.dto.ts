@@ -3,15 +3,15 @@ import { AuditResourceType } from "@domain/utils/enums.ts";
 import type { AuditLogEntry } from "../audit.repository.port.ts";
 import type { Paginated } from "@domain/utils/pagination.ts";
 import { ActorCommandSchema } from "@application/shared/actor.ts";
+import { PaginationQuerySchema } from "@application/shared/pagination.ts";
 
 // ===========================================================================
 // INBOUND — Command / Query schemas
 // ===========================================================================
 
 export const ListAuditLogsQuerySchema = S.Struct({
+  ...PaginationQuerySchema.fields,
   actor: ActorCommandSchema,
-  page: S.optional(S.Union(S.Number, S.NumberFromString)),
-  limit: S.optional(S.Union(S.Number, S.NumberFromString)),
   resourceType: S.optional(S.Enums(AuditResourceType)),
   resourceId: S.optional(S.String),
 });

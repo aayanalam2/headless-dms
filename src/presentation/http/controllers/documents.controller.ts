@@ -50,8 +50,8 @@ export function createDocumentsController(workflows: DocumentWorkflows) {
       {
         query: t.Object({
           name: t.Optional(t.String()),
-          page: t.Optional(t.String()),
-          limit: t.Optional(t.String()),
+          page: t.Optional(t.Numeric({ minimum: 1 })),
+          limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })),
           ownerId: t.Optional(t.String()),
         }),
         detail: { summary: "Search/list documents", tags: ["Documents"] },
