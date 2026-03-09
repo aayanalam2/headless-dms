@@ -46,7 +46,6 @@ export type AccessPolicyWorkflowError =
     }
   | {
       readonly _tag: typeof AccessPolicyWorkflowErrorTag.Unavailable;
-      readonly operation: string;
       readonly cause?: unknown;
     };
 
@@ -75,9 +74,8 @@ export const AccessPolicyWorkflowError = {
     message,
   }),
 
-  unavailable: (operation: string, cause?: unknown): AccessPolicyWorkflowError => ({
+  unavailable: (cause?: unknown): AccessPolicyWorkflowError => ({
     _tag: AccessPolicyWorkflowErrorTag.Unavailable,
-    operation,
     cause,
   }),
 } as const;

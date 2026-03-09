@@ -1,11 +1,5 @@
 import { Effect as E, Option as O, pipe } from "effect";
 
-export function makeUnavailable<E>(
-  ctor: (op: string, cause: unknown) => E,
-): (op: string) => (e: unknown) => E {
-  return (op) => (e) => ctor(op, e);
-}
-
 export function requireFound<T, E>(
   fetch: E.Effect<O.Option<T>, unknown>,
   mapError: (e: unknown) => E,
@@ -37,15 +31,15 @@ export function requireAbsent<E>(
  *
  * @example
  * const liftRepo = makeLiftRepo(MyError.unavailable);
- * liftRepo("repo.findById", repo.findById(id))
+ * liftRepo(repo.findById(id))
  */
 export function makeLiftRepo<Err>(
-  ctor: (op: string, cause: unknown) => Err,
-): <A, F>(op: string, eff: E.Effect<A, F>) => E.Effect<A, Err> {
-  return (op, eff) =>
+  ctor: (cause: unknown) => Err,
+): <A, F>(eff: E.Effect<A, F>) => E.Effect<A, Err> {
+  return (eff) =>
     pipe(
       eff,
-      E.mapError((e) => ctor(op, e)),
+      E.mapError((e) => ctor(e)),
     );
 }
 

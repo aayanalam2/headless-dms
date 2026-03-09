@@ -69,7 +69,7 @@ export class AccessPolicyWorkflows {
               "subjectId must be a valid user ID",
             ),
           ),
-          E.tap((policy) => liftRepo("policyRepo.save", this.policyRepo.save(policy))),
+          E.tap((policy) => liftRepo(this.policyRepo.save(policy))),
           E.tap((policy) =>
             emitPolicyGranted({
               actorId: cmd.actor.userId,
@@ -152,7 +152,7 @@ export class AccessPolicyWorkflows {
               existing,
             ),
           ),
-          E.tap(() => liftRepo("policyRepo.delete", this.policyRepo.delete(cmd.policyId))),
+          E.tap(() => liftRepo(this.policyRepo.delete(cmd.policyId))),
           E.flatMap((existing) =>
             emitPolicyRevoked({
               actorId: cmd.actor.userId,
@@ -193,9 +193,7 @@ export class AccessPolicyWorkflows {
             PermissionAction.Share,
             AccessPolicyWorkflowError,
           ),
-          E.flatMap(() =>
-            liftRepo("policyRepo.findByDocument", this.policyRepo.findByDocument(cmd.documentId)),
-          ),
+          E.flatMap(() => liftRepo(this.policyRepo.findByDocument(cmd.documentId))),
           E.map((policies) => policies.map(toAccessPolicyDTO)),
         ),
       ),

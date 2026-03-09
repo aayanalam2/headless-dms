@@ -22,7 +22,6 @@ export type AuditWorkflowError =
   | { readonly _tag: typeof AuditWorkflowErrorTag.Forbidden; readonly reason: string }
   | {
       readonly _tag: typeof AuditWorkflowErrorTag.Unavailable;
-      readonly operation: string;
       readonly cause?: unknown;
     };
 
@@ -37,9 +36,8 @@ export const AuditWorkflowError = {
     reason,
   }),
 
-  unavailable: (operation: string, cause?: unknown): AuditWorkflowError => ({
+  unavailable: (cause?: unknown): AuditWorkflowError => ({
     _tag: AuditWorkflowErrorTag.Unavailable,
-    operation,
     cause,
   }),
 } as const;

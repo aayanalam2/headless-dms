@@ -47,7 +47,6 @@ export type UserWorkflowError =
     }
   | {
       readonly _tag: typeof UserWorkflowErrorTag.Unavailable;
-      readonly operation: string;
       readonly cause?: unknown;
     };
 
@@ -80,9 +79,8 @@ export const UserWorkflowError = {
     reason,
   }),
 
-  unavailable: (operation: string, cause?: unknown): UserWorkflowError => ({
+  unavailable: (cause?: unknown): UserWorkflowError => ({
     _tag: UserWorkflowErrorTag.Unavailable,
-    operation,
     cause,
   }),
 } as const;
@@ -98,21 +96,17 @@ export const UserWorkflowError = {
 //   UserNotFoundError      | RepositoryError  →  NotFound  | Unavailable
 // ---------------------------------------------------------------------------
 
-export function fromUserSaveError(
-  op: string,
-  e: UserAlreadyExistsError | RepositoryError,
-): UserWorkflowError {
+export function fromUserSaveError(e: UserAlreadyExistsError | RepositoryError): UserWorkflowError {
   return e._tag === UserErrorTags.UserAlreadyExists
     ? UserWorkflowError.duplicate(e.message)
-    : UserWorkflowError.unavailable(op, e);
+    : UserWorkflowError.unavailable(e);
 }
 
 export function fromUserUpdateError(
-  op: string,
   resource: string,
   e: UserNotFoundError | RepositoryError,
 ): UserWorkflowError {
   return e._tag === UserErrorTags.UserNotFound
     ? UserWorkflowError.notFound(resource)
-    : UserWorkflowError.unavailable(op, e);
+    : UserWorkflowError.unavailable(e);
 }

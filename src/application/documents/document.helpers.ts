@@ -19,13 +19,10 @@ import {
   type DocumentWorkflowError as WorkflowError,
 } from "./document-workflow.errors.ts";
 import {
-  makeUnavailable,
   makeLiftRepo,
   makeLiftConflict,
   requireFound,
 } from "@application/shared/workflow.helpers.ts";
-
-const unavailable = makeUnavailable(DocumentWorkflowError.unavailable);
 
 /** Lift any effect's error to Unavailable. Intended for repository and storage calls. */
 export const liftRepo = makeLiftRepo(DocumentWorkflowError.unavailable);
@@ -56,7 +53,7 @@ export function requireDocument(
   repo: IDocumentRepository,
   documentId: DocumentId,
 ): E.Effect<Document, WorkflowError> {
-  return requireFound(repo.findById(documentId), unavailable("repo.findById"), () =>
+  return requireFound(repo.findById(documentId), DocumentWorkflowError.unavailable, () =>
     DocumentWorkflowError.notFound(`Document '${documentId}'`),
   );
 }
@@ -65,7 +62,7 @@ export function requireActiveDocument(
   repo: IDocumentRepository,
   documentId: DocumentId,
 ): E.Effect<Document, WorkflowError> {
-  return requireFound(repo.findActiveById(documentId), unavailable("repo.findActiveById"), () =>
+  return requireFound(repo.findActiveById(documentId), DocumentWorkflowError.unavailable, () =>
     DocumentWorkflowError.notFound(`Document '${documentId}'`),
   );
 }
@@ -74,7 +71,7 @@ export function requireVersion(
   repo: IDocumentRepository,
   versionId: VersionId,
 ): E.Effect<DocumentVersion, WorkflowError> {
-  return requireFound(repo.findVersionById(versionId), unavailable("repo.findVersionById"), () =>
+  return requireFound(repo.findVersionById(versionId), DocumentWorkflowError.unavailable, () =>
     DocumentWorkflowError.notFound(`Version '${versionId}'`),
   );
 }
@@ -114,10 +111,10 @@ export function commitVersion(
   return pipe(
     liftConflict(doc.setCurrentVersion(version.id, now)),
     E.flatMap((updatedDoc) =>
-      E.as(
-        liftRepo("repo.insertVersionAndUpdate", repo.insertVersionAndUpdate(version, updatedDoc)),
-        { version, updated: updatedDoc },
-      ),
+      E.as(liftRepo(repo.insertVersionAndUpdate(version, updatedDoc)), {
+        version,
+        updated: updatedDoc,
+      }),
     ),
   );
 }
@@ -135,13 +132,10 @@ export function commitNewDocument(
   return pipe(
     liftConflict(doc.setCurrentVersion(version.id, now)),
     E.flatMap((updatedDoc) =>
-      E.as(
-        liftRepo(
-          "repo.insertDocumentWithVersion",
-          repo.insertDocumentWithVersion(doc, version, updatedDoc),
-        ),
-        { version, updated: updatedDoc },
-      ),
+      E.as(liftRepo(repo.insertDocumentWithVersion(doc, version, updatedDoc)), {
+        version,
+        updated: updatedDoc,
+      }),
     ),
   );
 }

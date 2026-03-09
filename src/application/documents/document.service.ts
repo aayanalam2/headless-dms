@@ -31,10 +31,7 @@ export function uploadAndHash(
   return pipe(
     E.all([
       ChecksumFactory.fromBuffer(buffer),
-      liftRepo(
-        "storage.uploadFile",
-        storage.uploadFile(bucketKey, Buffer.from(buffer), contentType),
-      ),
+      liftRepo(storage.uploadFile(bucketKey, Buffer.from(buffer), contentType)),
     ]),
     E.map(([checksum]) => checksum),
   );
@@ -77,7 +74,7 @@ export function resolveVersionMeta(
   WorkflowError
 > {
   return pipe(
-    liftRepo("repo.findVersionsByDocument", repo.findVersionsByDocument(documentId)),
+    liftRepo(repo.findVersionsByDocument(documentId)),
     E.map((versions) => {
       const filename = name?.trim() || file.name || document.name;
       return {

@@ -43,7 +43,7 @@ export function userWorkflowToHttp(e: UserWorkflowError): AppError {
     case UserWorkflowErrorTag.Forbidden:
       return AppError.accessDenied(e.reason);
     case UserWorkflowErrorTag.Unavailable:
-      return AppError.database(e.operation);
+      return AppError.database(e.cause);
     default:
       return assertNever(e);
   }
@@ -62,7 +62,7 @@ export function documentWorkflowToHttp(e: DocumentWorkflowError): AppError {
     case DocumentWorkflowErrorTag.InvalidContentType:
       return AppError.validation(`Unsupported content type: ${e.contentType}`);
     case DocumentWorkflowErrorTag.Unavailable:
-      return AppError.database(e.operation);
+      return AppError.database(e.cause);
     default:
       return assertNever(e);
   }
@@ -79,7 +79,7 @@ export function accessPolicyWorkflowToHttp(e: AccessPolicyWorkflowError): AppErr
     case AccessPolicyWorkflowErrorTag.Conflict:
       return AppError.conflict(e.message);
     case AccessPolicyWorkflowErrorTag.Unavailable:
-      return AppError.database(e.operation);
+      return AppError.database(e.cause);
     default:
       return assertNever(e);
   }
@@ -92,7 +92,7 @@ export function auditWorkflowToHttp(e: AuditWorkflowError): AppError {
     case AuditWorkflowErrorTag.Forbidden:
       return AppError.accessDenied(e.reason);
     case AuditWorkflowErrorTag.Unavailable:
-      return AppError.database(e.operation);
+      return AppError.database(e.cause);
     default:
       return assertNever(e);
   }

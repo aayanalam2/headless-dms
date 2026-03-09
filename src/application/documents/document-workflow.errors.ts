@@ -51,7 +51,6 @@ export type DocumentWorkflowError =
     }
   | {
       readonly _tag: typeof DocumentWorkflowErrorTag.Unavailable;
-      readonly operation: string;
       readonly cause?: unknown;
     };
 
@@ -85,9 +84,8 @@ export const DocumentWorkflowError = {
     contentType,
   }),
 
-  unavailable: (operation: string, cause?: unknown): DocumentWorkflowError => ({
+  unavailable: (cause?: unknown): DocumentWorkflowError => ({
     _tag: DocumentWorkflowErrorTag.Unavailable,
-    operation,
     cause,
   }),
 } as const;

@@ -74,7 +74,7 @@ function buildPresignedResponse(
 ): E.Effect<PresignedDownloadDTO, WorkflowError> {
   return pipe(
     storage.getPresignedDownloadUrl(version.bucketKey, ttl),
-    E.mapError((e) => DocumentWorkflowError.unavailable("storage.getPresignedDownloadUrl", e)),
+    E.mapError((e) => DocumentWorkflowError.unavailable(e)),
     E.map((url) => ({
       url,
       expiresAt: new Date(Date.now() + ttl * 1000).toISOString(),
@@ -225,7 +225,6 @@ export class DocumentWorkflows {
           query,
           (pagination) =>
             liftRepo(
-              "repo.listDocuments",
               scopeList(
                 this.documentRepo,
                 query.actor,
@@ -293,12 +292,7 @@ export class DocumentWorkflows {
             PermissionAction.Read,
             DocumentWorkflowError,
           ),
-          E.flatMap((document) =>
-            liftRepo(
-              "repo.findVersionsByDocument",
-              this.documentRepo.findVersionsByDocument(document.id),
-            ),
-          ),
+          E.flatMap((document) => liftRepo(this.documentRepo.findVersionsByDocument(document.id))),
           E.map((versions) => versions.map(toVersionDTO)),
         ),
       ),
@@ -317,9 +311,7 @@ export class DocumentWorkflows {
             DocumentWorkflowError,
           ),
           E.flatMap((document) => liftConflict(document.softDelete())),
-          E.flatMap((deleted) =>
-            liftRepo("repo.softDelete", this.documentRepo.softDelete(deleted)),
-          ),
+          E.flatMap((deleted) => liftRepo(this.documentRepo.softDelete(deleted))),
           E.tap(() =>
             emitDocumentDeleted({
               actorId: cmd.actor.userId,

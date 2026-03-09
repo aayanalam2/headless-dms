@@ -36,7 +36,6 @@ export class AuditWorkflows {
           query,
           (pagination) =>
             liftRepo(
-              "repo.listAuditLogs",
               this.auditRepo.listAuditLogs({
                 ...pagination,
                 ...(query.resourceType !== undefined && { resourceType: query.resourceType }),

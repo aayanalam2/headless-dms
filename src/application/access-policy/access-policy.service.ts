@@ -15,7 +15,7 @@ export function replacePolicy(
   replacement: AccessPolicy,
 ): E.Effect<void, WorkflowError> {
   return pipe(
-    liftRepo("policyRepo.delete", repo.delete(oldId)),
-    E.flatMap(() => liftRepo("policyRepo.save", repo.save(replacement))),
+    liftRepo(repo.delete(oldId)),
+    E.flatMap(() => liftRepo(repo.save(replacement))),
   );
 }

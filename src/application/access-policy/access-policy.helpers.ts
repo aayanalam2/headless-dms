@@ -14,20 +14,15 @@ import {
   AccessPolicyWorkflowError,
   type AccessPolicyWorkflowError as WorkflowError,
 } from "./access-policy-workflow.errors.ts";
-import {
-  makeUnavailable,
-  makeLiftRepo,
-  requireFound,
-} from "@application/shared/workflow.helpers.ts";
+import { makeLiftRepo, requireFound } from "@application/shared/workflow.helpers.ts";
 
-export const unavailable = makeUnavailable(AccessPolicyWorkflowError.unavailable);
 export const liftRepo = makeLiftRepo(AccessPolicyWorkflowError.unavailable);
 
 export function requirePolicy(
   repo: IAccessPolicyRepository,
   policyId: AccessPolicyId,
 ): E.Effect<AccessPolicyType, WorkflowError> {
-  return requireFound(repo.findById(policyId), unavailable("policyRepo.findById"), () =>
+  return requireFound(repo.findById(policyId), AccessPolicyWorkflowError.unavailable, () =>
     AccessPolicyWorkflowError.notFound(`Access policy '${policyId}'`),
   );
 }

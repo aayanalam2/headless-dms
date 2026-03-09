@@ -14,14 +14,7 @@ import {
   fromUserUpdateError,
   type UserWorkflowError as WorkflowError,
 } from "./user-workflow.errors.ts";
-import {
-  makeUnavailable,
-  requireFound,
-  requireAbsent,
-  assertGuard,
-} from "@application/shared/workflow.helpers.ts";
-
-export const unavailable = makeUnavailable(UserWorkflowError.unavailable);
+import { requireFound, requireAbsent, assertGuard } from "@application/shared/workflow.helpers.ts";
 
 export function parseEmail(raw: string): E.Effect<Email, WorkflowError> {
   return pipe(
@@ -35,7 +28,7 @@ export function requireNoEmailConflict(
   email: Email,
   rawEmail: string,
 ): E.Effect<void, WorkflowError> {
-  return requireAbsent(repo.findByEmail(email), unavailable("repo.findByEmail"), () =>
+  return requireAbsent(repo.findByEmail(email), UserWorkflowError.unavailable, () =>
     UserWorkflowError.duplicate(`An account with email '${rawEmail}' already exists`),
   );
 }
@@ -45,7 +38,7 @@ export function requireUserByEmail(
   repo: IUserRepository,
   email: Email,
 ): E.Effect<User, WorkflowError> {
-  return requireFound(repo.findByEmail(email), unavailable("repo.findByEmail"), () =>
+  return requireFound(repo.findByEmail(email), UserWorkflowError.unavailable, () =>
     UserWorkflowError.unauthorized(),
   );
 }
@@ -55,7 +48,7 @@ export function requireUser(
   userId: UserId,
   label: string,
 ): E.Effect<User, WorkflowError> {
-  return requireFound(repo.findById(userId), unavailable("repo.findById"), () =>
+  return requireFound(repo.findById(userId), UserWorkflowError.unavailable, () =>
     UserWorkflowError.notFound(label),
   );
 }
@@ -88,7 +81,7 @@ export function buildUser(input: SerializedUser): E.Effect<User, WorkflowError> 
 export function saveNewUser(repo: IUserRepository, user: User): E.Effect<void, WorkflowError> {
   return pipe(
     repo.save(user),
-    E.mapError((e) => fromUserSaveError("repo.user.save", e)),
+    E.mapError((e) => fromUserSaveError(e)),
   );
 }
 
@@ -99,6 +92,6 @@ export function updateUser(
 ): E.Effect<void, WorkflowError> {
   return pipe(
     repo.update(user),
-    E.mapError((e) => fromUserUpdateError("repo.user.update", label, e)),
+    E.mapError((e) => fromUserUpdateError(label, e)),
   );
 }
