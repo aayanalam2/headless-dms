@@ -1,6 +1,7 @@
 import type { AuditAction, AuditResourceType } from "@domain/utils/enums.ts";
 import type { Paginated, PaginationParams } from "@domain/utils/pagination.ts";
 import type { RepositoryEffect } from "@domain/utils/repository.types.ts";
+import type { UserId, DocumentId, AccessPolicyId } from "@domain/utils/refined.types.ts";
 
 // ---------------------------------------------------------------------------
 // AuditLogEntry — plain domain representation of an audit log row.
@@ -35,10 +36,10 @@ export type AuditQueryParams = PaginationParams & {
 // ---------------------------------------------------------------------------
 
 export type NewAuditLogInput = {
-  readonly actorId: string;
+  readonly actorId: UserId;
   readonly action: AuditAction;
   readonly resourceType: AuditResourceType;
-  readonly resourceId: string;
+  readonly resourceId: DocumentId | AccessPolicyId;
   readonly metadata: Record<string, unknown>;
 };
 

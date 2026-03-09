@@ -1,4 +1,4 @@
-import { Effect as E, Option as O } from "effect";
+import { Effect as E, Option as O, Schema as S } from "effect";
 import { eq } from "drizzle-orm";
 import type { AppDb } from "@infra/database/utils/connection.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
@@ -8,9 +8,9 @@ import type { UserRow } from "@infra/database/schema.ts";
 import { UserAlreadyExistsError, UserNotFoundError } from "@domain/user/user.errors.ts";
 import { RepositoryError, type RepositoryEffect } from "@domain/utils/repository.types.ts";
 import {
-  Email as EmailBrand,
-  HashedPassword,
-  UserId as UserIdBrand,
+  StringToUserId,
+  StringToEmail,
+  StringToHashedPassword,
 } from "@domain/utils/refined.types.ts";
 
 import { usersTable } from "@infra/database/models/user.table.ts";
@@ -25,9 +25,9 @@ export class DrizzleUserRepository implements IUserRepository {
 
   private static readonly fromRow = (row: UserRow): User => {
     return User.reconstitute({
-      id: UserIdBrand.create(row.id).unwrap(),
-      email: EmailBrand.create(row.email).unwrap(),
-      passwordHash: HashedPassword.create(row.passwordHash).unwrap(),
+      id: S.decodeSync(StringToUserId)(row.id),
+      email: S.decodeSync(StringToEmail)(row.email),
+      passwordHash: S.decodeSync(StringToHashedPassword)(row.passwordHash),
       role: row.role,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

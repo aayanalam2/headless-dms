@@ -1,7 +1,7 @@
-import { Effect as E, pipe } from "effect";
+import { Effect as E, pipe, Schema as S } from "effect";
 import { User, type SerializedUser } from "@domain/user/user.entity.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
-import { Email, type UserId } from "@domain/utils/refined.types.ts";
+import { type Email, type HashedPassword, type UserId, StringToEmail } from "@domain/utils/refined.types.ts";
 import { Role } from "@domain/utils/enums.ts";
 import {
   UserWorkflowError,
@@ -19,10 +19,10 @@ import {
 export const unavailable = makeUnavailable(UserWorkflowError.unavailable);
 
 export function parseEmail(raw: string): E.Effect<Email, WorkflowError> {
-  const result = Email.create(raw);
-  return result.isOk()
-    ? E.succeed(result.unwrap())
-    : E.fail(UserWorkflowError.invalidInput("Invalid email address"));
+  return pipe(
+    E.try(() => S.decodeSync(StringToEmail)(raw)),
+    E.mapError(() => UserWorkflowError.invalidInput("Invalid email address")),
+  );
 }
 
 export function requireNoEmailConflict(
@@ -63,9 +63,9 @@ export function assertAdmin(actor: { readonly role: Role }): E.Effect<void, Work
 
 // Collapses to Unauthorized to prevent distinguishing "no account" vs "wrong password".
 export function assertPasswordValid(
-  verifyFn: (plaintext: string, hash: string) => Promise<boolean>,
+  verifyFn: (plaintext: string, hash: HashedPassword) => Promise<boolean>,
   plaintext: string,
-  hash: string,
+  hash: HashedPassword,
 ): E.Effect<void, WorkflowError> {
   return pipe(
     E.promise(() => verifyFn(plaintext, hash)),

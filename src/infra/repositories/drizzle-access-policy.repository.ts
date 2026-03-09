@@ -1,8 +1,15 @@
-import { Effect as E, Option as O } from "effect";
+import { Effect as E, Option as O, Schema as S } from "effect";
 import { and, eq } from "drizzle-orm";
 import type { AppDb } from "@infra/database/utils/connection.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
-import { AccessPolicyId, DocumentId, UserId } from "@domain/utils/refined.types.ts";
+import {
+  AccessPolicyId,
+  DocumentId,
+  UserId,
+  StringToAccessPolicyId,
+  StringToDocumentId,
+  StringToUserId,
+} from "@domain/utils/refined.types.ts";
 import { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
 import type { AccessPolicyRow } from "@infra/database/schema.ts";
 import { AccessPolicyNotFoundError } from "@domain/access-policy/access-policy.errors.ts";
@@ -15,9 +22,9 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
 
   private static readonly fromRow = (row: AccessPolicyRow): AccessPolicy => {
     return AccessPolicy.reconstitute({
-      id: AccessPolicyId.create(row.id).unwrap(),
-      documentId: DocumentId.create(row.documentId).unwrap(),
-      subjectId: UserId.create(row.subjectId).unwrap(),
+      id: S.decodeSync(StringToAccessPolicyId)(row.id),
+      documentId: S.decodeSync(StringToDocumentId)(row.documentId),
+      subjectId: S.decodeSync(StringToUserId)(row.subjectId),
       action: row.action,
       effect: row.effect,
       createdAt: row.createdAt,

@@ -1,5 +1,5 @@
-import { Effect as E } from "effect";
-import { Checksum } from "@domain/utils/refined.types.ts";
+import { Effect as E, Schema as S } from "effect";
+import { Checksum, StringToChecksum } from "@domain/utils/refined.types.ts";
 
 /**
  * Factory for the Checksum value object.
@@ -12,7 +12,7 @@ import { Checksum } from "@domain/utils/refined.types.ts";
 export const ChecksumFactory = {
   fromBuffer(buf: ArrayBuffer): E.Effect<Checksum, never> {
     return E.promise(() => crypto.subtle.digest("SHA-256", buf)).pipe(
-      E.map((hash) => Checksum.create(Buffer.from(hash).toString("hex")).unwrap()),
+      E.map((hash) => S.decodeSync(StringToChecksum)(Buffer.from(hash).toString("hex"))),
     );
   },
 } as const;

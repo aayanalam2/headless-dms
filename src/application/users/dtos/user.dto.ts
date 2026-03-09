@@ -55,8 +55,8 @@ export type JwtClaims = {
 
 export function toUserDTO(user: User): UserDTO {
   return {
-    id: user.id as string,
-    email: user.email as string,
+    id: String(user.id),
+    email: String(user.email),
     role: user.role,
     createdAt: user.createdAt.toISOString(),
   };
@@ -64,8 +64,8 @@ export function toUserDTO(user: User): UserDTO {
 
 export function toJwtClaims(user: User): JwtClaims {
   return {
-    userId: user.id as string,
-    email: user.email as string,
+    userId: String(user.id),
+    email: String(user.email),
     role: user.role,
   };
 }

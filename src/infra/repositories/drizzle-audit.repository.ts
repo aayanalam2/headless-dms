@@ -49,10 +49,10 @@ export class DrizzleAuditRepository implements IAuditRepository {
     return executeQuery(() =>
       this.db.insert(auditLogsTable).values({
         id: crypto.randomUUID(),
-        actorId: input.actorId,
+        actorId: String(input.actorId),
         action: input.action,
         resourceType: input.resourceType,
-        resourceId: input.resourceId,
+        resourceId: String(input.resourceId),
         metadata: input.metadata,
         createdAt: now,
         updatedAt: now,

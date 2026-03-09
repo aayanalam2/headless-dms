@@ -1,8 +1,8 @@
 import "reflect-metadata";
-import { Effect as E, pipe } from "effect";
+import { Effect as E, pipe, Schema as S } from "effect";
 import { inject, injectable } from "tsyringe";
 import { Role } from "@domain/utils/enums.ts";
-import { Email } from "@domain/utils/refined.types.ts";
+import { type Email, StringToEmail } from "@domain/utils/refined.types.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
 import { AuthService } from "@infra/services/auth.service.ts";
 import { TOKENS } from "@infra/di/tokens.ts";
@@ -43,8 +43,10 @@ export type LoginResult = {
 // Email format errors during login collapse to Unauthorized — never reveal
 // to the caller whether the address was malformed or simply not registered.
 function parseEmailForLogin(raw: string): E.Effect<Email, WorkflowError> {
-  const result = Email.create(raw);
-  return result.isOk() ? E.succeed(result.unwrap()) : E.fail(UserWorkflowError.unauthorized());
+  return pipe(
+    E.try(() => S.decodeSync(StringToEmail)(raw)),
+    E.mapError(() => UserWorkflowError.unauthorized()),
+  );
 }
 
 @injectable()
@@ -95,7 +97,7 @@ export class UserWorkflows {
               assertPasswordValid(
                 (p, h) => this.authService.verify(p, h),
                 cmd.password,
-                user.passwordHash as string,
+                user.passwordHash,
               ),
               E.as({ claims: toJwtClaims(user), user: toUserDTO(user) }),
             ),

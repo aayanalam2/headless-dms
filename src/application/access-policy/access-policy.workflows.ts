@@ -1,6 +1,7 @@
 import "reflect-metadata";
-import { Effect as E, Option as O, pipe } from "effect";
+import { Effect as E, Option as O, Schema as S, pipe } from "effect";
 import { inject, injectable } from "tsyringe";
+import { StringToAccessPolicyId } from "@domain/utils/refined.types.ts";
 import { TOKENS } from "@infra/di/tokens.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
@@ -52,10 +53,10 @@ export class AccessPolicyWorkflows {
           E.flatMap(() =>
             buildPolicy(
               {
-                id: crypto.randomUUID(),
-                createdAt: new Date().toISOString(),
-                documentId: cmd.documentId as string,
-                subjectId: cmd.subjectId as string,
+                id: S.decodeSync(StringToAccessPolicyId)(crypto.randomUUID()),
+                createdAt: new Date(),
+                documentId: cmd.documentId,
+                subjectId: cmd.subjectId,
                 action: cmd.action,
                 effect: cmd.effect,
               },
@@ -68,9 +69,9 @@ export class AccessPolicyWorkflows {
               E.mapError(unavailable("policyRepo.save")),
               E.flatMap(() =>
                 emitPolicyGranted({
-                  actorId: cmd.actor.userId as string,
-                  resourceId: policy.id as string,
-                  documentId: cmd.documentId as string,
+                  actorId: cmd.actor.userId,
+                  resourceId: policy.id,
+                  documentId: cmd.documentId,
                   action: cmd.action,
                   effect: policy.effect,
                 }),
@@ -101,10 +102,10 @@ export class AccessPolicyWorkflows {
               E.flatMap(() =>
                 buildPolicy(
                   {
-                    id: crypto.randomUUID(),
-                    createdAt: new Date().toISOString(),
-                    documentId: existing.documentId as string,
-                    subjectId: existing.subjectId as string,
+                    id: S.decodeSync(StringToAccessPolicyId)(crypto.randomUUID()),
+                    createdAt: new Date(),
+                    documentId: existing.documentId,
+                    subjectId: existing.subjectId,
                     action: existing.action,
                     effect: cmd.effect,
                   },
@@ -123,10 +124,10 @@ export class AccessPolicyWorkflows {
                   ),
                   E.flatMap(() =>
                     emitPolicyUpdated({
-                      actorId: cmd.actor.userId as string,
-                      resourceId: replacement.id as string,
-                      previousPolicyId: cmd.policyId as string,
-                      documentId: existing.documentId as string,
+                    actorId: cmd.actor.userId,
+                    resourceId: replacement.id,
+                    previousPolicyId: cmd.policyId,
+                    documentId: existing.documentId,
                       effect: cmd.effect,
                     }),
                   ),
@@ -162,9 +163,9 @@ export class AccessPolicyWorkflows {
               ),
               E.flatMap(() =>
                 emitPolicyRevoked({
-                  actorId: cmd.actor.userId as string,
-                  resourceId: cmd.policyId as string,
-                  documentId: existing.documentId as string,
+                  actorId: cmd.actor.userId,
+                  resourceId: cmd.policyId,
+                  documentId: existing.documentId,
                   action: existing.action,
                 }),
               ),

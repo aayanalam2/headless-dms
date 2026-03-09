@@ -71,4 +71,13 @@ export class AccessPolicy extends BaseEntity<AccessPolicyId> implements IAccessP
   static reconstitute(data: AccessPolicyType): AccessPolicy {
     return new AccessPolicy(data);
   }
+
+  /**
+   * Creates a brand-new AccessPolicy from already-validated domain values.
+   * Intended for use in application-layer workflows where all fields are
+   * already typed. No schema parsing is performed.
+   */
+  static createNew(input: AccessPolicyType): AccessPolicy {
+    return new AccessPolicy(input);
+  }
 }

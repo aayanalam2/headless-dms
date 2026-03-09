@@ -85,6 +85,15 @@ export class DocumentVersion extends BaseEntity<VersionId> implements IDocumentV
   }
 
   /**
+   * Creates a brand-new DocumentVersion from already-validated domain values.
+   * Intended for use in application-layer workflows where all fields are
+   * already typed. No schema parsing is performed.
+   */
+  static createNew(input: DocumentVersionType): DocumentVersion {
+    return new DocumentVersion(input);
+  }
+
+  /**
    * Derive the next version number from an existing set of versions.
    * Returns `max(versionNumber) + 1`, or `1` when no versions exist yet.
    * Version numbers are monotonically increasing integers starting at 1.

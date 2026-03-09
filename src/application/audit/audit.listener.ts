@@ -37,7 +37,7 @@ export function createAuditListeners(auditRepo: IAuditRepository): { register():
             resourceId: e.resourceId,
             metadata: {
               versionId: e.versionId,
-              versionNumber: String(e.versionNumber),
+              versionNumber: e.versionNumber,
               filename: e.filename,
             },
           }),

@@ -37,7 +37,7 @@ export function createS3Storage(
           client.send(
             new PutObjectCommand({
               Bucket: bucket,
-              Key: key as string,
+              Key: String(key),
               Body: body,
               ContentType: contentType,
             }),
@@ -56,7 +56,7 @@ export function createS3Storage(
             client,
             new GetObjectCommand({
               Bucket: bucket,
-              Key: key as string,
+              Key: String(key),
             }),
             { expiresIn: expiresInSeconds },
           ),
@@ -70,7 +70,7 @@ export function createS3Storage(
           client.send(
             new DeleteObjectCommand({
               Bucket: bucket,
-              Key: key as string,
+              Key: String(key),
             }),
           ),
         catch: (e) => AppError.storage(e),

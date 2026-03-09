@@ -1,8 +1,17 @@
-import { Effect as E, Option as O } from "effect";
+import { Effect as E, Option as O, Schema as S } from "effect";
 import { and, asc, desc, eq, ilike, isNull, sql } from "drizzle-orm";
 import type { AppDb } from "@infra/database/utils/connection.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
-import { BucketKey, Checksum, DocumentId, UserId, VersionId } from "@domain/utils/refined.types.ts";
+import {
+  DocumentId,
+  UserId,
+  VersionId,
+  StringToDocumentId,
+  StringToUserId,
+  StringToVersionId,
+  StringToBucketKey,
+  StringToChecksum,
+} from "@domain/utils/refined.types.ts";
 import { Document } from "@domain/document/document.entity.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { DocumentRow, VersionRow } from "@infra/database/schema.ts";
@@ -28,13 +37,11 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
 
   private static readonly fromDocumentRow = (row: DocumentRow): Document => {
     return Document.reconstitute({
-      id: DocumentId.create(row.id).unwrap(),
-      ownerId: UserId.create(row.ownerId).unwrap(),
+      id: S.decodeSync(StringToDocumentId)(row.id),
+      ownerId: S.decodeSync(StringToUserId)(row.ownerId),
       name: row.name,
       contentType: row.contentType as ContentType,
-      currentVersionId: O.map(O.fromNullable(row.currentVersionId), (v) =>
-        VersionId.create(v).unwrap(),
-      ),
+      currentVersionId: O.map(O.fromNullable(row.currentVersionId), S.decodeSync(StringToVersionId)),
       tags: row.tags,
       metadata: row.metadata ?? {},
       createdAt: row.createdAt,
@@ -45,13 +52,13 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
 
   private static readonly fromVersionRow = (row: VersionRow): DocumentVersion => {
     return DocumentVersion.reconstitute({
-      id: VersionId.create(row.id).unwrap(),
-      documentId: DocumentId.create(row.documentId).unwrap(),
+      id: S.decodeSync(StringToVersionId)(row.id),
+      documentId: S.decodeSync(StringToDocumentId)(row.documentId),
       versionNumber: row.versionNumber,
-      bucketKey: BucketKey.create(row.bucketKey).unwrap(),
+      bucketKey: S.decodeSync(StringToBucketKey)(row.bucketKey),
       sizeBytes: row.sizeBytes,
-      checksum: Checksum.create(row.checksum).unwrap(),
-      uploadedBy: UserId.create(row.uploadedBy).unwrap(),
+      checksum: S.decodeSync(StringToChecksum)(row.checksum),
+      uploadedBy: S.decodeSync(StringToUserId)(row.uploadedBy),
       createdAt: row.createdAt,
     });
   };

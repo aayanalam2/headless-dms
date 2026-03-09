@@ -1,6 +1,6 @@
 import { Effect as E, pipe } from "effect";
 import { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
-import type { AccessPolicy as AccessPolicyType } from "@domain/access-policy/access-policy.entity.ts";
+import type { AccessPolicyType } from "@domain/access-policy/access-policy.entity.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
 import type { Document } from "@domain/document/document.entity.ts";
@@ -73,13 +73,10 @@ export function requireShareableDocument(
 }
 
 export function buildPolicy(
-  input: Parameters<typeof AccessPolicy.create>[0],
-  errorMessage: string,
-): E.Effect<AccessPolicyType, WorkflowError> {
-  return pipe(
-    AccessPolicy.create(input),
-    E.mapError(() => AccessPolicyWorkflowError.invalidInput(errorMessage)),
-  );
+  input: AccessPolicyType,
+  _errorMessage: string,
+): E.Effect<AccessPolicy, WorkflowError> {
+  return E.succeed(AccessPolicy.createNew(input));
 }
 
 export const emitPolicyGranted = (event: AccessPolicyGrantedEvent): E.Effect<void, never> =>

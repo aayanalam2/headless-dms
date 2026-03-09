@@ -4,6 +4,8 @@
 // emitting service.
 // ---------------------------------------------------------------------------
 
+import type { UserId, DocumentId, VersionId } from "@domain/utils/refined.types.ts";
+
 export enum DocumentEvent {
   Uploaded = "document.uploaded",
   VersionCreated = "document.version.created",
@@ -11,24 +13,24 @@ export enum DocumentEvent {
 }
 
 export type DocumentUploadedEvent = {
-  readonly actorId: string;
-  readonly resourceId: string;
-  readonly versionId: string;
+  readonly actorId: UserId;
+  readonly resourceId: DocumentId;
+  readonly versionId: VersionId;
   readonly filename: string;
   readonly contentType: string;
 };
 
 export type DocumentVersionCreatedEvent = {
-  readonly actorId: string;
-  readonly resourceId: string;
-  readonly versionId: string;
+  readonly actorId: UserId;
+  readonly resourceId: DocumentId;
+  readonly versionId: VersionId;
   readonly versionNumber: number;
   readonly filename: string;
 };
 
 export type DocumentDeletedEvent = {
-  readonly actorId: string;
-  readonly resourceId: string;
+  readonly actorId: UserId;
+  readonly resourceId: DocumentId;
 };
 
 export type DocumentEventMap = {

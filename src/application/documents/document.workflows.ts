@@ -1,14 +1,18 @@
 import { inject, injectable } from "tsyringe";
-import { Effect as E, pipe } from "effect";
+import { Effect as E, Schema as S, pipe } from "effect";
 import { Document } from "@domain/document/document.entity.ts";
-import type { ContentType } from "@domain/document/value-objects/content-type.vo.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
 import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { Role } from "@domain/utils/enums.ts";
 import { withPagination } from "@domain/utils/pagination.ts";
-import { type BucketKey, type Checksum } from "@domain/utils/refined.types.ts";
+import {
+  type BucketKey,
+  type Checksum,
+  StringToDocumentId,
+  StringToVersionId,
+} from "@domain/utils/refined.types.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
 import { TOKENS } from "@infra/di/tokens.ts";
 import { BucketKeyFactory } from "@domain/document/value-objects/bucket-key.vo.ts";
@@ -119,10 +123,9 @@ export class DocumentWorkflows {
       decodeCommand(UploadDocumentMetaSchema, rawMeta, DocumentWorkflowError.invalidInput),
       E.flatMap((meta) => {
         const now = new Date();
-        const docId = crypto.randomUUID();
-        const verId = crypto.randomUUID();
+        const docId = S.decodeSync(StringToDocumentId)(crypto.randomUUID());
+        const verId = S.decodeSync(StringToVersionId)(crypto.randomUUID());
         const filename = meta.name?.trim() || file.name || "untitled";
-        const contentType = file.type as ContentType;
         const bucketKey = BucketKeyFactory.forVersion(docId, verId, filename);
 
         return pipe(
@@ -146,17 +149,15 @@ export class DocumentWorkflows {
 
           E.flatMap(({ metadata, buffer, tags }) =>
             pipe(
-              Document.create({
+              Document.createNew({
                 id: docId,
-                ownerId: meta.actor.userId as string,
+                ownerId: meta.actor.userId,
                 name: filename,
-                contentType,
-                currentVersionId: null,
+                contentType: file.type,
                 tags,
                 metadata,
-                createdAt: now.toISOString(),
-                updatedAt: now.toISOString(),
-                deletedAt: null,
+                createdAt: now,
+                updatedAt: now,
               }),
               E.mapError((e) => DocumentWorkflowError.invalidContentType(e.contentType)),
               E.map((doc) => ({ doc, buffer })),
@@ -170,42 +171,37 @@ export class DocumentWorkflows {
             ),
           ),
 
-          E.flatMap(({ doc, buffer, checksum }) =>
-            pipe(
-              DocumentVersion.create({
-                id: verId,
-                documentId: docId,
-                versionNumber: 1,
-                bucketKey: bucketKey as string,
-                sizeBytes: buffer.byteLength,
-                checksum: checksum as string,
-                uploadedBy: meta.actor.userId as string,
-                createdAt: now.toISOString(),
-              }),
-              E.mapError((e) => DocumentWorkflowError.unavailable("DocumentVersion.create", e)),
-              E.flatMap((version) =>
+          E.flatMap(({ doc, buffer, checksum }) => {
+            const version = DocumentVersion.createNew({
+              id: verId,
+              documentId: docId,
+              versionNumber: 1,
+              bucketKey: bucketKey,
+              sizeBytes: buffer.byteLength,
+              checksum: checksum,
+              uploadedBy: meta.actor.userId,
+              createdAt: now,
+            });
+            return pipe(
+              doc.setCurrentVersion(version.id, now),
+              E.mapError((e) => DocumentWorkflowError.conflict(e.message)),
+              E.flatMap((updatedDoc) =>
                 pipe(
-                  doc.setCurrentVersion(version.id, now),
-                  E.mapError((e) => DocumentWorkflowError.conflict(e.message)),
-                  E.flatMap((updatedDoc) =>
-                    pipe(
-                      this.documentRepo.insertDocumentWithVersion(doc, version, updatedDoc),
-                      E.mapError((e) =>
-                        DocumentWorkflowError.unavailable("repo.insertDocumentWithVersion", e),
-                      ),
-                      E.as({ version, updated: updatedDoc }),
-                    ),
+                  this.documentRepo.insertDocumentWithVersion(doc, version, updatedDoc),
+                  E.mapError((e) =>
+                    DocumentWorkflowError.unavailable("repo.insertDocumentWithVersion", e),
                   ),
+                  E.as({ version, updated: updatedDoc }),
                 ),
               ),
-            ),
-          ),
+            );
+          }),
 
           E.tap(({ updated, version }) =>
             emitDocumentUploaded({
               actorId: meta.actor.userId,
-              resourceId: updated.id as string,
-              versionId: version.id as string,
+              resourceId: updated.id,
+              versionId: version.id,
               filename,
               contentType: updated.contentType,
             }),
@@ -228,7 +224,7 @@ export class DocumentWorkflows {
       decodeCommand(UploadVersionMetaSchema, rawMeta, DocumentWorkflowError.invalidInput),
       E.flatMap((meta) => {
         const now = new Date();
-        const verId = crypto.randomUUID();
+        const verId = S.decodeSync(StringToVersionId)(crypto.randomUUID());
 
         return pipe(
           requireAccessibleDocument(
@@ -247,7 +243,7 @@ export class DocumentWorkflows {
                 const contentType = file.type || document.contentType;
                 const versionNumber = DocumentVersion.nextNumber(versions);
                 const bucketKey = BucketKeyFactory.forVersion(
-                  meta.documentId as string,
+                  meta.documentId,
                   verId,
                   filename,
                 );
@@ -275,33 +271,28 @@ export class DocumentWorkflows {
             ),
           ),
 
-          E.flatMap(({ document, filename, versionNumber, bucketKey, buffer, checksum }) =>
-            pipe(
-              DocumentVersion.create({
-                id: verId,
-                documentId: meta.documentId as string,
-                versionNumber,
-                bucketKey: bucketKey as string,
-                sizeBytes: buffer.byteLength,
-                checksum: checksum as string,
-                uploadedBy: meta.actor.userId as string,
-                createdAt: now.toISOString(),
-              }),
-              E.mapError((e) => DocumentWorkflowError.unavailable("DocumentVersion.create", e)),
-              E.flatMap((version) =>
-                pipe(
-                  commitVersion(this.documentRepo, document, version, now),
-                  E.as({ version, versionNumber, filename }),
-                ),
-              ),
-            ),
-          ),
+          E.flatMap(({ document, filename, versionNumber, bucketKey, buffer, checksum }) => {
+            const version = DocumentVersion.createNew({
+              id: verId,
+              documentId: meta.documentId,
+              versionNumber,
+              bucketKey: bucketKey,
+              sizeBytes: buffer.byteLength,
+              checksum: checksum,
+              uploadedBy: meta.actor.userId,
+              createdAt: now,
+            });
+            return pipe(
+              commitVersion(this.documentRepo, document, version, now),
+              E.as({ version, versionNumber, filename }),
+            );
+          }),
 
           E.tap(({ version, versionNumber, filename }) =>
             emitVersionCreated({
               actorId: meta.actor.userId,
-              resourceId: meta.documentId as string,
-              versionId: version.id as string,
+              resourceId: meta.documentId,
+              versionId: version.id,
               versionNumber,
               filename,
             }),

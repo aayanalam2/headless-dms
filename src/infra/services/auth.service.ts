@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
+import { Schema as S } from "effect";
 import { injectable } from "tsyringe";
 import type { HashedPassword } from "@domain/utils/refined.types.ts";
+import { StringToHashedPassword } from "@domain/utils/refined.types.ts";
 import { config } from "@infra/config/env.ts";
 
 // ---------------------------------------------------------------------------
@@ -14,14 +16,14 @@ import { config } from "@infra/config/env.ts";
  */
 export async function hashPassword(plaintext: string, rounds: number): Promise<HashedPassword> {
   const hash = await bcrypt.hash(plaintext, rounds);
-  return hash as HashedPassword;
+  return S.decodeSync(StringToHashedPassword)(hash);
 }
 
 /**
  * Returns true when plaintext matches the stored hash.
  */
 export async function verifyPassword(plaintext: string, hashed: HashedPassword): Promise<boolean> {
-  return bcrypt.compare(plaintext, hashed as string);
+  return bcrypt.compare(plaintext, String(hashed));
 }
 
 // ---------------------------------------------------------------------------
@@ -37,7 +39,7 @@ export class AuthService {
     return hashPassword(plaintext, this.rounds);
   }
 
-  verify(plaintext: string, hashed: string): Promise<boolean> {
-    return verifyPassword(plaintext, hashed as HashedPassword);
+  verify(plaintext: string, hashed: HashedPassword): Promise<boolean> {
+    return verifyPassword(plaintext, hashed);
   }
 }

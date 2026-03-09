@@ -102,6 +102,43 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
     return new Document(data);
   }
 
+  /**
+   * Creates a brand-new Document from already-validated domain values.
+   * Intended for use in application-layer workflows where all IDs and
+   * primitives are already typed. Only content-type is validated here;
+   * all other invariants are enforced by the branded types themselves.
+   */
+  static createNew(
+    input: {
+      readonly id: DocumentId;
+      readonly ownerId: UserId;
+      readonly name: string;
+      readonly contentType: string;
+      readonly tags: readonly string[];
+      readonly metadata: Record<string, string>;
+      readonly createdAt: Date;
+      readonly updatedAt: Date;
+    },
+  ): E.Effect<Document, InvalidContentTypeError> {
+    if (!Schema.is(ContentTypeSchema)(input.contentType)) {
+      return E.fail(new InvalidContentTypeError(input.contentType));
+    }
+    return E.succeed(
+      new Document({
+        id: input.id,
+        ownerId: input.ownerId,
+        name: input.name,
+        contentType: input.contentType,
+        currentVersionId: O.none(),
+        tags: input.tags,
+        metadata: input.metadata,
+        createdAt: input.createdAt,
+        updatedAt: input.updatedAt,
+        deletedAt: O.none(),
+      }),
+    );
+  }
+
   private with(overrides: Partial<DocumentType>): Document {
     return new Document({
       id: this.id,

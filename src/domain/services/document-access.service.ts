@@ -8,28 +8,6 @@ import {
 import { Role } from "@domain/utils/enums.ts";
 import type { UserId } from "@domain/utils/refined.types.ts";
 
-// ---------------------------------------------------------------------------
-// DocumentAccessService
-//
-// Pure domain service that evaluates whether an actor has a given permission
-// on a Document, given the set of AccessPolicies that apply to it.
-//
-// No I/O.  No external dependencies.  Fully deterministic.
-//
-// Evaluation precedence:
-//   1. Admin role         → always ALLOW.
-//   2. Owner bypass       → owners are implicitly granted Read, Write, Share.
-//                           Delete always requires an explicit policy.
-//   3. Subject policies   → policies targeting this specific user by ID.
-//      Within tier: a single DENY overrides all ALLOWs.
-//   4. Default            → DENY.
-//
-// The tiered evaluation is modelled as an Option<boolean> pipeline:
-//   • Some(true)  — the tier reached an ALLOW decision.
-//   • Some(false) — the tier reached a DENY decision.
-//   • None        — the tier was undecided; fall through to the next.
-// ---------------------------------------------------------------------------
-
 /** Actions that owners are implicitly granted without an explicit policy. */
 const OWNER_BYPASS_ACTIONS = new Set<PermissionAction>([
   PermissionAction.Read,
@@ -37,13 +15,6 @@ const OWNER_BYPASS_ACTIONS = new Set<PermissionAction>([
   PermissionAction.Share,
 ]);
 
-/**
- * Evaluates a single tier of the access control decision.
- *
- * Returns `Some(false)` if any policy denies,
- * `Some(true)` if any policy allows and none denies,
- * or `None` if no matching policies exist (undecided — try next tier).
- */
 const decideTier = (tierPolicies: readonly IAccessPolicy[]): O.Option<boolean> => {
   if (tierPolicies.length === 0) return O.none();
   if (tierPolicies.some((p) => p.effect === PolicyEffect.Deny)) return O.some(false);
@@ -70,21 +41,13 @@ export class DocumentAccessService {
     document: IDocument,
     action: PermissionAction,
   ): boolean {
-    // Tier 1 — Admin bypass: short-circuit before any policy evaluation.
     if (actor.role === Role.Admin) return true;
 
-    // Tier 2 — Owner bypass: document owners get implicit Read / Write / Share.
     if (document.ownerId === actor.id && OWNER_BYPASS_ACTIONS.has(action)) return true;
 
-    // Narrow to policies governing this specific action on this document.
     const relevant = policies.filter((p) => p.documentId === document.id && p.action === action);
 
-    // Tier 3 — Subject policies: explicitly target this user by ID.
     const subjectPolicies = relevant.filter((p) => p.subjectId === actor.id);
-
-    // Chain tiers via Option<boolean>.  The first tier that reaches a decision
-    // (Some) short-circuits; None passes control to the next tier.
-    // getOrElse provides the default-deny fallback.
     return pipe(
       decideTier(subjectPolicies),
       O.getOrElse(() => false),
