@@ -1,7 +1,12 @@
 import { Effect as E, pipe, Schema as S } from "effect";
 import { User, type SerializedUser } from "@domain/user/user.entity.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
-import { type Email, type HashedPassword, type UserId, StringToEmail } from "@domain/utils/refined.types.ts";
+import {
+  type Email,
+  type HashedPassword,
+  type UserId,
+  StringToEmail,
+} from "@domain/utils/refined.types.ts";
 import { Role } from "@domain/utils/enums.ts";
 import {
   UserWorkflowError,

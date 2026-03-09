@@ -108,18 +108,16 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
    * primitives are already typed. Only content-type is validated here;
    * all other invariants are enforced by the branded types themselves.
    */
-  static createNew(
-    input: {
-      readonly id: DocumentId;
-      readonly ownerId: UserId;
-      readonly name: string;
-      readonly contentType: string;
-      readonly tags: readonly string[];
-      readonly metadata: Record<string, string>;
-      readonly createdAt: Date;
-      readonly updatedAt: Date;
-    },
-  ): E.Effect<Document, InvalidContentTypeError> {
+  static createNew(input: {
+    readonly id: DocumentId;
+    readonly ownerId: UserId;
+    readonly name: string;
+    readonly contentType: string;
+    readonly tags: readonly string[];
+    readonly metadata: Record<string, string>;
+    readonly createdAt: Date;
+    readonly updatedAt: Date;
+  }): E.Effect<Document, InvalidContentTypeError> {
     if (!Schema.is(ContentTypeSchema)(input.contentType)) {
       return E.fail(new InvalidContentTypeError(input.contentType));
     }

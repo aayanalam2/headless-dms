@@ -41,7 +41,10 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
       ownerId: S.decodeSync(StringToUserId)(row.ownerId),
       name: row.name,
       contentType: row.contentType as ContentType,
-      currentVersionId: O.map(O.fromNullable(row.currentVersionId), S.decodeSync(StringToVersionId)),
+      currentVersionId: O.map(
+        O.fromNullable(row.currentVersionId),
+        S.decodeSync(StringToVersionId),
+      ),
       tags: row.tags,
       metadata: row.metadata ?? {},
       createdAt: row.createdAt,

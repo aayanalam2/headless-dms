@@ -124,10 +124,10 @@ export class AccessPolicyWorkflows {
                   ),
                   E.flatMap(() =>
                     emitPolicyUpdated({
-                    actorId: cmd.actor.userId,
-                    resourceId: replacement.id,
-                    previousPolicyId: cmd.policyId,
-                    documentId: existing.documentId,
+                      actorId: cmd.actor.userId,
+                      resourceId: replacement.id,
+                      previousPolicyId: cmd.policyId,
+                      documentId: existing.documentId,
                       effect: cmd.effect,
                     }),
                   ),

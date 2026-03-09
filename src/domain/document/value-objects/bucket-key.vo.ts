@@ -14,6 +14,8 @@ import { BucketKey, StringToBucketKey } from "@domain/utils/refined.types.ts";
  */
 export const BucketKeyFactory = {
   forVersion(documentId: DocumentId, versionId: VersionId, filename: string): BucketKey {
-    return S.decodeSync(StringToBucketKey)(`${String(documentId)}/${String(versionId)}/${encodeURIComponent(filename)}`);
+    return S.decodeSync(StringToBucketKey)(
+      `${String(documentId)}/${String(versionId)}/${encodeURIComponent(filename)}`,
+    );
   },
 } as const;

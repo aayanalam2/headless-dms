@@ -242,11 +242,7 @@ export class DocumentWorkflows {
                 const filename = meta.name?.trim() || file.name || document.name;
                 const contentType = file.type || document.contentType;
                 const versionNumber = DocumentVersion.nextNumber(versions);
-                const bucketKey = BucketKeyFactory.forVersion(
-                  meta.documentId,
-                  verId,
-                  filename,
-                );
+                const bucketKey = BucketKeyFactory.forVersion(meta.documentId, verId, filename);
                 return { document, filename, contentType, versionNumber, bucketKey };
               }),
             ),
