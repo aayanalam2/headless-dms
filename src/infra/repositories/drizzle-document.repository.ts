@@ -1,5 +1,5 @@
 import { Effect as E, Option as O, Schema as S } from "effect";
-import { and, asc, desc, eq, ilike, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
 import type { AppDb } from "@infra/database/utils/connection.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
 import {
@@ -27,6 +27,7 @@ import type { ContentType } from "@domain/document/value-objects/content-type.vo
 import { documentsTable } from "@infra/database/models/document.table.ts";
 import { documentVersionsTable } from "@infra/database/models/document-version.table.ts";
 import { accessPoliciesTable } from "@infra/database/models/access-policy.table.ts";
+import { PolicyEffect } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import {
   executeQuery,
   executeTransaction,
@@ -150,6 +151,44 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
       ]);
       return {
         items: rows.map(DrizzleDocumentRepository.fromDocumentRow),
+        pageInfo: buildPageInfo(countResult[0]?.count ?? 0, page, limit),
+      };
+    });
+  }
+
+  findAccessible(
+    subjectId: UserId,
+    { page, limit }: PaginationParams,
+  ): RepositoryEffect<Paginated<Document>> {
+    const offset = (page - 1) * limit;
+    const joinCond = and(
+      eq(accessPoliciesTable.documentId, documentsTable.id),
+      eq(accessPoliciesTable.subjectId, subjectId),
+      eq(accessPoliciesTable.effect, PolicyEffect.Allow),
+    );
+    const where = and(
+      isNull(documentsTable.deletedAt),
+      or(eq(documentsTable.ownerId, subjectId), isNotNull(accessPoliciesTable.id)),
+    );
+
+    return executeQuery(async () => {
+      const [countResult, rows] = await Promise.all([
+        this.db
+          .select({ count: sql<number>`cast(count(distinct ${documentsTable.id}) as int)` })
+          .from(documentsTable)
+          .leftJoin(accessPoliciesTable, joinCond)
+          .where(where),
+        this.db
+          .selectDistinct({ doc: documentsTable })
+          .from(documentsTable)
+          .leftJoin(accessPoliciesTable, joinCond)
+          .where(where)
+          .orderBy(desc(documentsTable.createdAt))
+          .limit(limit)
+          .offset(offset),
+      ]);
+      return {
+        items: rows.map((r) => DrizzleDocumentRepository.fromDocumentRow(r.doc)),
         pageInfo: buildPageInfo(countResult[0]?.count ?? 0, page, limit),
       };
     });

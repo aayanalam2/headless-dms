@@ -1,8 +1,12 @@
 import { Effect as E, Option as O, pipe } from "effect";
-import { type DocumentId, type VersionId } from "@domain/utils/refined.types.ts";
+import { type DocumentId, type VersionId, type UserId } from "@domain/utils/refined.types.ts";
+import { Role } from "@domain/utils/enums.ts";
 import type { Document } from "@domain/document/document.entity.ts";
 import type { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
+import type { Paginated, PaginationParams } from "@domain/utils/pagination.ts";
+import type { RepositoryEffect } from "@domain/utils/repository.types.ts";
+import type { Actor } from "@application/shared/actor.ts";
 import { eventBus } from "@infra/event-bus.ts";
 import {
   DocumentEvent,
@@ -17,6 +21,25 @@ import {
 import { makeUnavailable, requireFound } from "@application/shared/workflow.helpers.ts";
 
 const unavailable = makeUnavailable(DocumentWorkflowError.unavailable);
+
+/**
+ * Resolves which repository query to run for a list operation based on the
+ * actor's role. Admins can browse globally (filtered by owner or name);
+ * all other actors see only documents accessible to them.
+ */
+export function scopeList(
+  repo: IDocumentRepository,
+  actor: Actor,
+  filters: { readonly ownerId?: UserId | undefined; readonly name?: string | undefined },
+  pagination: PaginationParams,
+): RepositoryEffect<Paginated<Document>> {
+  if (actor.role === Role.Admin) {
+    return filters.ownerId !== undefined
+      ? repo.findByOwner(filters.ownerId, pagination)
+      : repo.search(filters.name?.trim() ?? "", pagination);
+  }
+  return repo.findAccessible(actor.userId, pagination);
+}
 
 export function requireDocument(
   repo: IDocumentRepository,

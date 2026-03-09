@@ -33,6 +33,14 @@ export interface IDocumentRepository {
 
   findByOwner(ownerId: UserId, pagination: PaginationParams): RepositoryEffect<Paginated<Document>>;
 
+  /**
+   * Fetches all non-deleted documents the user can see: documents they own
+   * plus any document for which they have at least one Allow policy.
+   *
+   * Used by the `list` workflow for non-admin actors.
+   */
+  findAccessible(subjectId: UserId, pagination: PaginationParams): RepositoryEffect<Paginated<Document>>;
+
   search(query: string, pagination: PaginationParams): RepositoryEffect<Paginated<Document>>;
 
   // -------------------------------------------------------------------------

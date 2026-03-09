@@ -26,6 +26,7 @@ import {
   DocumentVersionNotFoundError,
 } from "../../src/domain/document/document.errors.ts";
 import { UserNotFoundError, UserAlreadyExistsError } from "../../src/domain/user/user.errors.ts";
+import { PolicyEffect } from "../../src/domain/access-policy/value-objects/permission-action.vo.ts";
 
 // ---------------------------------------------------------------------------
 // createInMemoryDocumentRepository
@@ -63,6 +64,27 @@ export function createInMemoryDocumentRepository(initial?: {
 
     findByOwner(ownerId: UserId, pagination: PaginationParams) {
       const filtered = docs.filter((d) => d.ownerId === ownerId && O.isNone(d.deletedAt));
+      const total = filtered.length;
+      const offset = (pagination.page - 1) * pagination.limit;
+      const items = filtered.slice(offset, offset + pagination.limit);
+      return E.succeed({
+        items,
+        pageInfo: buildPageInfo(total, pagination.page, pagination.limit),
+      });
+    },
+
+    findAccessible(subjectId: UserId, pagination: PaginationParams) {
+      const filtered = docs.filter(
+        (d) =>
+          O.isNone(d.deletedAt) &&
+          (d.ownerId === subjectId ||
+            policies.some(
+              (p) =>
+                p.documentId === d.id &&
+                p.subjectId === subjectId &&
+                p.effect === PolicyEffect.Allow,
+            )),
+      );
       const total = filtered.length;
       const offset = (pagination.page - 1) * pagination.limit;
       const items = filtered.slice(offset, offset + pagination.limit);

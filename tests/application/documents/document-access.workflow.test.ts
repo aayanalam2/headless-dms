@@ -494,3 +494,115 @@ describe("get — access control", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// list — access visibility
+// ---------------------------------------------------------------------------
+
+describe("list — access visibility", () => {
+  it("user sees their own documents", async () => {
+    const owner = makeUser();
+    const other = makeUser();
+    const ownDoc = makeDocument({ ownerId: owner.id as string });
+    const otherDoc = makeDocument({ ownerId: other.id as string });
+
+    const { workflows } = makeWorkflows({ docs: [ownDoc, otherDoc] });
+
+    const result = await E.runPromise(
+      workflows.list({ actor: { userId: owner.id as string, role: Role.User } }),
+    );
+
+    const ids = result.items.map((d) => d.id);
+    expect(ids).toContain(ownDoc.id);
+    expect(ids).not.toContain(otherDoc.id);
+  });
+
+  it("user sees documents shared with them via an Allow policy", async () => {
+    const viewer = makeUser();
+    const owner = makeUser();
+    const sharedDoc = makeDocument({ ownerId: owner.id as string });
+    const unsharedDoc = makeDocument({ ownerId: owner.id as string });
+    const policy = makeSubjectPolicy({
+      documentId: sharedDoc.id as string,
+      subjectId: viewer.id as string,
+      action: PermissionAction.Read,
+      effect: PolicyEffect.Allow,
+    });
+
+    const { workflows } = makeWorkflows({ docs: [sharedDoc, unsharedDoc], policies: [policy] });
+
+    const result = await E.runPromise(
+      workflows.list({ actor: { userId: viewer.id as string, role: Role.User } }),
+    );
+
+    const ids = result.items.map((d) => d.id);
+    expect(ids).toContain(sharedDoc.id);
+    expect(ids).not.toContain(unsharedDoc.id);
+  });
+
+  it("user does NOT see documents they only have a Deny policy for", async () => {
+    const viewer = makeUser();
+    const owner = makeUser();
+    const doc = makeDocument({ ownerId: owner.id as string });
+    const denyPolicy = makeSubjectPolicy({
+      documentId: doc.id as string,
+      subjectId: viewer.id as string,
+      action: PermissionAction.Read,
+      effect: PolicyEffect.Deny,
+    });
+
+    const { workflows } = makeWorkflows({ docs: [doc], policies: [denyPolicy] });
+
+    const result = await E.runPromise(
+      workflows.list({ actor: { userId: viewer.id as string, role: Role.User } }),
+    );
+
+    expect(result.items).toHaveLength(0);
+  });
+
+  it("user sees both their own and documents shared with them", async () => {
+    const user = makeUser();
+    const other = makeUser();
+    const ownDoc = makeDocument({ ownerId: user.id as string });
+    const sharedDoc = makeDocument({ ownerId: other.id as string });
+    const unrelatedDoc = makeDocument({ ownerId: other.id as string });
+    const policy = makeSubjectPolicy({
+      documentId: sharedDoc.id as string,
+      subjectId: user.id as string,
+      action: PermissionAction.Read,
+      effect: PolicyEffect.Allow,
+    });
+
+    const { workflows } = makeWorkflows({
+      docs: [ownDoc, sharedDoc, unrelatedDoc],
+      policies: [policy],
+    });
+
+    const result = await E.runPromise(
+      workflows.list({ actor: { userId: user.id as string, role: Role.User } }),
+    );
+
+    const ids = result.items.map((d) => d.id);
+    expect(ids).toContain(ownDoc.id);
+    expect(ids).toContain(sharedDoc.id);
+    expect(ids).not.toContain(unrelatedDoc.id);
+  });
+
+  it("admin with no filters sees all documents (global search)", async () => {
+    const admin = makeUser({ role: Role.Admin });
+    const u1 = makeUser();
+    const u2 = makeUser();
+    const doc1 = makeDocument({ ownerId: u1.id as string });
+    const doc2 = makeDocument({ ownerId: u2.id as string });
+
+    const { workflows } = makeWorkflows({ docs: [doc1, doc2] });
+
+    const result = await E.runPromise(
+      workflows.list({ actor: { userId: admin.id as string, role: Role.Admin } }),
+    );
+
+    const ids = result.items.map((d) => d.id);
+    expect(ids).toContain(doc1.id);
+    expect(ids).toContain(doc2.id);
+  });
+});

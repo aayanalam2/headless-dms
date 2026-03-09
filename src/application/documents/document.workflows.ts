@@ -4,7 +4,6 @@ import { Document } from "@domain/document/document.entity.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
 import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
-import { Role } from "@domain/utils/enums.ts";
 import { withPagination } from "@application/shared/pagination.ts";
 import {
   type BucketKey,
@@ -24,6 +23,7 @@ import {
   requireVersion,
   requireVersionOfDocument,
   requireCurrentVersion,
+  scopeList,
   emitDocumentUploaded,
   emitVersionCreated,
   emitDocumentDeleted,
@@ -311,18 +311,11 @@ export class DocumentWorkflows {
       E.flatMap((query) =>
         withPagination(
           query,
-          (pagination) => {
-            const effectiveOwnerId =
-              query.actor.role !== Role.Admin ? query.actor.userId : query.ownerId;
-            const search =
-              effectiveOwnerId !== undefined
-                ? this.documentRepo.findByOwner(effectiveOwnerId, pagination)
-                : this.documentRepo.search(query.name?.trim() ?? "", pagination);
-            return pipe(
-              search,
+          (pagination) =>
+            pipe(
+              scopeList(this.documentRepo, query.actor, { ownerId: query.ownerId, name: query.name }, pagination),
               E.mapError((e) => DocumentWorkflowError.unavailable("repo.listDocuments", e)),
-            );
-          },
+            ),
           toPaginatedDocumentsDTO,
         ),
       ),
