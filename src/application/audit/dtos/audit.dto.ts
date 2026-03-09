@@ -2,12 +2,14 @@ import { Schema as S } from "effect";
 import { AuditResourceType } from "@domain/utils/enums.ts";
 import type { AuditLogEntry } from "../audit.repository.port.ts";
 import type { Paginated } from "@domain/utils/pagination.ts";
+import { ActorCommandSchema } from "@application/shared/actor.ts";
 
 // ===========================================================================
 // INBOUND — Command / Query schemas
 // ===========================================================================
 
 export const ListAuditLogsQuerySchema = S.Struct({
+  actor: ActorCommandSchema,
   page: S.optional(S.Union(S.Number, S.NumberFromString)),
   limit: S.optional(S.Union(S.Number, S.NumberFromString)),
   resourceType: S.optional(S.Enums(AuditResourceType)),

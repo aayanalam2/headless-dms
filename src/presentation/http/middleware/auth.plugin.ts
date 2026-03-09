@@ -69,16 +69,4 @@ export const authPlugin = new Elysia({ name: "auth" })
     };
   });
 
-// ---------------------------------------------------------------------------
-// adminPlugin — extends authPlugin with an additional guard that rejects
-// non-admin users with 403.
-// ---------------------------------------------------------------------------
 
-export const adminPlugin = new Elysia({ name: "admin" })
-  .use(authPlugin)
-  .onBeforeHandle({ as: "scoped" }, ({ user, set }) => {
-    if (!user || user.role !== Role.Admin) {
-      set.status = StatusCode.ClientErrorForbidden;
-      return { error: "Forbidden: admin access required" };
-    }
-  });

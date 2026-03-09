@@ -10,6 +10,7 @@
 
 export const AuditWorkflowErrorTag = {
   InvalidInput: "AuditWorkflow.InvalidInput",
+  Forbidden: "AuditWorkflow.Forbidden",
   Unavailable: "AuditWorkflow.Unavailable",
 } as const;
 
@@ -18,6 +19,7 @@ export type AuditWorkflowErrorTag =
 
 export type AuditWorkflowError =
   | { readonly _tag: typeof AuditWorkflowErrorTag.InvalidInput; readonly message: string }
+  | { readonly _tag: typeof AuditWorkflowErrorTag.Forbidden; readonly reason: string }
   | {
       readonly _tag: typeof AuditWorkflowErrorTag.Unavailable;
       readonly operation: string;
@@ -28,6 +30,11 @@ export const AuditWorkflowError = {
   invalidInput: (message: string): AuditWorkflowError => ({
     _tag: AuditWorkflowErrorTag.InvalidInput,
     message,
+  }),
+
+  forbidden: (reason: string): AuditWorkflowError => ({
+    _tag: AuditWorkflowErrorTag.Forbidden,
+    reason,
   }),
 
   unavailable: (operation: string, cause?: unknown): AuditWorkflowError => ({

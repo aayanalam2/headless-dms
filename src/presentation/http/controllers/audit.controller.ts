@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia";
-import { adminPlugin } from "../middleware/auth.plugin.ts";
+import { authPlugin } from "../middleware/auth.plugin.ts";
 import type { AuditResourceType } from "@domain/utils/enums.ts";
 import { makeRun } from "../lib/http.ts";
 import type { AuditWorkflows } from "@application/audit/audit.workflows.ts";
@@ -9,12 +9,13 @@ const run = makeRun(auditWorkflowToHttp);
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createAuditController(workflows: AuditWorkflows) {
-  return new Elysia({ prefix: "/audit" }).use(adminPlugin).get(
+  return new Elysia({ prefix: "/audit" }).use(authPlugin).get(
     "/",
-    ({ query, set }) =>
+    ({ query, user, set }) =>
       run(
         set,
         workflows.listAuditLogs({
+          actor: user,
           ...query,
           // The Elysia schema validates `resourceType` as a raw string; the
           // workflow's decodeCommand will validate it against AuditResourceType enum.

@@ -96,19 +96,7 @@ export type VersionDTO = S.Schema.Encoded<typeof VersionDTOSchema>;
 export const DocumentDTOSchema = DocumentSchema.omit("deletedAt");
 export type DocumentDTO = S.Schema.Encoded<typeof DocumentDTOSchema>;
 
-export const PageInfoSchema = S.Struct({
-  total: S.Number,
-  page: S.Number,
-  limit: S.Number,
-  totalPages: S.Number,
-});
-export type PageInfoDTO = S.Schema.Type<typeof PageInfoSchema>;
-
-export const PaginatedDocumentsDTOSchema = S.Struct({
-  items: S.Array(DocumentDTOSchema),
-  pageInfo: PageInfoSchema,
-});
-export type PaginatedDocumentsDTO = S.Schema.Encoded<typeof PaginatedDocumentsDTOSchema>;
+export type PaginatedDocumentsDTO = Paginated<DocumentDTO>;
 
 export const PresignedDownloadDTOSchema = S.Struct({
   url: S.String,

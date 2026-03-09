@@ -89,6 +89,8 @@ export function auditWorkflowToHttp(e: AuditWorkflowError): AppError {
   switch (e._tag) {
     case AuditWorkflowErrorTag.InvalidInput:
       return AppError.validation(e.message);
+    case AuditWorkflowErrorTag.Forbidden:
+      return AppError.accessDenied(e.reason);
     case AuditWorkflowErrorTag.Unavailable:
       return AppError.database(e.operation);
     default:
