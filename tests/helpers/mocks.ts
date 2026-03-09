@@ -5,11 +5,19 @@ import type { IStorage } from "../../src/infra/repositories/storage.port.ts";
 import type { Document } from "../../src/domain/document/document.entity.ts";
 import type { DocumentVersion } from "../../src/domain/document/document-version.entity.ts";
 import type { User } from "../../src/domain/user/user.entity.ts";
+import type { AccessPolicy } from "../../src/domain/access-policy/access-policy.entity.ts";
+import type { IAccessPolicyRepository } from "../../src/domain/access-policy/access-policy.repository.ts";
+import { AccessPolicyNotFoundError } from "../../src/domain/access-policy/access-policy.errors.ts";
+import type {
+  IAuditRepository,
+  AuditLogEntry,
+} from "../../src/application/audit/audit.repository.port.ts";
 import type {
   DocumentId,
   UserId,
   VersionId,
   BucketKey,
+  AccessPolicyId,
 } from "../../src/domain/utils/refined.types.ts";
 import type { PaginationParams } from "../../src/domain/utils/pagination.ts";
 import { buildPageInfo } from "../../src/domain/utils/pagination.ts";
@@ -163,6 +171,88 @@ export function createInMemoryStorage(): IStorage {
     },
 
     deleteFile(_key) {
+      return E.succeed(undefined);
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// createInMemoryAccessPolicyRepository
+// An in-memory implementation of IAccessPolicyRepository.
+// Pre-populate `policies` before running effects, or call save() from tests.
+// ---------------------------------------------------------------------------
+
+export function createInMemoryAccessPolicyRepository(initial?: {
+  policies?: AccessPolicy[];
+}): IAccessPolicyRepository {
+  const policies: AccessPolicy[] = [...(initial?.policies ?? [])];
+
+  return {
+    findById(id: AccessPolicyId) {
+      const p = policies.find((p) => p.id === id);
+      return E.succeed(p ? O.some(p) : O.none());
+    },
+
+    findByDocument(documentId: DocumentId) {
+      return E.succeed(policies.filter((p) => p.documentId === documentId));
+    },
+
+    findByDocumentAndSubject(documentId: DocumentId, userId: UserId) {
+      return E.succeed(
+        policies.filter((p) => p.documentId === documentId && p.subjectId === userId),
+      );
+    },
+
+    save(policy: AccessPolicy) {
+      policies.push(policy);
+      return E.succeed(undefined);
+    },
+
+    delete(id: AccessPolicyId) {
+      const idx = policies.findIndex((p) => p.id === id);
+      if (idx === -1) return E.fail(new AccessPolicyNotFoundError(id));
+      policies.splice(idx, 1);
+      return E.succeed(undefined);
+    },
+
+    deleteByDocument(documentId: DocumentId) {
+      const toRemove = policies
+        .map((p, i) => (p.documentId === documentId ? i : -1))
+        .filter((i) => i !== -1)
+        .reverse();
+      for (const i of toRemove) policies.splice(i, 1);
+      return E.succeed(undefined);
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// createInMemoryAuditRepository
+// An in-memory IAuditRepository with a public `entries` array so tests can
+// inspect what was recorded without hitting a real database.
+// ---------------------------------------------------------------------------
+
+export function createInMemoryAuditRepository(): IAuditRepository & {
+  readonly entries: AuditLogEntry[];
+} {
+  const entries: AuditLogEntry[] = [];
+
+  return {
+    entries,
+
+    listAuditLogs(_params) {
+      return E.succeed({
+        items: entries,
+        pageInfo: buildPageInfo(entries.length, 1, Math.max(entries.length, 1)),
+      });
+    },
+
+    insertAuditLog(input) {
+      entries.push({
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        ...input,
+      });
       return E.succeed(undefined);
     },
   };
