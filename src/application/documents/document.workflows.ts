@@ -5,7 +5,6 @@ import type { ContentType } from "@domain/document/value-objects/content-type.vo
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
-import type { IUserRepository } from "@domain/user/user.repository.ts";
 import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { Role } from "@domain/utils/enums.ts";
 import { withPagination } from "@domain/utils/pagination.ts";
@@ -19,9 +18,6 @@ import { Metadata } from "@domain/document/value-objects/metadata.vo.ts";
 import {
   commitVersion,
   requireAccessibleDocument,
-  assertAdminOnly,
-  requireDocument,
-  requireActiveDocument,
   requireVersion,
   requireVersionOfDocument,
   requireCurrentVersion,
@@ -113,7 +109,6 @@ export class DocumentWorkflows {
     @inject(TOKENS.DocumentRepository) private readonly documentRepo: IDocumentRepository,
     @inject(TOKENS.StorageService) private readonly storage: IStorage,
     @inject(TOKENS.AccessPolicyRepository) private readonly policyRepo: IAccessPolicyRepository,
-    @inject(TOKENS.UserRepository) private readonly userRepo: IUserRepository,
   ) {}
 
   upload(
@@ -236,24 +231,30 @@ export class DocumentWorkflows {
         const verId = crypto.randomUUID();
 
         return pipe(
-          E.all([
-            requireActiveDocument(this.documentRepo, meta.documentId),
+          requireAccessibleDocument(
+            this.documentRepo,
+            this.policyRepo,
+            meta.documentId,
+            meta.actor,
+            PermissionAction.Write,
+          ),
+          E.flatMap((document) =>
             pipe(
               this.documentRepo.findVersionsByDocument(meta.documentId),
               E.mapError(unavailable("repo.findVersionsByDocument")),
+              E.map((versions) => {
+                const filename = meta.name?.trim() || file.name || document.name;
+                const contentType = file.type || document.contentType;
+                const versionNumber = DocumentVersion.nextNumber(versions);
+                const bucketKey = BucketKeyFactory.forVersion(
+                  meta.documentId as string,
+                  verId,
+                  filename,
+                );
+                return { document, filename, contentType, versionNumber, bucketKey };
+              }),
             ),
-          ]),
-          E.map(([document, versions]) => {
-            const filename = meta.name?.trim() || file.name || document.name;
-            const contentType = file.type || document.contentType;
-            const versionNumber = DocumentVersion.nextNumber(versions);
-            const bucketKey = BucketKeyFactory.forVersion(
-              meta.documentId as string,
-              verId,
-              filename,
-            );
-            return { document, filename, contentType, versionNumber, bucketKey };
-          }),
+          ),
 
           E.flatMap(({ document, filename, contentType, versionNumber, bucketKey }) =>
             pipe(
@@ -320,7 +321,6 @@ export class DocumentWorkflows {
           requireAccessibleDocument(
             this.documentRepo,
             this.policyRepo,
-            this.userRepo,
             query.documentId,
             query.actor,
             PermissionAction.Read,
@@ -364,7 +364,6 @@ export class DocumentWorkflows {
           requireAccessibleDocument(
             this.documentRepo,
             this.policyRepo,
-            this.userRepo,
             query.documentId,
             query.actor,
             PermissionAction.Read,
@@ -385,7 +384,6 @@ export class DocumentWorkflows {
           requireAccessibleDocument(
             this.documentRepo,
             this.policyRepo,
-            this.userRepo,
             query.documentId,
             query.actor,
             PermissionAction.Read,
@@ -410,7 +408,6 @@ export class DocumentWorkflows {
           requireAccessibleDocument(
             this.documentRepo,
             this.policyRepo,
-            this.userRepo,
             query.documentId,
             query.actor,
             PermissionAction.Read,
@@ -434,8 +431,13 @@ export class DocumentWorkflows {
       decodeCommand(DeleteDocumentCommandSchema, raw, DocumentWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          assertAdminOnly(cmd.actor, PermissionAction.Delete),
-          E.flatMap(() => requireDocument(this.documentRepo, cmd.documentId)),
+          requireAccessibleDocument(
+            this.documentRepo,
+            this.policyRepo,
+            cmd.documentId,
+            cmd.actor,
+            PermissionAction.Delete,
+          ),
           E.flatMap((document) =>
             pipe(
               document.softDelete(),

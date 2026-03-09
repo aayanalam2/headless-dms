@@ -6,8 +6,6 @@ import { AccessPolicyId, DocumentId, UserId } from "@domain/utils/refined.types.
 import { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
 import type { AccessPolicyRow } from "@infra/database/schema.ts";
 import { AccessPolicyNotFoundError } from "@domain/access-policy/access-policy.errors.ts";
-import type { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
-import type { Role } from "@domain/utils/enums.ts";
 import { accessPoliciesTable } from "@infra/database/models/access-policy.table.ts";
 import { executeQuery, fetchMultiple, fetchSingle } from "@infra/database/utils/query-helpers.ts";
 import type { RepositoryEffect } from "@domain/utils/repository.types.ts";
@@ -19,8 +17,7 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
     return AccessPolicy.reconstitute({
       id: AccessPolicyId.create(row.id).unwrap(),
       documentId: DocumentId.create(row.documentId).unwrap(),
-      subjectId: row.subjectId ? O.some(UserId.create(row.subjectId).unwrap()) : O.none(),
-      subjectRole: row.subjectRole ? O.some(row.subjectRole) : O.none(),
+      subjectId: UserId.create(row.subjectId).unwrap(),
       action: row.action,
       effect: row.effect,
       createdAt: row.createdAt,
@@ -64,53 +61,12 @@ export class DrizzleAccessPolicyRepository implements IAccessPolicyRepository {
     );
   }
 
-  findByDocumentAndRole(
-    documentId: DocumentId,
-    role: Role,
-  ): RepositoryEffect<readonly AccessPolicy[]> {
-    return fetchMultiple(
-      () =>
-        this.db
-          .select()
-          .from(accessPoliciesTable)
-          .where(
-            and(
-              eq(accessPoliciesTable.documentId, documentId),
-              eq(accessPoliciesTable.subjectRole, role),
-            ),
-          ),
-      DrizzleAccessPolicyRepository.fromRow,
-    );
-  }
-
-  findByDocumentSubjectAndAction(
-    documentId: DocumentId,
-    userId: UserId,
-    action: PermissionAction,
-  ): RepositoryEffect<readonly AccessPolicy[]> {
-    return fetchMultiple(
-      () =>
-        this.db
-          .select()
-          .from(accessPoliciesTable)
-          .where(
-            and(
-              eq(accessPoliciesTable.documentId, documentId),
-              eq(accessPoliciesTable.subjectId, userId),
-              eq(accessPoliciesTable.action, action),
-            ),
-          ),
-      DrizzleAccessPolicyRepository.fromRow,
-    );
-  }
-
   save(policy: AccessPolicy): RepositoryEffect<void> {
     return executeQuery(() =>
       this.db.insert(accessPoliciesTable).values({
         id: policy.id,
         documentId: policy.documentId,
-        subjectId: O.getOrNull(policy.subjectId),
-        subjectRole: O.getOrNull(policy.subjectRole),
+        subjectId: policy.subjectId,
         action: policy.action,
         effect: policy.effect,
         createdAt: policy.createdAt,

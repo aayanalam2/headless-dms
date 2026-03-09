@@ -1,22 +1,12 @@
-import { Option as O } from "effect";
 import type { IAccessPolicy } from "@domain/access-policy/access-policy.entity";
 import { PolicyEffect } from "@domain/access-policy/value-objects/permission-action.vo";
 import type { UserId } from "@domain/utils/refined.types.ts";
-import type { Role } from "@domain/utils/enums.ts";
 
 /**
- * Returns `true` when the policy targets a specific user and that user
- * matches `userId`.
+ * Returns `true` when the policy targets the given user.
  */
 export function appliesTo(policy: IAccessPolicy, userId: UserId): boolean {
-  return O.isSome(policy.subjectId) && policy.subjectId.value === userId;
-}
-
-/**
- * Returns `true` when the policy targets a role and that role matches.
- */
-export function appliesToRole(policy: IAccessPolicy, role: Role): boolean {
-  return O.isSome(policy.subjectRole) && policy.subjectRole.value === role;
+  return policy.subjectId === userId;
 }
 
 /**
@@ -34,15 +24,9 @@ export function isDenyPolicy(policy: IAccessPolicy): boolean {
 }
 
 /**
- * Returns `true` when the policy is user-specific (has a `subjectId`).
+ * Every policy now targets a specific user — this always returns `true`.
+ * Kept for backward-compatibility with call sites that narrow on subject policies.
  */
-export function isSubjectPolicy(policy: IAccessPolicy): boolean {
-  return O.isSome(policy.subjectId);
-}
-
-/**
- * Returns `true` when the policy is role-based (has a `subjectRole`).
- */
-export function isRolePolicy(policy: IAccessPolicy): boolean {
-  return O.isSome(policy.subjectRole);
+export function isSubjectPolicy(_policy: IAccessPolicy): boolean {
+  return true;
 }

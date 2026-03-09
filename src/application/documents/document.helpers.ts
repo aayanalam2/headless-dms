@@ -5,7 +5,6 @@ import type { Document } from "@domain/document/document.entity.ts";
 import type { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
-import type { IUserRepository } from "@domain/user/user.repository.ts";
 import { DocumentAccessService } from "@domain/services/document-access.service.ts";
 import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { eventBus } from "@infra/event-bus.ts";
@@ -19,24 +18,9 @@ import {
   DocumentWorkflowError,
   type DocumentWorkflowError as WorkflowError,
 } from "./document-workflow.errors.ts";
-import {
-  makeUnavailable,
-  requireFound,
-  assertGuard,
-} from "@application/shared/workflow.helpers.ts";
+import { makeUnavailable, requireFound } from "@application/shared/workflow.helpers.ts";
 
 const unavailable = makeUnavailable(DocumentWorkflowError.unavailable);
-
-export function assertAdminOnly(
-  actor: { readonly userId: UserId; readonly role: Role },
-  action: string,
-): E.Effect<void, WorkflowError> {
-  return assertGuard(actor.role === Role.Admin, () =>
-    DocumentWorkflowError.accessDenied(
-      `User '${actor.userId}' does not have '${action}' permission`,
-    ),
-  );
-}
 
 export function requireDocument(
   repo: IDocumentRepository,
@@ -113,7 +97,6 @@ export function commitVersion(
 export function requireAccessibleDocument(
   repo: IDocumentRepository,
   policyRepo: IAccessPolicyRepository,
-  userRepo: IUserRepository,
   documentId: DocumentId,
   actor: { readonly userId: UserId; readonly role: Role },
   action: PermissionAction,
@@ -122,41 +105,24 @@ export function requireAccessibleDocument(
     requireActiveDocument(repo, documentId),
     E.flatMap((document) =>
       pipe(
-        E.all(
-          {
-            userOpt: pipe(
-              userRepo.findById(actor.userId),
-              E.mapError((e) => DocumentWorkflowError.unavailable("userRepo.findById", e)),
-            ),
-            subjectPolicies: pipe(
-              policyRepo.findByDocumentAndSubject(documentId, actor.userId),
-              E.mapError((e) =>
-                DocumentWorkflowError.unavailable("policyRepo.findByDocumentAndSubject", e),
-              ),
-            ),
-            rolePolicies: pipe(
-              policyRepo.findByDocumentAndRole(documentId, actor.role),
-              E.mapError((e) =>
-                DocumentWorkflowError.unavailable("policyRepo.findByDocumentAndRole", e),
-              ),
-            ),
-          },
-          { concurrency: 3 },
+        policyRepo.findByDocumentAndSubject(documentId, actor.userId),
+        E.mapError((e) =>
+          DocumentWorkflowError.unavailable("policyRepo.findByDocumentAndSubject", e),
         ),
-        E.flatMap(({ userOpt, subjectPolicies, rolePolicies }) => {
-          if (O.isNone(userOpt)) {
-            return E.fail(DocumentWorkflowError.notFound(`User '${actor.userId}'`));
-          }
-          const user = userOpt.value;
-          const policies = [...subjectPolicies, ...rolePolicies];
-          return DocumentAccessService.evaluate(user, policies, document, action)
+        E.flatMap((policies) =>
+          DocumentAccessService.evaluate(
+            { id: actor.userId, role: actor.role },
+            policies,
+            document,
+            action,
+          )
             ? E.succeed(document)
             : E.fail(
                 DocumentWorkflowError.accessDenied(
                   `User '${actor.userId}' cannot ${action} document '${document.id}'`,
                 ),
-              );
-        }),
+              ),
+        ),
       ),
     ),
   );

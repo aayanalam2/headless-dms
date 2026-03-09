@@ -9,13 +9,12 @@ import {
   PermissionAction,
   PolicyEffect,
 } from "@domain/access-policy/value-objects/permission-action.vo.ts";
-import { Role } from "@domain/utils/enums.ts";
+import { Role as _Role } from "@domain/utils/enums.ts";
 import {
   FIXED_DATE as _FIXED_DATE,
   makeAdminUser,
   makeAllowAllScenario,
   makeDocument,
-  makeRolePolicy,
   makeSubjectPolicy,
   makeUser,
   makeUserId,
@@ -147,94 +146,6 @@ describe("DocumentAccessService", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Role-level policies
-  // -------------------------------------------------------------------------
-
-  describe("Role-level policies", () => {
-    it("allows access when a matching role Allow policy exists", () => {
-      const user = makeUser({ role: Role.User });
-      const doc = makeDocument();
-      const roleAllow = makeRolePolicy({
-        documentId: doc.id as string,
-        subjectRole: Role.User,
-        action: PermissionAction.Read,
-        effect: PolicyEffect.Allow,
-      });
-      expect(check(user, [roleAllow], doc, PermissionAction.Read)).toBe(true);
-    });
-
-    it("denies access when a matching role Deny policy exists", () => {
-      const user = makeUser({ role: Role.User });
-      const doc = makeDocument();
-      const roleDeny = makeRolePolicy({
-        documentId: doc.id as string,
-        subjectRole: Role.User,
-        action: PermissionAction.Delete,
-        effect: PolicyEffect.Deny,
-      });
-      expect(check(user, [roleDeny], doc, PermissionAction.Delete)).toBe(false);
-    });
-
-    it("role policy for a different role does not grant access", () => {
-      const user = makeUser({ role: Role.User });
-      const doc = makeDocument();
-      const adminRoleAllow = makeRolePolicy({
-        documentId: doc.id as string,
-        subjectRole: Role.Admin,
-        action: PermissionAction.Read,
-        effect: PolicyEffect.Allow,
-      });
-      expect(check(user, [adminRoleAllow], doc, PermissionAction.Read)).toBe(false);
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // Tier precedence: subject overrides role
-  // -------------------------------------------------------------------------
-
-  describe("Tier precedence — subject overrides role", () => {
-    it("subject Deny overrides a role Allow for the same action", () => {
-      const user = makeUser({ role: Role.User });
-      const doc = makeDocument();
-
-      const subjectDeny = makeSubjectPolicy({
-        documentId: doc.id as string,
-        subjectId: user.id as string,
-        action: PermissionAction.Write,
-        effect: PolicyEffect.Deny,
-      });
-      const roleAllow = makeRolePolicy({
-        documentId: doc.id as string,
-        subjectRole: Role.User,
-        action: PermissionAction.Write,
-        effect: PolicyEffect.Allow,
-      });
-
-      expect(check(user, [subjectDeny, roleAllow], doc, PermissionAction.Write)).toBe(false);
-    });
-
-    it("subject Allow overrides a role Deny for the same action", () => {
-      const user = makeUser({ role: Role.User });
-      const doc = makeDocument();
-
-      const subjectAllow = makeSubjectPolicy({
-        documentId: doc.id as string,
-        subjectId: user.id as string,
-        action: PermissionAction.Read,
-        effect: PolicyEffect.Allow,
-      });
-      const roleDeny = makeRolePolicy({
-        documentId: doc.id as string,
-        subjectRole: Role.User,
-        action: PermissionAction.Read,
-        effect: PolicyEffect.Deny,
-      });
-
-      expect(check(user, [subjectAllow, roleDeny], doc, PermissionAction.Read)).toBe(true);
-    });
-  });
-
-  // -------------------------------------------------------------------------
   // Default deny
   // -------------------------------------------------------------------------
 
@@ -320,26 +231,51 @@ describe("DocumentAccessService", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Owner vs policy
+  // Owner bypass
   // -------------------------------------------------------------------------
 
-  describe("Owner vs policy interaction", () => {
-    it("a regular-user owner is still subject to evaluation (no implicit owner bypass)", () => {
+  describe("Owner bypass", () => {
+    it("owner can Read a document without any explicit policies", () => {
       const owner = makeUser();
-      const doc = makeDocument({ ownerId: owner.id });
-      expect(check(owner, [], doc, PermissionAction.Read)).toBe(false);
+      const doc = makeDocument({ ownerId: owner.id as string });
+      expect(check(owner, [], doc, PermissionAction.Read)).toBe(true);
     });
 
-    it("owner with an explicit Allow policy can access the document", () => {
+    it("owner can Write to a document without any explicit policies", () => {
       const owner = makeUser();
-      const doc = makeDocument({ ownerId: owner.id });
-      const allow = makeSubjectPolicy({
+      const doc = makeDocument({ ownerId: owner.id as string });
+      expect(check(owner, [], doc, PermissionAction.Write)).toBe(true);
+    });
+
+    it("owner can Share a document without any explicit policies", () => {
+      const owner = makeUser();
+      const doc = makeDocument({ ownerId: owner.id as string });
+      expect(check(owner, [], doc, PermissionAction.Share)).toBe(true);
+    });
+
+    it("owner CANNOT Delete without an explicit Allow policy", () => {
+      const owner = makeUser();
+      const doc = makeDocument({ ownerId: owner.id as string });
+      expect(check(owner, [], doc, PermissionAction.Delete)).toBe(false);
+    });
+
+    it("owner with an explicit Delete Allow policy can delete", () => {
+      const owner = makeUser();
+      const doc = makeDocument({ ownerId: owner.id as string });
+      const deleteAllow = makeSubjectPolicy({
         documentId: doc.id,
         subjectId: owner.id,
-        action: PermissionAction.Read,
+        action: PermissionAction.Delete,
         effect: PolicyEffect.Allow,
       });
-      expect(check(owner, [allow], doc, PermissionAction.Read)).toBe(true);
+      expect(check(owner, [deleteAllow], doc, PermissionAction.Delete)).toBe(true);
+    });
+
+    it("owner bypass does not apply when the user is not the owner", () => {
+      const owner = makeUser();
+      const otherUser = makeUser();
+      const doc = makeDocument({ ownerId: owner.id as string });
+      expect(check(otherUser, [], doc, PermissionAction.Read)).toBe(false);
     });
   });
 

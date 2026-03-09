@@ -9,12 +9,11 @@
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, setDefaultTimeout } from "bun:test";
-import { Effect as E, Either, Option as O } from "effect";
+import { Effect as E, Either } from "effect";
 
 import {
   makeDocument,
   makeDocumentVersion,
-  makeRolePolicy,
   makeSubjectPolicy,
   makeUser,
 } from "../domain/factories.ts";
@@ -29,7 +28,6 @@ import {
   PermissionAction,
   PolicyEffect,
 } from "@domain/access-policy/value-objects/permission-action.vo.ts";
-import { Role } from "@domain/utils/enums.ts";
 import type { User } from "@domain/user/user.entity.ts";
 import type { Document } from "@domain/document/document.entity.ts";
 
@@ -130,66 +128,7 @@ describe("findByDocumentAndSubject", () => {
 
     const result = await E.runPromise(repo.findByDocumentAndSubject(doc.id, owner.id));
     expect(result).toHaveLength(1);
-    if (O.isSome(result[0]!.subjectId)) {
-      expect(result[0]!.subjectId.value).toBe(owner.id);
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// findByDocumentAndRole
-// ---------------------------------------------------------------------------
-
-describe("findByDocumentAndRole", () => {
-  it("returns role-based policies for the given role", async () => {
-    const adminPolicy = makeRolePolicy({
-      documentId: doc.id,
-      subjectRole: Role.Admin,
-      action: PermissionAction.Read,
-    });
-    const userPolicy = makeRolePolicy({
-      documentId: doc.id,
-      subjectRole: Role.User,
-      action: PermissionAction.Read,
-    });
-    await Promise.all([E.runPromise(repo.save(adminPolicy)), E.runPromise(repo.save(userPolicy))]);
-
-    const adminPolicies = await E.runPromise(repo.findByDocumentAndRole(doc.id, Role.Admin));
-    expect(adminPolicies).toHaveLength(1);
-    if (O.isSome(adminPolicies[0]!.subjectRole)) {
-      expect(adminPolicies[0]!.subjectRole.value).toBe(Role.Admin);
-    }
-  });
-
-  it("returns empty when no role policies exist for a role", async () => {
-    const result = await E.runPromise(repo.findByDocumentAndRole(doc.id, Role.Admin));
-    expect(result).toHaveLength(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// findByDocumentSubjectAndAction
-// ---------------------------------------------------------------------------
-
-describe("findByDocumentSubjectAndAction", () => {
-  it("returns exact action match for subject", async () => {
-    const readPolicy = makeSubjectPolicy({
-      documentId: doc.id,
-      subjectId: owner.id,
-      action: PermissionAction.Read,
-    });
-    const writePolicy = makeSubjectPolicy({
-      documentId: doc.id,
-      subjectId: owner.id,
-      action: PermissionAction.Write,
-    });
-    await Promise.all([E.runPromise(repo.save(readPolicy)), E.runPromise(repo.save(writePolicy))]);
-
-    const result = await E.runPromise(
-      repo.findByDocumentSubjectAndAction(doc.id, owner.id, PermissionAction.Read),
-    );
-    expect(result).toHaveLength(1);
-    expect(result[0]!.action).toBe(PermissionAction.Read);
+    expect(result[0]!.subjectId).toBe(owner.id);
   });
 });
 
@@ -212,20 +151,6 @@ describe("save", () => {
     expect(found[0]!.id).toBe(policy.id);
     expect(found[0]!.action).toBe(PermissionAction.Delete);
     expect(found[0]!.effect).toBe(PolicyEffect.Deny);
-  });
-
-  it("persists a role-based policy with correct role", async () => {
-    const policy = makeRolePolicy({
-      documentId: doc.id,
-      subjectRole: Role.User,
-      action: PermissionAction.Read,
-    });
-    await E.runPromise(repo.save(policy));
-
-    const found = await E.runPromise(repo.findByDocument(doc.id));
-    expect(found).toHaveLength(1);
-    expect(O.isNone(found[0]!.subjectId)).toBe(true);
-    expect(O.isSome(found[0]!.subjectRole)).toBe(true);
   });
 });
 
@@ -266,9 +191,9 @@ describe("deleteByDocument", () => {
       subjectId: owner.id,
       action: PermissionAction.Read,
     });
-    const p2 = makeRolePolicy({
+    const p2 = makeSubjectPolicy({
       documentId: doc.id,
-      subjectRole: Role.User,
+      subjectId: owner.id,
       action: PermissionAction.Write,
     });
     await Promise.all([E.runPromise(repo.save(p1)), E.runPromise(repo.save(p2))]);
@@ -312,29 +237,8 @@ describe("round-trip serialization", () => {
     const p = found[0]!;
     expect(p.id).toBe(policy.id);
     expect(p.documentId).toBe(doc.id);
-    expect(O.isSome(p.subjectId)).toBe(true);
-    expect(O.isNone(p.subjectRole)).toBe(true);
+    expect(p.subjectId).toBe(owner.id);
     expect(p.action).toBe(PermissionAction.Share);
     expect(p.effect).toBe(PolicyEffect.Allow);
-  });
-
-  it("role policy: all fields survived DB round-trip", async () => {
-    const policy = makeRolePolicy({
-      documentId: doc.id,
-      subjectRole: Role.Admin,
-      action: PermissionAction.Delete,
-      effect: PolicyEffect.Allow,
-    });
-    await E.runPromise(repo.save(policy));
-
-    const found = await E.runPromise(repo.findByDocument(doc.id));
-    expect(found).toHaveLength(1);
-    const p = found[0]!;
-    expect(O.isNone(p.subjectId)).toBe(true);
-    expect(O.isSome(p.subjectRole)).toBe(true);
-    if (O.isSome(p.subjectRole)) {
-      expect(p.subjectRole.value).toBe(Role.Admin);
-    }
-    expect(p.action).toBe(PermissionAction.Delete);
   });
 });

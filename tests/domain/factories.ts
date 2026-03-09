@@ -123,23 +123,6 @@ export function makeSubjectPolicy(overrides: Partial<SerializedAccessPolicy> = {
       id: makeAccessPolicyId() as string,
       documentId: makeDocId() as string,
       subjectId: makeUserId() as string,
-      subjectRole: null,
-      action: PermissionAction.Read,
-      effect: PolicyEffect.Allow,
-      createdAt: FIXED_ISO,
-      ...overrides,
-    }),
-  );
-}
-
-/** Creates a role-based policy. */
-export function makeRolePolicy(overrides: Partial<SerializedAccessPolicy> = {}): AccessPolicy {
-  return E.runSync(
-    AccessPolicy.create({
-      id: makeAccessPolicyId() as string,
-      documentId: makeDocId() as string,
-      subjectId: null,
-      subjectRole: Role.User,
       action: PermissionAction.Read,
       effect: PolicyEffect.Allow,
       createdAt: FIXED_ISO,
@@ -154,7 +137,7 @@ export function makeRolePolicy(overrides: Partial<SerializedAccessPolicy> = {}):
 
 /**
  * Returns a pre-wired scenario where the user has Allow policies for all
- * four actions on the document, split between subject and role tiers.
+ * four actions on the document (all subject-level policies).
  */
 export function makeAllowAllScenario(): {
   user: User;

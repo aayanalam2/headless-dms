@@ -1,5 +1,4 @@
-import { Option as O, Schema as S } from "effect";
-import { Role } from "@domain/utils/enums.ts";
+import { Schema as S } from "effect";
 import {
   PermissionAction,
   PolicyEffect,
@@ -19,10 +18,8 @@ import { ActorCommandSchema } from "@application/shared/actor.ts";
 export const GrantAccessCommandSchema = S.Struct({
   actor: ActorCommandSchema,
   documentId: DocumentSchema.fields.id,
-  /** Target user ID (mutually exclusive with subjectRole). */
-  subjectId: S.optional(UserSchema.fields.id),
-  /** Target role (mutually exclusive with subjectId). */
-  subjectRole: S.optional(S.Enums(Role)),
+  /** Target user ID (required for every policy). */
+  subjectId: UserSchema.fields.id,
   action: S.Enums(PermissionAction),
   effect: S.Enums(PolicyEffect),
 });
@@ -74,8 +71,7 @@ export function toAccessPolicyDTO(policy: AccessPolicy): AccessPolicyDTO {
   return {
     id: policy.id,
     documentId: policy.documentId,
-    subjectId: O.getOrNull(policy.subjectId),
-    subjectRole: O.getOrNull(policy.subjectRole),
+    subjectId: policy.subjectId,
     action: policy.action,
     effect: policy.effect,
     createdAt: policy.createdAt.toISOString(),

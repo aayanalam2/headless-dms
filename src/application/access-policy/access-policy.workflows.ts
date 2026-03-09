@@ -4,7 +4,6 @@ import { inject, injectable } from "tsyringe";
 import { TOKENS } from "@infra/di/tokens.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
-import type { IUserRepository } from "@domain/user/user.repository.ts";
 import { DocumentAccessService } from "@domain/services/document-access.service.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
 import {
@@ -27,9 +26,8 @@ import {
 } from "./dtos/access-policy.dto.ts";
 import {
   unavailable,
-  requireDocForPolicy,
   requirePolicy,
-  assertPolicyManager,
+  requireShareableDocument,
   buildPolicy,
   emitPolicyGranted,
   emitPolicyUpdated,
@@ -43,8 +41,6 @@ export class AccessPolicyWorkflows {
     private readonly policyRepo: IAccessPolicyRepository,
     @inject(TOKENS.DocumentRepository)
     private readonly documentRepo: IDocumentRepository,
-    @inject(TOKENS.UserRepository)
-    private readonly userRepo: IUserRepository,
   ) {}
 
   grantAccess(raw: GrantAccessCommandEncoded): E.Effect<AccessPolicyDTO, WorkflowError> {
@@ -52,20 +48,18 @@ export class AccessPolicyWorkflows {
       decodeCommand(GrantAccessCommandSchema, raw, AccessPolicyWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          requireDocForPolicy(this.documentRepo, cmd.documentId),
-          E.flatMap((document) => assertPolicyManager(document, cmd.actor)),
+          requireShareableDocument(this.documentRepo, this.policyRepo, cmd.documentId, cmd.actor),
           E.flatMap(() =>
             buildPolicy(
               {
                 id: crypto.randomUUID(),
                 createdAt: new Date().toISOString(),
                 documentId: cmd.documentId as string,
-                subjectId: cmd.subjectId !== undefined ? (cmd.subjectId as string) : null,
-                subjectRole: cmd.subjectRole ?? null,
+                subjectId: cmd.subjectId as string,
                 action: cmd.action,
                 effect: cmd.effect,
               },
-              "Exactly one of subjectId or subjectRole must be provided",
+              "subjectId must be a valid user ID",
             ),
           ),
           E.flatMap((policy) =>
@@ -78,7 +72,7 @@ export class AccessPolicyWorkflows {
                   resourceId: policy.id as string,
                   documentId: cmd.documentId as string,
                   action: cmd.action,
-                  effect: cmd.effect,
+                  effect: policy.effect,
                 }),
               ),
               E.as(toAccessPolicyDTO(policy)),
@@ -98,16 +92,19 @@ export class AccessPolicyWorkflows {
           requirePolicy(this.policyRepo, cmd.policyId),
           E.flatMap((existing) =>
             pipe(
-              requireDocForPolicy(this.documentRepo, existing.documentId),
-              E.flatMap((document) => assertPolicyManager(document, cmd.actor)),
+              requireShareableDocument(
+                this.documentRepo,
+                this.policyRepo,
+                existing.documentId,
+                cmd.actor,
+              ),
               E.flatMap(() =>
                 buildPolicy(
                   {
                     id: crypto.randomUUID(),
                     createdAt: new Date().toISOString(),
                     documentId: existing.documentId as string,
-                    subjectId: O.getOrNull(existing.subjectId) as string | null,
-                    subjectRole: O.getOrNull(existing.subjectRole),
+                    subjectId: existing.subjectId as string,
                     action: existing.action,
                     effect: cmd.effect,
                   },
@@ -151,8 +148,12 @@ export class AccessPolicyWorkflows {
           requirePolicy(this.policyRepo, cmd.policyId),
           E.flatMap((existing) =>
             pipe(
-              requireDocForPolicy(this.documentRepo, existing.documentId),
-              E.flatMap((document) => assertPolicyManager(document, cmd.actor)),
+              requireShareableDocument(
+                this.documentRepo,
+                this.policyRepo,
+                existing.documentId,
+                cmd.actor,
+              ),
               E.flatMap(() =>
                 pipe(
                   this.policyRepo.delete(cmd.policyId),
@@ -179,47 +180,20 @@ export class AccessPolicyWorkflows {
       decodeCommand(CheckAccessQuerySchema, raw, AccessPolicyWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          E.all(
-            {
-              docOpt: pipe(
-                this.documentRepo.findById(cmd.documentId),
-                E.mapError(unavailable("documentRepo.findById")),
-              ),
-              userOpt: pipe(
-                this.userRepo.findById(cmd.actor.userId),
-                E.mapError(unavailable("userRepo.findById")),
-              ),
-            },
-            { concurrency: 2 },
-          ),
-          E.flatMap(({ docOpt, userOpt }) => {
+          this.documentRepo.findById(cmd.documentId),
+          E.mapError(unavailable("documentRepo.findById")),
+          E.flatMap((docOpt) => {
             if (O.isNone(docOpt)) {
               return E.fail(AccessPolicyWorkflowError.notFound(`Document '${cmd.documentId}'`));
             }
-            if (O.isNone(userOpt)) {
-              return E.fail(AccessPolicyWorkflowError.notFound(`User '${cmd.actor.userId}'`));
-            }
             const document = docOpt.value;
-            const user = userOpt.value;
-
             return pipe(
-              E.all(
-                {
-                  subjectPolicies: pipe(
-                    this.policyRepo.findByDocumentAndSubject(cmd.documentId, cmd.actor.userId),
-                    E.mapError(unavailable("policyRepo.findByDocumentAndSubject")),
-                  ),
-                  rolePolicies: pipe(
-                    this.policyRepo.findByDocumentAndRole(cmd.documentId, cmd.actor.role),
-                    E.mapError(unavailable("policyRepo.findByDocumentAndRole")),
-                  ),
-                },
-                { concurrency: 2 },
-              ),
-              E.map(({ subjectPolicies, rolePolicies }) =>
+              this.policyRepo.findByDocumentAndSubject(cmd.documentId, cmd.actor.userId),
+              E.mapError(unavailable("policyRepo.findByDocumentAndSubject")),
+              E.map((policies) =>
                 DocumentAccessService.evaluate(
-                  user,
-                  [...subjectPolicies, ...rolePolicies],
+                  { id: cmd.actor.userId, role: cmd.actor.role },
+                  policies,
                   document,
                   cmd.action,
                 ),
@@ -238,8 +212,7 @@ export class AccessPolicyWorkflows {
       decodeCommand(ListDocumentPoliciesQuerySchema, raw, AccessPolicyWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          requireDocForPolicy(this.documentRepo, cmd.documentId),
-          E.flatMap((document) => assertPolicyManager(document, cmd.actor)),
+          requireShareableDocument(this.documentRepo, this.policyRepo, cmd.documentId, cmd.actor),
           E.flatMap(() =>
             pipe(
               this.policyRepo.findByDocument(cmd.documentId),

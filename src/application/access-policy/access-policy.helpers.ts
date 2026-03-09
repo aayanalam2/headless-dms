@@ -4,8 +4,9 @@ import type { AccessPolicy as AccessPolicyType } from "@domain/access-policy/acc
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
 import type { Document } from "@domain/document/document.entity.ts";
-import { isOwner } from "@domain/document/document.guards.ts";
 import { Role } from "@domain/utils/enums.ts";
+import { DocumentAccessService } from "@domain/services/document-access.service.ts";
+import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import type { UserId, AccessPolicyId, DocumentId } from "@domain/utils/refined.types.ts";
 import {
   AccessPolicyEvent,
@@ -18,17 +19,9 @@ import {
   AccessPolicyWorkflowError,
   type AccessPolicyWorkflowError as WorkflowError,
 } from "./access-policy-workflow.errors.ts";
-import {
-  makeUnavailable,
-  requireFound,
-  assertOrFail,
-} from "@application/shared/workflow.helpers.ts";
+import { makeUnavailable, requireFound } from "@application/shared/workflow.helpers.ts";
 
 export const unavailable = makeUnavailable(AccessPolicyWorkflowError.unavailable);
-
-export const MANAGE_DENIED = AccessPolicyWorkflowError.accessDenied(
-  "Only the document owner or an admin can manage access policies",
-);
 
 export function requireDocForPolicy(
   repo: IDocumentRepository,
@@ -48,14 +41,34 @@ export function requirePolicy(
   );
 }
 
-export function assertPolicyManager(
-  document: Document,
+export function requireShareableDocument(
+  docRepo: IDocumentRepository,
+  policyRepo: IAccessPolicyRepository,
+  documentId: DocumentId,
   actor: { readonly userId: UserId; readonly role: Role },
 ): E.Effect<Document, WorkflowError> {
-  return assertOrFail(
-    actor.role === Role.Admin || isOwner(document, actor.userId),
-    document,
-    () => MANAGE_DENIED,
+  return pipe(
+    requireDocForPolicy(docRepo, documentId),
+    E.flatMap((document) =>
+      pipe(
+        policyRepo.findByDocumentAndSubject(documentId, actor.userId),
+        E.mapError(unavailable("policyRepo.findByDocumentAndSubject")),
+        E.flatMap((policies) =>
+          DocumentAccessService.evaluate(
+            { id: actor.userId, role: actor.role },
+            policies,
+            document,
+            PermissionAction.Share,
+          )
+            ? E.succeed(document)
+            : E.fail(
+                AccessPolicyWorkflowError.accessDenied(
+                  `User '${actor.userId}' cannot manage policies for document '${documentId}'`,
+                ),
+              ),
+        ),
+      ),
+    ),
   );
 }
 
