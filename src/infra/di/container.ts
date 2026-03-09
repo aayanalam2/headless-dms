@@ -33,10 +33,7 @@ export function buildContainer(db: AppDb, storage: IStorage): typeof container {
   // to construct them (they need `db` which isn't injectable itself).
   // -------------------------------------------------------------------------
   const documentRepo = new DrizzleDocumentRepository(db);
-  container.registerInstance(
-    TOKENS.DocumentRepository as unknown as string,
-    documentRepo,
-  );
+  container.registerInstance(TOKENS.DocumentRepository as unknown as string, documentRepo);
   container.registerInstance(
     TOKENS.UserRepository as unknown as string,
     new DrizzleUserRepository(db),

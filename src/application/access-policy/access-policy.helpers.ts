@@ -1,4 +1,4 @@
-import { Effect as E, pipe } from "effect";
+import { Effect as E } from "effect";
 import { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
 import type { AccessPolicyType } from "@domain/access-policy/access-policy.entity.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";

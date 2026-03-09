@@ -29,7 +29,9 @@ export interface IDocumentRepository {
   findActiveByIdWithPolicies(
     id: DocumentId,
     subjectId: UserId,
-  ): RepositoryEffect<O.Option<{ readonly document: Document; readonly policies: readonly IAccessPolicy[] }>>;
+  ): RepositoryEffect<
+    O.Option<{ readonly document: Document; readonly policies: readonly IAccessPolicy[] }>
+  >;
 
   findByOwner(ownerId: UserId, pagination: PaginationParams): RepositoryEffect<Paginated<Document>>;
 
@@ -39,7 +41,10 @@ export interface IDocumentRepository {
    *
    * Used by the `list` workflow for non-admin actors.
    */
-  findAccessible(subjectId: UserId, pagination: PaginationParams): RepositoryEffect<Paginated<Document>>;
+  findAccessible(
+    subjectId: UserId,
+    pagination: PaginationParams,
+  ): RepositoryEffect<Paginated<Document>>;
 
   search(query: string, pagination: PaginationParams): RepositoryEffect<Paginated<Document>>;
 

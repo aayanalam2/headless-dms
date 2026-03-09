@@ -226,7 +226,12 @@ export class DocumentWorkflows {
         const verId = S.decodeSync(StringToVersionId)(crypto.randomUUID());
 
         return pipe(
-          this.accessGuard.require(meta.documentId, meta.actor, PermissionAction.Write, DocumentWorkflowError),
+          this.accessGuard.require(
+            meta.documentId,
+            meta.actor,
+            PermissionAction.Write,
+            DocumentWorkflowError,
+          ),
           E.flatMap((document) =>
             pipe(
               this.documentRepo.findVersionsByDocument(meta.documentId),
@@ -298,7 +303,12 @@ export class DocumentWorkflows {
       decodeCommand(GetDocumentQuerySchema, raw, DocumentWorkflowError.invalidInput),
       E.flatMap((query) =>
         pipe(
-          this.accessGuard.require(query.documentId, query.actor, PermissionAction.Read, DocumentWorkflowError),
+          this.accessGuard.require(
+            query.documentId,
+            query.actor,
+            PermissionAction.Read,
+            DocumentWorkflowError,
+          ),
           E.map(toDocumentDTO),
         ),
       ),
@@ -313,7 +323,12 @@ export class DocumentWorkflows {
           query,
           (pagination) =>
             pipe(
-              scopeList(this.documentRepo, query.actor, { ownerId: query.ownerId, name: query.name }, pagination),
+              scopeList(
+                this.documentRepo,
+                query.actor,
+                { ownerId: query.ownerId, name: query.name },
+                pagination,
+              ),
               E.mapError((e) => DocumentWorkflowError.unavailable("repo.listDocuments", e)),
             ),
           toPaginatedDocumentsDTO,
@@ -328,7 +343,12 @@ export class DocumentWorkflows {
       E.flatMap((query) => {
         const ttl = query.expiresInSeconds ?? DEFAULT_PRESIGNED_URL_TTL_SECONDS;
         return pipe(
-          this.accessGuard.require(query.documentId, query.actor, PermissionAction.Read, DocumentWorkflowError),
+          this.accessGuard.require(
+            query.documentId,
+            query.actor,
+            PermissionAction.Read,
+            DocumentWorkflowError,
+          ),
           E.flatMap((document) => requireCurrentVersion(this.documentRepo, document)),
           E.flatMap((version) => buildPresignedResponse(this.storage, version, ttl)),
         );
@@ -342,7 +362,12 @@ export class DocumentWorkflows {
       E.flatMap((query) => {
         const ttl = query.expiresInSeconds ?? DEFAULT_PRESIGNED_URL_TTL_SECONDS;
         return pipe(
-          this.accessGuard.require(query.documentId, query.actor, PermissionAction.Read, DocumentWorkflowError),
+          this.accessGuard.require(
+            query.documentId,
+            query.actor,
+            PermissionAction.Read,
+            DocumentWorkflowError,
+          ),
           E.flatMap((document) =>
             pipe(
               requireVersion(this.documentRepo, query.versionId),
@@ -360,7 +385,12 @@ export class DocumentWorkflows {
       decodeCommand(ListVersionsQuerySchema, raw, DocumentWorkflowError.invalidInput),
       E.flatMap((query) =>
         pipe(
-          this.accessGuard.require(query.documentId, query.actor, PermissionAction.Read, DocumentWorkflowError),
+          this.accessGuard.require(
+            query.documentId,
+            query.actor,
+            PermissionAction.Read,
+            DocumentWorkflowError,
+          ),
           E.flatMap((document) =>
             pipe(
               this.documentRepo.findVersionsByDocument(document.id),
@@ -380,7 +410,12 @@ export class DocumentWorkflows {
       decodeCommand(DeleteDocumentCommandSchema, raw, DocumentWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          this.accessGuard.require(cmd.documentId, cmd.actor, PermissionAction.Delete, DocumentWorkflowError),
+          this.accessGuard.require(
+            cmd.documentId,
+            cmd.actor,
+            PermissionAction.Delete,
+            DocumentWorkflowError,
+          ),
           E.flatMap((document) =>
             pipe(
               document.softDelete(),

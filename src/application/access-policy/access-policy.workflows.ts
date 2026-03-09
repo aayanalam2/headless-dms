@@ -49,7 +49,12 @@ export class AccessPolicyWorkflows {
       decodeCommand(GrantAccessCommandSchema, raw, AccessPolicyWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          this.accessGuard.require(cmd.documentId, cmd.actor, PermissionAction.Share, AccessPolicyWorkflowError),
+          this.accessGuard.require(
+            cmd.documentId,
+            cmd.actor,
+            PermissionAction.Share,
+            AccessPolicyWorkflowError,
+          ),
           E.flatMap(() =>
             buildPolicy(
               {
@@ -93,7 +98,12 @@ export class AccessPolicyWorkflows {
           requirePolicy(this.policyRepo, cmd.policyId),
           E.flatMap((existing) =>
             pipe(
-              this.accessGuard.require(existing.documentId, cmd.actor, PermissionAction.Share, AccessPolicyWorkflowError),
+              this.accessGuard.require(
+                existing.documentId,
+                cmd.actor,
+                PermissionAction.Share,
+                AccessPolicyWorkflowError,
+              ),
               E.flatMap(() =>
                 buildPolicy(
                   {
@@ -144,7 +154,12 @@ export class AccessPolicyWorkflows {
           requirePolicy(this.policyRepo, cmd.policyId),
           E.flatMap((existing) =>
             pipe(
-              this.accessGuard.require(existing.documentId, cmd.actor, PermissionAction.Share, AccessPolicyWorkflowError),
+              this.accessGuard.require(
+                existing.documentId,
+                cmd.actor,
+                PermissionAction.Share,
+                AccessPolicyWorkflowError,
+              ),
               E.flatMap(() =>
                 pipe(
                   this.policyRepo.delete(cmd.policyId),
@@ -171,7 +186,12 @@ export class AccessPolicyWorkflows {
       decodeCommand(CheckAccessQuerySchema, raw, AccessPolicyWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          this.accessGuard.require(cmd.documentId, cmd.actor, cmd.action, AccessPolicyWorkflowError),
+          this.accessGuard.require(
+            cmd.documentId,
+            cmd.actor,
+            cmd.action,
+            AccessPolicyWorkflowError,
+          ),
           E.map(() => true),
           E.catchIf(
             (e) => e._tag === AccessPolicyWorkflowErrorTag.AccessDenied,
@@ -189,7 +209,12 @@ export class AccessPolicyWorkflows {
       decodeCommand(ListDocumentPoliciesQuerySchema, raw, AccessPolicyWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          this.accessGuard.require(cmd.documentId, cmd.actor, PermissionAction.Share, AccessPolicyWorkflowError),
+          this.accessGuard.require(
+            cmd.documentId,
+            cmd.actor,
+            PermissionAction.Share,
+            AccessPolicyWorkflowError,
+          ),
           E.flatMap(() =>
             pipe(
               this.policyRepo.findByDocument(cmd.documentId),

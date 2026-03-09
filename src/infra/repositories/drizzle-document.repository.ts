@@ -92,7 +92,9 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
   findActiveByIdWithPolicies(
     id: DocumentId,
     subjectId: UserId,
-  ): RepositoryEffect<O.Option<{ readonly document: Document; readonly policies: readonly IAccessPolicy[] }>> {
+  ): RepositoryEffect<
+    O.Option<{ readonly document: Document; readonly policies: readonly IAccessPolicy[] }>
+  > {
     return executeQuery(async () => {
       const rows = await this.db
         .select({ doc: documentsTable, policy: accessPoliciesTable })
