@@ -18,7 +18,12 @@ import {
   DocumentWorkflowError,
   type DocumentWorkflowError as WorkflowError,
 } from "./document-workflow.errors.ts";
-import { makeUnavailable, makeLiftRepo, makeLiftConflict, requireFound } from "@application/shared/workflow.helpers.ts";
+import {
+  makeUnavailable,
+  makeLiftRepo,
+  makeLiftConflict,
+  requireFound,
+} from "@application/shared/workflow.helpers.ts";
 
 const unavailable = makeUnavailable(DocumentWorkflowError.unavailable);
 
@@ -112,7 +117,7 @@ export function commitVersion(
       E.as(
         liftRepo("repo.insertVersionAndUpdate", repo.insertVersionAndUpdate(version, updatedDoc)),
         { version, updated: updatedDoc },
-      )
+      ),
     ),
   );
 }
@@ -131,9 +136,12 @@ export function commitNewDocument(
     liftConflict(doc.setCurrentVersion(version.id, now)),
     E.flatMap((updatedDoc) =>
       E.as(
-        liftRepo("repo.insertDocumentWithVersion", repo.insertDocumentWithVersion(doc, version, updatedDoc)),
+        liftRepo(
+          "repo.insertDocumentWithVersion",
+          repo.insertDocumentWithVersion(doc, version, updatedDoc),
+        ),
         { version, updated: updatedDoc },
-      )
+      ),
     ),
   );
 }

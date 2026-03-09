@@ -31,7 +31,10 @@ export function uploadAndHash(
   return pipe(
     E.all([
       ChecksumFactory.fromBuffer(buffer),
-      liftRepo("storage.uploadFile", storage.uploadFile(bucketKey, Buffer.from(buffer), contentType)),
+      liftRepo(
+        "storage.uploadFile",
+        storage.uploadFile(bucketKey, Buffer.from(buffer), contentType),
+      ),
     ]),
     E.map(([checksum]) => checksum),
   );
@@ -47,7 +50,10 @@ export function uploadFile(
   return pipe(
     E.promise(() => file.arrayBuffer()),
     E.flatMap((buffer) =>
-      E.map(uploadAndHash(storage, bucketKey, buffer, contentType), (checksum) => ({ buffer, checksum })),
+      E.map(uploadAndHash(storage, bucketKey, buffer, contentType), (checksum) => ({
+        buffer,
+        checksum,
+      })),
     ),
   );
 }
@@ -184,14 +190,23 @@ export function prepareUpload(
     Metadata.parse(meta.rawMetadata),
     E.map((m) => m.value),
     E.mapError(() =>
-      DocumentWorkflowError.invalidInput(
-        "Metadata must be a valid JSON object of string values",
-      ),
+      DocumentWorkflowError.invalidInput("Metadata must be a valid JSON object of string values"),
     ),
   );
   return E.map(
     E.all({ metadata: metadata$, buffer: E.promise(() => file.arrayBuffer()) }),
-    ({ metadata, buffer }) => ({ now, docId, verId, filename, contentType, bucketKey, tags, metadata, buffer, actorId: meta.actor.userId }),
+    ({ metadata, buffer }) => ({
+      now,
+      docId,
+      verId,
+      filename,
+      contentType,
+      bucketKey,
+      tags,
+      metadata,
+      buffer,
+      actorId: meta.actor.userId,
+    }),
   );
 }
 
@@ -199,17 +214,15 @@ export function prepareUpload(
  * Construct a Document entity from upload context, mapping domain validation
  * errors to the appropriate workflow error type.
  */
-export function buildDocument(
-  ctx: {
-    readonly docId: DocumentId;
-    readonly actorId: UserId;
-    readonly filename: string;
-    readonly contentType: string;
-    readonly tags: readonly string[];
-    readonly metadata: Readonly<Record<string, string>>;
-    readonly now: Date;
-  },
-): E.Effect<Document, WorkflowError> {
+export function buildDocument(ctx: {
+  readonly docId: DocumentId;
+  readonly actorId: UserId;
+  readonly filename: string;
+  readonly contentType: string;
+  readonly tags: readonly string[];
+  readonly metadata: Readonly<Record<string, string>>;
+  readonly now: Date;
+}): E.Effect<Document, WorkflowError> {
   return E.mapError(
     Document.createNew({
       id: ctx.docId,

@@ -117,7 +117,8 @@ export const StringToAccessPolicyId = makeRefinedSchema(AccessPolicyId);
 export const newDocumentId = (): DocumentId => DocumentId.create(crypto.randomUUID()).unwrap();
 export const newVersionId = (): VersionId => VersionId.create(crypto.randomUUID()).unwrap();
 export const newUserId = (): UserId => UserId.create(crypto.randomUUID()).unwrap();
-export const newAccessPolicyId = (): AccessPolicyId => AccessPolicyId.create(crypto.randomUUID()).unwrap();
+export const newAccessPolicyId = (): AccessPolicyId =>
+  AccessPolicyId.create(crypto.randomUUID()).unwrap();
 
 // Other validated-string schemas
 export const StringToEmail = makeRefinedSchema(Email);

@@ -42,7 +42,11 @@ export function requireAbsent<E>(
 export function makeLiftRepo<Err>(
   ctor: (op: string, cause: unknown) => Err,
 ): <A, F>(op: string, eff: E.Effect<A, F>) => E.Effect<A, Err> {
-  return (op, eff) => pipe(eff, E.mapError((e) => ctor(op, e)));
+  return (op, eff) =>
+    pipe(
+      eff,
+      E.mapError((e) => ctor(op, e)),
+    );
 }
 
 /**
@@ -57,7 +61,11 @@ export function makeLiftRepo<Err>(
 export function makeLiftConflict<Err>(
   ctor: (message: string) => Err,
 ): <A>(eff: E.Effect<A, { readonly message: string }>) => E.Effect<A, Err> {
-  return (eff) => pipe(eff, E.mapError((e) => ctor(e.message)));
+  return (eff) =>
+    pipe(
+      eff,
+      E.mapError((e) => ctor(e.message)),
+    );
 }
 
 export function assertOrFail<T, E>(condition: boolean, value: T, onFail: () => E): E.Effect<T, E> {

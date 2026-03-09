@@ -27,9 +27,8 @@ export class AuditWorkflows {
     return pipe(
       decodeCommand(ListAuditLogsQuerySchema, raw, AuditWorkflowError.invalidInput),
       E.tap((query) =>
-        assertGuard(
-          query.actor.role === Role.Admin,
-          () => AuditWorkflowError.forbidden("Audit logs are restricted to admins"),
+        assertGuard(query.actor.role === Role.Admin, () =>
+          AuditWorkflowError.forbidden("Audit logs are restricted to admins"),
         ),
       ),
       E.flatMap((query) =>

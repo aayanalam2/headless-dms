@@ -100,14 +100,29 @@ export class DocumentWorkflows {
       E.flatMap((meta) => prepareUpload(meta, file)),
       E.flatMap((ctx) => E.map(buildDocument(ctx), (doc) => ({ ...ctx, doc }))),
       E.flatMap(({ doc, buffer, bucketKey, verId, actorId, now, filename }) =>
-        E.map(
-          uploadAndHash(this.storage, bucketKey, buffer, doc.contentType),
-          (checksum) => ({ doc, buffer, checksum, bucketKey, verId, actorId, now, filename }),
-        ),
+        E.map(uploadAndHash(this.storage, bucketKey, buffer, doc.contentType), (checksum) => ({
+          doc,
+          buffer,
+          checksum,
+          bucketKey,
+          verId,
+          actorId,
+          now,
+          filename,
+        })),
       ),
       E.flatMap(({ doc, verId, bucketKey, buffer, checksum, actorId, now, filename }) =>
         E.map(
-          buildAndCommitFirstDocument(this.documentRepo, doc, verId, bucketKey, buffer, checksum, actorId, now),
+          buildAndCommitFirstDocument(
+            this.documentRepo,
+            doc,
+            verId,
+            bucketKey,
+            buffer,
+            checksum,
+            actorId,
+            now,
+          ),
           ({ version, updated }) => ({ version, updated, filename, actorId }),
         ),
       ),
@@ -138,18 +153,37 @@ export class DocumentWorkflows {
         const verId = newVersionId();
 
         return pipe(
-          this.accessGuard.require(meta.documentId, meta.actor, PermissionAction.Write, DocumentWorkflowError),
-          E.flatMap((document) =>
-            resolveVersionMeta(this.documentRepo, meta.documentId, verId, meta.name, file, document),
+          this.accessGuard.require(
+            meta.documentId,
+            meta.actor,
+            PermissionAction.Write,
+            DocumentWorkflowError,
           ),
-          E.flatMap((ctx) =>
-            E.map(
-              uploadFile(this.storage, file, ctx.bucketKey, ctx.contentType),
-              (hash) => ({ ...ctx, ...hash }),
+          E.flatMap((document) =>
+            resolveVersionMeta(
+              this.documentRepo,
+              meta.documentId,
+              verId,
+              meta.name,
+              file,
+              document,
             ),
           ),
           E.flatMap((ctx) =>
-            buildAndCommitVersion(this.documentRepo, verId, meta.documentId, meta.actor.userId, now, ctx),
+            E.map(uploadFile(this.storage, file, ctx.bucketKey, ctx.contentType), (hash) => ({
+              ...ctx,
+              ...hash,
+            })),
+          ),
+          E.flatMap((ctx) =>
+            buildAndCommitVersion(
+              this.documentRepo,
+              verId,
+              meta.documentId,
+              meta.actor.userId,
+              now,
+              ctx,
+            ),
           ),
           E.tap(({ version, versionNumber, filename }) =>
             emitVersionCreated({
@@ -190,8 +224,14 @@ export class DocumentWorkflows {
         withPagination(
           query,
           (pagination) =>
-            liftRepo("repo.listDocuments",
-              scopeList(this.documentRepo, query.actor, { ownerId: query.ownerId, name: query.name }, pagination),
+            liftRepo(
+              "repo.listDocuments",
+              scopeList(
+                this.documentRepo,
+                query.actor,
+                { ownerId: query.ownerId, name: query.name },
+                pagination,
+              ),
             ),
           toPaginatedDocumentsDTO,
         ),
@@ -254,7 +294,10 @@ export class DocumentWorkflows {
             DocumentWorkflowError,
           ),
           E.flatMap((document) =>
-            liftRepo("repo.findVersionsByDocument", this.documentRepo.findVersionsByDocument(document.id)),
+            liftRepo(
+              "repo.findVersionsByDocument",
+              this.documentRepo.findVersionsByDocument(document.id),
+            ),
           ),
           E.map((versions) => versions.map(toVersionDTO)),
         ),
@@ -274,7 +317,9 @@ export class DocumentWorkflows {
             DocumentWorkflowError,
           ),
           E.flatMap((document) => liftConflict(document.softDelete())),
-          E.flatMap((deleted) => liftRepo("repo.softDelete", this.documentRepo.softDelete(deleted))),
+          E.flatMap((deleted) =>
+            liftRepo("repo.softDelete", this.documentRepo.softDelete(deleted)),
+          ),
           E.tap(() =>
             emitDocumentDeleted({
               actorId: cmd.actor.userId,
