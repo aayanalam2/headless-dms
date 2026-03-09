@@ -25,6 +25,11 @@ export const TOKENS = {
   AuthService: Symbol("AuthService"),
 
   // -------------------------------------------------------------------------
+  // Application services
+  // -------------------------------------------------------------------------
+  DocumentAccessGuard: Symbol("DocumentAccessGuard"),
+
+  // -------------------------------------------------------------------------
   // Application workflow classes
   // -------------------------------------------------------------------------
   DocumentWorkflows: Symbol("DocumentWorkflows"),

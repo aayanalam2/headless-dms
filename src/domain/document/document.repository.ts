@@ -1,6 +1,7 @@
 import type { Option as O } from "effect";
 import type { Document } from "@domain/document/document.entity.ts";
 import type { DocumentVersion } from "@domain/document/document-version.entity.ts";
+import type { IAccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
 import type { DocumentId, UserId, VersionId } from "@domain/utils/refined.types.ts";
 import type {
   DocumentNotFoundError,
@@ -17,6 +18,18 @@ export interface IDocumentRepository {
   findById(id: DocumentId): RepositoryEffect<O.Option<Document>>;
 
   findActiveById(id: DocumentId): RepositoryEffect<O.Option<Document>>;
+
+  /**
+   * Fetches a non-deleted document together with all access-policy rows that
+   * target `subjectId`, in a single LEFT JOIN query.
+   *
+   * Used by DocumentAccessGuard so authorization never requires a separate
+   * policy round-trip for non-admin actors.
+   */
+  findActiveByIdWithPolicies(
+    id: DocumentId,
+    subjectId: UserId,
+  ): RepositoryEffect<O.Option<{ readonly document: Document; readonly policies: readonly IAccessPolicy[] }>>;
 
   findByOwner(ownerId: UserId, pagination: PaginationParams): RepositoryEffect<Paginated<Document>>;
 

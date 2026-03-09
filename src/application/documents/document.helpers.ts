@@ -1,12 +1,8 @@
 import { Effect as E, Option as O, pipe } from "effect";
-import { type DocumentId, type VersionId, type UserId } from "@domain/utils/refined.types.ts";
-import { Role } from "@domain/utils/enums.ts";
+import { type DocumentId, type VersionId } from "@domain/utils/refined.types.ts";
 import type { Document } from "@domain/document/document.entity.ts";
 import type { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
-import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
-import { DocumentAccessService } from "@domain/services/document-access.service.ts";
-import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { eventBus } from "@infra/event-bus.ts";
 import {
   DocumentEvent,
@@ -89,40 +85,6 @@ export function commitVersion(
         repo.insertVersionAndUpdate(version, updatedDoc),
         E.mapError((e) => DocumentWorkflowError.unavailable("repo.insertVersionAndUpdate", e)),
         E.as({ version, updated: updatedDoc }),
-      ),
-    ),
-  );
-}
-
-export function requireAccessibleDocument(
-  repo: IDocumentRepository,
-  policyRepo: IAccessPolicyRepository,
-  documentId: DocumentId,
-  actor: { readonly userId: UserId; readonly role: Role },
-  action: PermissionAction,
-): E.Effect<Document, WorkflowError> {
-  return pipe(
-    requireActiveDocument(repo, documentId),
-    E.flatMap((document) =>
-      pipe(
-        policyRepo.findByDocumentAndSubject(documentId, actor.userId),
-        E.mapError((e) =>
-          DocumentWorkflowError.unavailable("policyRepo.findByDocumentAndSubject", e),
-        ),
-        E.flatMap((policies) =>
-          DocumentAccessService.evaluate(
-            { id: actor.userId, role: actor.role },
-            policies,
-            document,
-            action,
-          )
-            ? E.succeed(document)
-            : E.fail(
-                DocumentWorkflowError.accessDenied(
-                  `User '${actor.userId}' cannot ${action} document '${document.id}'`,
-                ),
-              ),
-        ),
       ),
     ),
   );

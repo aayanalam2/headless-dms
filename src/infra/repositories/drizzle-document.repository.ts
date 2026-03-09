@@ -11,9 +11,11 @@ import {
   StringToVersionId,
   StringToBucketKey,
   StringToChecksum,
+  StringToAccessPolicyId,
 } from "@domain/utils/refined.types.ts";
 import { Document } from "@domain/document/document.entity.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
+import type { IAccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
 import type { DocumentRow, VersionRow } from "@infra/database/schema.ts";
 import {
   DocumentNotFoundError,
@@ -24,6 +26,7 @@ import { buildPageInfo } from "@domain/utils/pagination.ts";
 import type { ContentType } from "@domain/document/value-objects/content-type.vo.ts";
 import { documentsTable } from "@infra/database/models/document.table.ts";
 import { documentVersionsTable } from "@infra/database/models/document-version.table.ts";
+import { accessPoliciesTable } from "@infra/database/models/access-policy.table.ts";
 import {
   executeQuery,
   executeTransaction,
@@ -83,6 +86,45 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
           .limit(1),
       DrizzleDocumentRepository.fromDocumentRow,
     );
+  }
+
+  findActiveByIdWithPolicies(
+    id: DocumentId,
+    subjectId: UserId,
+  ): RepositoryEffect<O.Option<{ readonly document: Document; readonly policies: readonly IAccessPolicy[] }>> {
+    return executeQuery(async () => {
+      const rows = await this.db
+        .select({ doc: documentsTable, policy: accessPoliciesTable })
+        .from(documentsTable)
+        .leftJoin(
+          accessPoliciesTable,
+          and(
+            eq(accessPoliciesTable.documentId, documentsTable.id),
+            eq(accessPoliciesTable.subjectId, subjectId),
+          ),
+        )
+        .where(and(eq(documentsTable.id, id), isNull(documentsTable.deletedAt)));
+
+      if (rows.length === 0) return O.none();
+
+      const document = DrizzleDocumentRepository.fromDocumentRow(rows[0]!.doc);
+      const policies: IAccessPolicy[] = rows
+        .filter((r) => r.policy !== null)
+        .map((r) => {
+          const p = r.policy!;
+          return {
+            id: S.decodeSync(StringToAccessPolicyId)(p.id),
+            documentId: S.decodeSync(StringToDocumentId)(p.documentId),
+            subjectId: S.decodeSync(StringToUserId)(p.subjectId),
+            action: p.action,
+            effect: p.effect,
+            createdAt: p.createdAt,
+            updatedAt: p.updatedAt,
+          } satisfies IAccessPolicy;
+        });
+
+      return O.some({ document, policies });
+    });
   }
 
   findByOwner(

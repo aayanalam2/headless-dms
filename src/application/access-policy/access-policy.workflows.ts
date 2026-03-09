@@ -1,14 +1,15 @@
 import "reflect-metadata";
-import { Effect as E, Option as O, Schema as S, pipe } from "effect";
+import { Effect as E, Schema as S, pipe } from "effect";
 import { inject, injectable } from "tsyringe";
 import { StringToAccessPolicyId } from "@domain/utils/refined.types.ts";
 import { TOKENS } from "@infra/di/tokens.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
-import type { IDocumentRepository } from "@domain/document/document.repository.ts";
-import { DocumentAccessService } from "@domain/services/document-access.service.ts";
+import { DocumentAccessGuard } from "@application/security/document-access.guard.ts";
+import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
 import {
   AccessPolicyWorkflowError,
+  AccessPolicyWorkflowErrorTag,
   type AccessPolicyWorkflowError as WorkflowError,
 } from "./access-policy-workflow.errors.ts";
 import {
@@ -28,7 +29,6 @@ import {
 import {
   unavailable,
   requirePolicy,
-  requireShareableDocument,
   buildPolicy,
   emitPolicyGranted,
   emitPolicyUpdated,
@@ -40,8 +40,8 @@ export class AccessPolicyWorkflows {
   constructor(
     @inject(TOKENS.AccessPolicyRepository)
     private readonly policyRepo: IAccessPolicyRepository,
-    @inject(TOKENS.DocumentRepository)
-    private readonly documentRepo: IDocumentRepository,
+    @inject(TOKENS.DocumentAccessGuard)
+    private readonly accessGuard: DocumentAccessGuard,
   ) {}
 
   grantAccess(raw: GrantAccessCommandEncoded): E.Effect<AccessPolicyDTO, WorkflowError> {
@@ -49,7 +49,7 @@ export class AccessPolicyWorkflows {
       decodeCommand(GrantAccessCommandSchema, raw, AccessPolicyWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          requireShareableDocument(this.documentRepo, this.policyRepo, cmd.documentId, cmd.actor),
+          this.accessGuard.require(cmd.documentId, cmd.actor, PermissionAction.Share, AccessPolicyWorkflowError),
           E.flatMap(() =>
             buildPolicy(
               {
@@ -93,12 +93,7 @@ export class AccessPolicyWorkflows {
           requirePolicy(this.policyRepo, cmd.policyId),
           E.flatMap((existing) =>
             pipe(
-              requireShareableDocument(
-                this.documentRepo,
-                this.policyRepo,
-                existing.documentId,
-                cmd.actor,
-              ),
+              this.accessGuard.require(existing.documentId, cmd.actor, PermissionAction.Share, AccessPolicyWorkflowError),
               E.flatMap(() =>
                 buildPolicy(
                   {
@@ -149,12 +144,7 @@ export class AccessPolicyWorkflows {
           requirePolicy(this.policyRepo, cmd.policyId),
           E.flatMap((existing) =>
             pipe(
-              requireShareableDocument(
-                this.documentRepo,
-                this.policyRepo,
-                existing.documentId,
-                cmd.actor,
-              ),
+              this.accessGuard.require(existing.documentId, cmd.actor, PermissionAction.Share, AccessPolicyWorkflowError),
               E.flatMap(() =>
                 pipe(
                   this.policyRepo.delete(cmd.policyId),
@@ -181,26 +171,12 @@ export class AccessPolicyWorkflows {
       decodeCommand(CheckAccessQuerySchema, raw, AccessPolicyWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          this.documentRepo.findById(cmd.documentId),
-          E.mapError(unavailable("documentRepo.findById")),
-          E.flatMap((docOpt) => {
-            if (O.isNone(docOpt)) {
-              return E.fail(AccessPolicyWorkflowError.notFound(`Document '${cmd.documentId}'`));
-            }
-            const document = docOpt.value;
-            return pipe(
-              this.policyRepo.findByDocumentAndSubject(cmd.documentId, cmd.actor.userId),
-              E.mapError(unavailable("policyRepo.findByDocumentAndSubject")),
-              E.map((policies) =>
-                DocumentAccessService.evaluate(
-                  { id: cmd.actor.userId, role: cmd.actor.role },
-                  policies,
-                  document,
-                  cmd.action,
-                ),
-              ),
-            );
-          }),
+          this.accessGuard.require(cmd.documentId, cmd.actor, cmd.action, AccessPolicyWorkflowError),
+          E.map(() => true),
+          E.catchIf(
+            (e) => e._tag === AccessPolicyWorkflowErrorTag.AccessDenied,
+            () => E.succeed(false),
+          ),
         ),
       ),
     );
@@ -213,7 +189,7 @@ export class AccessPolicyWorkflows {
       decodeCommand(ListDocumentPoliciesQuerySchema, raw, AccessPolicyWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          requireShareableDocument(this.documentRepo, this.policyRepo, cmd.documentId, cmd.actor),
+          this.accessGuard.require(cmd.documentId, cmd.actor, PermissionAction.Share, AccessPolicyWorkflowError),
           E.flatMap(() =>
             pipe(
               this.policyRepo.findByDocument(cmd.documentId),

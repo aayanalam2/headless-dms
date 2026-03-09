@@ -18,6 +18,7 @@ import { DrizzleUserRepository } from "@infra/repositories/drizzle-user.reposito
 import { DrizzleAuditRepository } from "@infra/repositories/drizzle-audit.repository.ts";
 import { DrizzleAccessPolicyRepository } from "@infra/repositories/drizzle-access-policy.repository.ts";
 import { AuthService } from "@infra/services/auth.service.ts";
+import { DocumentAccessGuard } from "@application/security/document-access.guard.ts";
 
 // ---------------------------------------------------------------------------
 // buildContainer
@@ -31,9 +32,10 @@ export function buildContainer(db: AppDb, storage: IStorage): typeof container {
   // Repositories — registered as pre-built values so tsyringe doesn't attempt
   // to construct them (they need `db` which isn't injectable itself).
   // -------------------------------------------------------------------------
+  const documentRepo = new DrizzleDocumentRepository(db);
   container.registerInstance(
     TOKENS.DocumentRepository as unknown as string,
-    new DrizzleDocumentRepository(db),
+    documentRepo,
   );
   container.registerInstance(
     TOKENS.UserRepository as unknown as string,
@@ -57,6 +59,14 @@ export function buildContainer(db: AppDb, storage: IStorage): typeof container {
   // AuthService — singleton; no external deps (reads config internally).
   // -------------------------------------------------------------------------
   container.registerInstance(TOKENS.AuthService as unknown as string, new AuthService());
+
+  // -------------------------------------------------------------------------
+  // DocumentAccessGuard — depends on the document repository.
+  // -------------------------------------------------------------------------
+  container.registerInstance(
+    TOKENS.DocumentAccessGuard as unknown as string,
+    new DocumentAccessGuard(documentRepo),
+  );
 
   return container;
 }

@@ -37,9 +37,11 @@ import { UserNotFoundError, UserAlreadyExistsError } from "../../src/domain/user
 export function createInMemoryDocumentRepository(initial?: {
   docs?: Document[];
   versions?: DocumentVersion[];
+  policies?: AccessPolicy[];
 }): IDocumentRepository {
   const docs: Document[] = [...(initial?.docs ?? [])];
   const versions: DocumentVersion[] = [...(initial?.versions ?? [])];
+  const policies: AccessPolicy[] = [...(initial?.policies ?? [])];
 
   return {
     findById(id: DocumentId) {
@@ -50,6 +52,13 @@ export function createInMemoryDocumentRepository(initial?: {
     findActiveById(id: DocumentId) {
       const doc = docs.find((d) => d.id === id && O.isNone(d.deletedAt));
       return E.succeed(doc ? O.some(doc) : O.none());
+    },
+
+    findActiveByIdWithPolicies(id: DocumentId, subjectId: UserId) {
+      const doc = docs.find((d) => d.id === id && O.isNone(d.deletedAt));
+      if (!doc) return E.succeed(O.none());
+      const matching = policies.filter((p) => p.documentId === id && p.subjectId === subjectId);
+      return E.succeed(O.some({ document: doc, policies: matching }));
     },
 
     findByOwner(ownerId: UserId, pagination: PaginationParams) {

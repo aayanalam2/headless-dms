@@ -17,6 +17,7 @@ import { describe, expect, it } from "bun:test";
 import { Effect as E, Either } from "effect";
 import { AccessPolicyWorkflows } from "@application/access-policy/access-policy.workflows.ts";
 import { AccessPolicyWorkflowErrorTag } from "@application/access-policy/access-policy-workflow.errors.ts";
+import { DocumentAccessGuard } from "@application/security/document-access.guard.ts";
 import {
   PermissionAction,
   PolicyEffect,
@@ -39,9 +40,13 @@ import type { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts
 const flushEventLoop = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 10));
 
 function makeWorkflows(initial: { docs?: Document[]; policies?: AccessPolicy[] }) {
-  const docRepo = createInMemoryDocumentRepository({ docs: initial.docs ?? [] });
+  const docRepo = createInMemoryDocumentRepository({
+    docs: initial.docs ?? [],
+    policies: initial.policies ?? [],
+  });
   const policyRepo = createInMemoryAccessPolicyRepository({ policies: initial.policies ?? [] });
-  return { workflows: new AccessPolicyWorkflows(policyRepo, docRepo), policyRepo };
+  const accessGuard = new DocumentAccessGuard(docRepo);
+  return { workflows: new AccessPolicyWorkflows(policyRepo, accessGuard), policyRepo };
 }
 
 // ---------------------------------------------------------------------------

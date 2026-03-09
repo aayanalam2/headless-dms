@@ -18,6 +18,7 @@ import { describe, expect, it } from "bun:test";
 import { Effect as E, Either } from "effect";
 import { DocumentWorkflows } from "@application/documents/document.workflows.ts";
 import { DocumentWorkflowErrorTag } from "@application/documents/document-workflow.errors.ts";
+import { DocumentAccessGuard } from "@application/security/document-access.guard.ts";
 import {
   PermissionAction,
   PolicyEffect,
@@ -27,7 +28,6 @@ import { createAuditListeners } from "@application/audit/audit.listener.ts";
 import {
   createInMemoryDocumentRepository,
   createInMemoryStorage,
-  createInMemoryAccessPolicyRepository,
   createInMemoryAuditRepository,
 } from "../../helpers/mocks.ts";
 import { makeDocument, makeUser, makeSubjectPolicy } from "../../domain/factories.ts";
@@ -42,10 +42,13 @@ import type { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts
 const flushEventLoop = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 10));
 
 function makeWorkflows(initial: { docs?: Document[]; policies?: AccessPolicy[] }) {
-  const docRepo = createInMemoryDocumentRepository({ docs: initial.docs ?? [] });
-  const policyRepo = createInMemoryAccessPolicyRepository({ policies: initial.policies ?? [] });
+  const docRepo = createInMemoryDocumentRepository({
+    docs: initial.docs ?? [],
+    policies: initial.policies ?? [],
+  });
   const storage = createInMemoryStorage();
-  return { workflows: new DocumentWorkflows(docRepo, storage, policyRepo) };
+  const accessGuard = new DocumentAccessGuard(docRepo);
+  return { workflows: new DocumentWorkflows(docRepo, storage, accessGuard) };
 }
 
 const makePdf = (name = "file.pdf"): File =>

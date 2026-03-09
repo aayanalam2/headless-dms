@@ -3,7 +3,6 @@ import { Effect as E, Schema as S, pipe } from "effect";
 import { Document } from "@domain/document/document.entity.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
-import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
 import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { Role } from "@domain/utils/enums.ts";
 import { withPagination } from "@application/shared/pagination.ts";
@@ -15,13 +14,13 @@ import {
 } from "@domain/utils/refined.types.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
 import { TOKENS } from "@infra/di/tokens.ts";
+import { DocumentAccessGuard } from "@application/security/document-access.guard.ts";
 import { BucketKeyFactory } from "@domain/document/value-objects/bucket-key.vo.ts";
 import { ChecksumFactory } from "@domain/document/value-objects/checksum.vo.ts";
 import { Tags } from "@domain/document/value-objects/tags.vo.ts";
 import { Metadata } from "@domain/document/value-objects/metadata.vo.ts";
 import {
   commitVersion,
-  requireAccessibleDocument,
   requireVersion,
   requireVersionOfDocument,
   requireCurrentVersion,
@@ -112,7 +111,7 @@ export class DocumentWorkflows {
   constructor(
     @inject(TOKENS.DocumentRepository) private readonly documentRepo: IDocumentRepository,
     @inject(TOKENS.StorageService) private readonly storage: IStorage,
-    @inject(TOKENS.AccessPolicyRepository) private readonly policyRepo: IAccessPolicyRepository,
+    @inject(TOKENS.DocumentAccessGuard) private readonly accessGuard: DocumentAccessGuard,
   ) {}
 
   upload(
@@ -227,13 +226,7 @@ export class DocumentWorkflows {
         const verId = S.decodeSync(StringToVersionId)(crypto.randomUUID());
 
         return pipe(
-          requireAccessibleDocument(
-            this.documentRepo,
-            this.policyRepo,
-            meta.documentId,
-            meta.actor,
-            PermissionAction.Write,
-          ),
+          this.accessGuard.require(meta.documentId, meta.actor, PermissionAction.Write, DocumentWorkflowError),
           E.flatMap((document) =>
             pipe(
               this.documentRepo.findVersionsByDocument(meta.documentId),
@@ -305,13 +298,7 @@ export class DocumentWorkflows {
       decodeCommand(GetDocumentQuerySchema, raw, DocumentWorkflowError.invalidInput),
       E.flatMap((query) =>
         pipe(
-          requireAccessibleDocument(
-            this.documentRepo,
-            this.policyRepo,
-            query.documentId,
-            query.actor,
-            PermissionAction.Read,
-          ),
+          this.accessGuard.require(query.documentId, query.actor, PermissionAction.Read, DocumentWorkflowError),
           E.map(toDocumentDTO),
         ),
       ),
@@ -348,13 +335,7 @@ export class DocumentWorkflows {
       E.flatMap((query) => {
         const ttl = query.expiresInSeconds ?? DEFAULT_PRESIGNED_URL_TTL_SECONDS;
         return pipe(
-          requireAccessibleDocument(
-            this.documentRepo,
-            this.policyRepo,
-            query.documentId,
-            query.actor,
-            PermissionAction.Read,
-          ),
+          this.accessGuard.require(query.documentId, query.actor, PermissionAction.Read, DocumentWorkflowError),
           E.flatMap((document) => requireCurrentVersion(this.documentRepo, document)),
           E.flatMap((version) => buildPresignedResponse(this.storage, version, ttl)),
         );
@@ -368,13 +349,7 @@ export class DocumentWorkflows {
       E.flatMap((query) => {
         const ttl = query.expiresInSeconds ?? DEFAULT_PRESIGNED_URL_TTL_SECONDS;
         return pipe(
-          requireAccessibleDocument(
-            this.documentRepo,
-            this.policyRepo,
-            query.documentId,
-            query.actor,
-            PermissionAction.Read,
-          ),
+          this.accessGuard.require(query.documentId, query.actor, PermissionAction.Read, DocumentWorkflowError),
           E.flatMap((document) =>
             pipe(
               requireVersion(this.documentRepo, query.versionId),
@@ -392,13 +367,7 @@ export class DocumentWorkflows {
       decodeCommand(ListVersionsQuerySchema, raw, DocumentWorkflowError.invalidInput),
       E.flatMap((query) =>
         pipe(
-          requireAccessibleDocument(
-            this.documentRepo,
-            this.policyRepo,
-            query.documentId,
-            query.actor,
-            PermissionAction.Read,
-          ),
+          this.accessGuard.require(query.documentId, query.actor, PermissionAction.Read, DocumentWorkflowError),
           E.flatMap((document) =>
             pipe(
               this.documentRepo.findVersionsByDocument(document.id),
@@ -418,13 +387,7 @@ export class DocumentWorkflows {
       decodeCommand(DeleteDocumentCommandSchema, raw, DocumentWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          requireAccessibleDocument(
-            this.documentRepo,
-            this.policyRepo,
-            cmd.documentId,
-            cmd.actor,
-            PermissionAction.Delete,
-          ),
+          this.accessGuard.require(cmd.documentId, cmd.actor, PermissionAction.Delete, DocumentWorkflowError),
           E.flatMap((document) =>
             pipe(
               document.softDelete(),
