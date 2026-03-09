@@ -68,5 +68,3 @@ export const authPlugin = new Elysia({ name: "auth" })
       } satisfies JwtClaims,
     };
   });
-
-
