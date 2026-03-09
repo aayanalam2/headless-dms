@@ -6,7 +6,7 @@ import type { IDocumentRepository } from "@domain/document/document.repository.t
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
 import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { Role } from "@domain/utils/enums.ts";
-import { withPagination } from "@domain/utils/pagination.ts";
+import { withPagination } from "@application/shared/pagination.ts";
 import {
   type BucketKey,
   type Checksum,

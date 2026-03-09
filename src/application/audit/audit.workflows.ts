@@ -4,7 +4,7 @@ import { TOKENS } from "@infra/di/tokens.ts";
 import { Role } from "@domain/utils/enums.ts";
 import type { IAuditRepository } from "./audit.repository.port.ts";
 import { decodeCommand } from "@application/shared/decode.ts";
-import { withPagination } from "@domain/utils/pagination.ts";
+import { withPagination } from "@application/shared/pagination.ts";
 import {
   ListAuditLogsQuerySchema,
   toPaginatedAuditLogsDTO,
