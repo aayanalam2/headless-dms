@@ -1,4 +1,5 @@
-import { Option as O, Schema as S } from "effect";
+import { Schema as S } from "effect";
+import { optionToMaybe } from "@domain/utils/utils.ts";
 import { DocumentSchema, type Document } from "@domain/document/document.entity.ts";
 import {
   DocumentVersionSchema,
@@ -124,7 +125,7 @@ export function toDocumentDTO(document: Document): DocumentDTO {
     ownerId: document.ownerId,
     name: document.name,
     contentType: document.contentType,
-    currentVersionId: O.getOrNull(document.currentVersionId),
+    currentVersionId: optionToMaybe(document.currentVersionId),
     tags: [...document.tags],
     metadata: document.metadata,
     createdAt: document.createdAt.toISOString(),

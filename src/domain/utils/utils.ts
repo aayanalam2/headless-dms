@@ -12,6 +12,6 @@ export const normalizeMaybe = <T>(value: Maybe<T>): O.Option<T> => {
   return O.some(value);
 };
 
-export const optionToMaybe = <T>(option: O.Option<T>): Maybe<T> => {
-  return O.getOrNull(option) as Maybe<T>;
+export const optionToMaybe = <T>(option: O.Option<T>): T | null => {
+  return O.getOrNull(option);
 };

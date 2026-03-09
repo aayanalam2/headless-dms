@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { Effect as E, pipe } from "effect";
+import { Effect as E, pipe, Schema as S } from "effect";
 import { inject, injectable } from "tsyringe";
 import { newAccessPolicyId } from "@domain/utils/refined.types.ts";
 import { TOKENS } from "@infra/di/tokens.ts";
@@ -34,7 +34,9 @@ import {
   emitPolicyUpdated,
   emitPolicyRevoked,
 } from "./access-policy.helpers.ts";
-import { replacePolicy } from "./access-policy.service.ts";
+
+const decode = <A, I>(schema: S.Schema<A, I>, raw: unknown) =>
+  decodeCommand(schema, raw, AccessPolicyWorkflowError.invalidInput);
 
 @injectable()
 export class AccessPolicyWorkflows {
@@ -47,7 +49,7 @@ export class AccessPolicyWorkflows {
 
   grantAccess(raw: GrantAccessCommandEncoded): E.Effect<AccessPolicyDTO, WorkflowError> {
     return pipe(
-      decodeCommand(GrantAccessCommandSchema, raw, AccessPolicyWorkflowError.invalidInput),
+      decode(GrantAccessCommandSchema, raw),
       E.flatMap((cmd) =>
         pipe(
           this.accessGuard.require(
@@ -57,17 +59,14 @@ export class AccessPolicyWorkflows {
             AccessPolicyWorkflowError,
           ),
           E.flatMap(() =>
-            buildPolicy(
-              {
-                id: newAccessPolicyId(),
-                createdAt: new Date(),
-                documentId: cmd.documentId,
-                subjectId: cmd.subjectId,
-                action: cmd.action,
-                effect: cmd.effect,
-              },
-              "subjectId must be a valid user ID",
-            ),
+            buildPolicy({
+              id: newAccessPolicyId(),
+              createdAt: new Date(),
+              documentId: cmd.documentId,
+              subjectId: cmd.subjectId,
+              action: cmd.action,
+              effect: cmd.effect,
+            }),
           ),
           E.tap((policy) => liftRepo(this.policyRepo.save(policy))),
           E.tap((policy) =>
@@ -88,7 +87,7 @@ export class AccessPolicyWorkflows {
   // AccessPolicy is immutable; updating replaces it with a new ID (delete + save).
   updateAccess(raw: UpdateAccessCommandEncoded): E.Effect<AccessPolicyDTO, WorkflowError> {
     return pipe(
-      decodeCommand(UpdateAccessCommandSchema, raw, AccessPolicyWorkflowError.invalidInput),
+      decode(UpdateAccessCommandSchema, raw),
       E.flatMap((cmd) =>
         pipe(
           requirePolicy(this.policyRepo, cmd.policyId),
@@ -105,21 +104,23 @@ export class AccessPolicyWorkflows {
           ),
           E.flatMap((existing) =>
             E.map(
-              buildPolicy(
-                {
-                  id: newAccessPolicyId(),
-                  createdAt: new Date(),
-                  documentId: existing.documentId,
-                  subjectId: existing.subjectId,
-                  action: existing.action,
-                  effect: cmd.effect,
-                },
-                "Policy reconstruction failed",
-              ),
+              buildPolicy({
+                id: newAccessPolicyId(),
+                createdAt: new Date(),
+                documentId: existing.documentId,
+                subjectId: existing.subjectId,
+                action: existing.action,
+                effect: cmd.effect,
+              }),
               (replacement) => ({ existing, replacement }),
             ),
           ),
-          E.tap(({ replacement }) => replacePolicy(this.policyRepo, cmd.policyId, replacement)),
+          E.tap(({ replacement }) =>
+            pipe(
+              liftRepo(this.policyRepo.delete(cmd.policyId)),
+              E.flatMap(() => liftRepo(this.policyRepo.save(replacement))),
+            ),
+          ),
           E.tap(({ existing, replacement }) =>
             emitPolicyUpdated({
               actorId: cmd.actor.userId,
@@ -137,7 +138,7 @@ export class AccessPolicyWorkflows {
 
   revokeAccess(raw: RevokeAccessCommandEncoded): E.Effect<void, WorkflowError> {
     return pipe(
-      decodeCommand(RevokeAccessCommandSchema, raw, AccessPolicyWorkflowError.invalidInput),
+      decode(RevokeAccessCommandSchema, raw),
       E.flatMap((cmd) =>
         pipe(
           requirePolicy(this.policyRepo, cmd.policyId),
@@ -168,7 +169,7 @@ export class AccessPolicyWorkflows {
 
   checkAccess(raw: CheckAccessQueryEncoded): E.Effect<boolean, WorkflowError> {
     return pipe(
-      decodeCommand(CheckAccessQuerySchema, raw, AccessPolicyWorkflowError.invalidInput),
+      decode(CheckAccessQuerySchema, raw),
       E.flatMap((cmd) =>
         this.accessGuard.require(cmd.documentId, cmd.actor, cmd.action, AccessPolicyWorkflowError),
       ),
@@ -184,7 +185,7 @@ export class AccessPolicyWorkflows {
     raw: ListDocumentPoliciesQueryEncoded,
   ): E.Effect<readonly AccessPolicyDTO[], WorkflowError> {
     return pipe(
-      decodeCommand(ListDocumentPoliciesQuerySchema, raw, AccessPolicyWorkflowError.invalidInput),
+      decode(ListDocumentPoliciesQuerySchema, raw),
       E.flatMap((cmd) =>
         pipe(
           this.accessGuard.require(

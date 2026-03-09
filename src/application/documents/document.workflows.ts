@@ -1,5 +1,5 @@
 import { inject, injectable } from "tsyringe";
-import { Effect as E, pipe } from "effect";
+import { Effect as E, pipe, Schema as S } from "effect";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
 import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
@@ -18,8 +18,6 @@ import {
   emitDocumentUploaded,
   emitVersionCreated,
   emitDocumentDeleted,
-} from "./document.helpers.ts";
-import {
   uploadAndHash,
   uploadFile,
   resolveVersionMeta,
@@ -27,7 +25,7 @@ import {
   buildAndCommitFirstDocument,
   prepareUpload,
   buildDocument,
-} from "./document.service.ts";
+} from "./document.helpers.ts";
 import {
   toDocumentDTO,
   toPaginatedDocumentsDTO,
@@ -59,6 +57,9 @@ import {
   DocumentWorkflowError,
   type DocumentWorkflowError as WorkflowError,
 } from "./document-workflow.errors.ts";
+
+const decode = <A, I>(schema: S.Schema<A, I>, raw: unknown) =>
+  decodeCommand(schema, raw, DocumentWorkflowError.invalidInput);
 
 export type UploadDocumentResult = {
   readonly document: DocumentDTO;
@@ -96,7 +97,7 @@ export class DocumentWorkflows {
     file: File,
   ): E.Effect<UploadDocumentResult, WorkflowError> {
     return pipe(
-      decodeCommand(UploadDocumentMetaSchema, rawMeta, DocumentWorkflowError.invalidInput),
+      decode(UploadDocumentMetaSchema, rawMeta),
       E.flatMap((meta) => prepareUpload(meta, file)),
       E.flatMap((ctx) => E.map(buildDocument(ctx), (doc) => ({ ...ctx, doc }))),
       E.flatMap(({ doc, buffer, bucketKey, verId, actorId, now, filename }) =>
@@ -147,7 +148,7 @@ export class DocumentWorkflows {
     file: File,
   ): E.Effect<UploadVersionResult, WorkflowError> {
     return pipe(
-      decodeCommand(UploadVersionMetaSchema, rawMeta, DocumentWorkflowError.invalidInput),
+      decode(UploadVersionMetaSchema, rawMeta),
       E.flatMap((meta) => {
         const now = new Date();
         const verId = newVersionId();
@@ -202,7 +203,7 @@ export class DocumentWorkflows {
 
   get(raw: GetDocumentQueryEncoded): E.Effect<DocumentDTO, WorkflowError> {
     return pipe(
-      decodeCommand(GetDocumentQuerySchema, raw, DocumentWorkflowError.invalidInput),
+      decode(GetDocumentQuerySchema, raw),
       E.flatMap((query) =>
         pipe(
           this.accessGuard.require(
@@ -219,7 +220,7 @@ export class DocumentWorkflows {
 
   list(raw: ListDocumentsQueryEncoded): E.Effect<PaginatedDocumentsDTO, WorkflowError> {
     return pipe(
-      decodeCommand(ListDocumentsQuerySchema, raw, DocumentWorkflowError.invalidInput),
+      decode(ListDocumentsQuerySchema, raw),
       E.flatMap((query) =>
         withPagination(
           query,
@@ -240,7 +241,7 @@ export class DocumentWorkflows {
 
   download(raw: DownloadDocumentQueryEncoded): E.Effect<PresignedDownloadDTO, WorkflowError> {
     return pipe(
-      decodeCommand(DownloadDocumentQuerySchema, raw, DocumentWorkflowError.invalidInput),
+      decode(DownloadDocumentQuerySchema, raw),
       E.flatMap((query) => {
         const ttl = query.expiresInSeconds ?? DEFAULT_PRESIGNED_URL_TTL_SECONDS;
         return pipe(
@@ -259,7 +260,7 @@ export class DocumentWorkflows {
 
   downloadVersion(raw: DownloadVersionQueryEncoded): E.Effect<PresignedDownloadDTO, WorkflowError> {
     return pipe(
-      decodeCommand(DownloadVersionQuerySchema, raw, DocumentWorkflowError.invalidInput),
+      decode(DownloadVersionQuerySchema, raw),
       E.flatMap((query) => {
         const ttl = query.expiresInSeconds ?? DEFAULT_PRESIGNED_URL_TTL_SECONDS;
         return pipe(
@@ -283,7 +284,7 @@ export class DocumentWorkflows {
 
   listVersions(raw: ListVersionsQueryEncoded): E.Effect<readonly VersionDTO[], WorkflowError> {
     return pipe(
-      decodeCommand(ListVersionsQuerySchema, raw, DocumentWorkflowError.invalidInput),
+      decode(ListVersionsQuerySchema, raw),
       E.flatMap((query) =>
         pipe(
           this.accessGuard.require(
@@ -301,7 +302,7 @@ export class DocumentWorkflows {
 
   delete(raw: DeleteDocumentCommandEncoded): E.Effect<void, WorkflowError> {
     return pipe(
-      decodeCommand(DeleteDocumentCommandSchema, raw, DocumentWorkflowError.invalidInput),
+      decode(DeleteDocumentCommandSchema, raw),
       E.flatMap((cmd) =>
         pipe(
           this.accessGuard.require(

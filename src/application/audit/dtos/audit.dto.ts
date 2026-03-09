@@ -27,9 +27,3 @@ export type ListAuditLogsQuery = S.Schema.Type<typeof ListAuditLogsQuerySchema>;
 
 export type AuditLogDTO = AuditLogEntry;
 export type PaginatedAuditLogsDTO = Paginated<AuditLogEntry>;
-
-export function toPaginatedAuditLogsDTO(
-  paginated: Paginated<AuditLogEntry>,
-): PaginatedAuditLogsDTO {
-  return paginated;
-}

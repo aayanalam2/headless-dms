@@ -1,5 +1,6 @@
 import { Effect as E, Option as O, Schema as S } from "effect";
 import { and, asc, desc, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { normalizeMaybe, optionToMaybe } from "@domain/utils/utils.ts";
 import type { AppDb } from "@infra/database/utils/connection.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
 import {
@@ -46,14 +47,14 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
       name: row.name,
       contentType: row.contentType as ContentType,
       currentVersionId: O.map(
-        O.fromNullable(row.currentVersionId),
+        normalizeMaybe(row.currentVersionId),
         S.decodeSync(StringToVersionId),
       ),
       tags: row.tags,
       metadata: row.metadata ?? {},
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
-      deletedAt: O.fromNullable(row.deletedAt),
+      deletedAt: normalizeMaybe(row.deletedAt),
     });
   };
 
@@ -251,7 +252,7 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
         this.db
           .update(documentsTable)
           .set({
-            deletedAt: O.getOrNull(document.deletedAt),
+            deletedAt: optionToMaybe(document.deletedAt),
             updatedAt: document.updatedAt,
           })
           .where(eq(documentsTable.id, document.id))
@@ -290,10 +291,10 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
         .update(documentsTable)
         .set({
           name: updatedDoc.name,
-          currentVersionId: O.getOrNull(updatedDoc.currentVersionId),
+          currentVersionId: optionToMaybe(updatedDoc.currentVersionId),
           tags: [...updatedDoc.tags],
           metadata: updatedDoc.metadata,
-          deletedAt: O.getOrNull(updatedDoc.deletedAt),
+          deletedAt: optionToMaybe(updatedDoc.deletedAt),
           updatedAt: updatedDoc.updatedAt,
         })
         .where(eq(documentsTable.id, updatedDoc.id));
@@ -311,12 +312,12 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
         ownerId: doc.ownerId,
         name: doc.name,
         contentType: doc.contentType,
-        currentVersionId: O.getOrNull(doc.currentVersionId),
+        currentVersionId: optionToMaybe(doc.currentVersionId),
         tags: [...doc.tags],
         metadata: doc.metadata,
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
-        deletedAt: O.getOrNull(doc.deletedAt),
+        deletedAt: optionToMaybe(doc.deletedAt),
       });
       await tx.insert(documentVersionsTable).values({
         id: version.id,
@@ -333,10 +334,10 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
         .update(documentsTable)
         .set({
           name: updatedDoc.name,
-          currentVersionId: O.getOrNull(updatedDoc.currentVersionId),
+          currentVersionId: optionToMaybe(updatedDoc.currentVersionId),
           tags: [...updatedDoc.tags],
           metadata: updatedDoc.metadata,
-          deletedAt: O.getOrNull(updatedDoc.deletedAt),
+          deletedAt: optionToMaybe(updatedDoc.deletedAt),
           updatedAt: updatedDoc.updatedAt,
         })
         .where(eq(documentsTable.id, updatedDoc.id));

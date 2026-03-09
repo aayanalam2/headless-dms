@@ -22,11 +22,3 @@ export function isAllowPolicy(policy: IAccessPolicy): boolean {
 export function isDenyPolicy(policy: IAccessPolicy): boolean {
   return policy.effect === PolicyEffect.Deny;
 }
-
-/**
- * Every policy now targets a specific user — this always returns `true`.
- * Kept for backward-compatibility with call sites that narrow on subject policies.
- */
-export function isSubjectPolicy(_policy: IAccessPolicy): boolean {
-  return true;
-}

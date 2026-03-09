@@ -1,29 +1,5 @@
 import { Effect as E, Option as O, pipe } from "effect";
 
-export function requireFound<T, E>(
-  fetch: E.Effect<O.Option<T>, unknown>,
-  mapError: (e: unknown) => E,
-  onNotFound: () => E,
-): E.Effect<T, E> {
-  return pipe(
-    fetch,
-    E.mapError(mapError),
-    E.flatMap((opt) => (O.isNone(opt) ? E.fail(onNotFound()) : E.succeed(opt.value))),
-  );
-}
-
-export function requireAbsent<E>(
-  fetch: E.Effect<O.Option<unknown>, unknown>,
-  mapError: (e: unknown) => E,
-  onFound: () => E,
-): E.Effect<void, E> {
-  return pipe(
-    fetch,
-    E.mapError(mapError),
-    E.flatMap((opt) => (O.isSome(opt) ? E.fail(onFound()) : E.void)),
-  );
-}
-
 /**
  * Factory that binds an 'unavailable' constructor and returns a `liftRepo` function.
  * The returned function maps any effect's error to an Unavailable error — intended for
@@ -68,4 +44,44 @@ export function assertOrFail<T, E>(condition: boolean, value: T, onFail: () => E
 
 export function assertGuard<E>(condition: boolean, onFail: () => E): E.Effect<void, E> {
   return condition ? E.void : E.fail(onFail());
+}
+
+/**
+ * Unwraps an Option-returning repository fetch into an Effect that fails with a
+ * domain error when no row is found.
+ *
+ * @param fetch      - the Effect to execute (must produce `O.Option<T>`)
+ * @param mapError   - maps any infrastructure error to the workflow error type
+ * @param onNotFound - produces the not-found workflow error
+ */
+export function requireFound<T, Err>(
+  fetch: E.Effect<O.Option<T>, unknown>,
+  mapError: (e: unknown) => Err,
+  onNotFound: () => Err,
+): E.Effect<T, Err> {
+  return pipe(
+    fetch,
+    E.mapError(mapError),
+    E.flatMap((opt) => (O.isNone(opt) ? E.fail(onNotFound()) : E.succeed(opt.value))),
+  );
+}
+
+/**
+ * Asserts that an Option-returning repository fetch produces no row. Fails with
+ * a conflict / duplicate error when a row IS found.
+ *
+ * @param fetch    - the Effect to execute (must produce `O.Option<unknown>`)
+ * @param mapError - maps any infrastructure error to the workflow error type
+ * @param onFound  - produces the conflict workflow error
+ */
+export function requireAbsent<Err>(
+  fetch: E.Effect<O.Option<unknown>, unknown>,
+  mapError: (e: unknown) => Err,
+  onFound: () => Err,
+): E.Effect<void, Err> {
+  return pipe(
+    fetch,
+    E.mapError(mapError),
+    E.flatMap((opt) => (O.isSome(opt) ? E.fail(onFound()) : E.void)),
+  );
 }

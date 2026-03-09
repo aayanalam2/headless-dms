@@ -27,10 +27,7 @@ export function requirePolicy(
   );
 }
 
-export function buildPolicy(
-  input: AccessPolicyType,
-  _errorMessage: string,
-): E.Effect<AccessPolicy, WorkflowError> {
+export function buildPolicy(input: AccessPolicyType): E.Effect<AccessPolicy, WorkflowError> {
   return E.succeed(AccessPolicy.createNew(input));
 }
 

@@ -5,7 +5,6 @@ import {
   appliesTo,
   isAllowPolicy,
   isDenyPolicy,
-  isSubjectPolicy,
 } from "@domain/access-policy/access-policy.guards.ts";
 import {
   PermissionAction,
@@ -135,12 +134,6 @@ describe("AccessPolicy entity", () => {
   // ---------------------------------------------------------------------------
   // Guards
   // ---------------------------------------------------------------------------
-
-  describe("isSubjectPolicy", () => {
-    it("isSubjectPolicy is always true (every policy targets a user)", () => {
-      expect(isSubjectPolicy(makeSubjectPolicy())).toBe(true);
-    });
-  });
 
   describe("isAllowPolicy / isDenyPolicy", () => {
     it("isAllowPolicy is true for an Allow effect", () => {

@@ -49,6 +49,9 @@ function parseEmailForLogin(raw: string): E.Effect<Email, WorkflowError> {
   );
 }
 
+const decode = <A, I>(schema: S.Schema<A, I>, raw: unknown) =>
+  decodeCommand(schema, raw, UserWorkflowError.invalidInput);
+
 @injectable()
 export class UserWorkflows {
   constructor(
@@ -58,7 +61,7 @@ export class UserWorkflows {
 
   register(raw: RegisterUserCommandEncoded): E.Effect<UserDTO, WorkflowError> {
     return pipe(
-      decodeCommand(RegisterUserCommandSchema, raw, UserWorkflowError.invalidInput),
+      decode(RegisterUserCommandSchema, raw),
       E.flatMap((cmd) =>
         pipe(
           parseEmail(cmd.email),
@@ -84,7 +87,7 @@ export class UserWorkflows {
   // Security: all bad-credential branches collapse to Unauthorized.
   login(raw: LoginCommandEncoded): E.Effect<LoginResult, WorkflowError> {
     return pipe(
-      decodeCommand(LoginCommandSchema, raw, UserWorkflowError.invalidInput),
+      decode(LoginCommandSchema, raw),
       E.flatMap((cmd) =>
         pipe(
           parseEmailForLogin(cmd.email),
@@ -104,7 +107,7 @@ export class UserWorkflows {
 
   changeRole(raw: ChangeUserRoleCommandEncoded): E.Effect<UserDTO, WorkflowError> {
     return pipe(
-      decodeCommand(ChangeUserRoleCommandSchema, raw, UserWorkflowError.invalidInput),
+      decode(ChangeUserRoleCommandSchema, raw),
       E.flatMap((cmd) =>
         pipe(
           assertAdmin(cmd.actor),

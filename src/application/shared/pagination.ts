@@ -31,12 +31,32 @@ export function parsePagination(raw: {
 export function withPagination<
   Q extends { readonly page?: number | undefined; readonly limit?: number | undefined },
   T,
+  Err,
+>(
+  query: Q,
+  op: (pagination: PaginationParams) => E.Effect<Paginated<T>, Err>,
+): E.Effect<Paginated<T>, Err>;
+
+export function withPagination<
+  Q extends { readonly page?: number | undefined; readonly limit?: number | undefined },
+  T,
   DTO,
   Err,
 >(
   query: Q,
   op: (pagination: PaginationParams) => E.Effect<Paginated<T>, Err>,
   toDTO: (paginated: Paginated<T>) => DTO,
-): E.Effect<DTO, Err> {
-  return op(parsePagination(query)).pipe(E.map(toDTO));
+): E.Effect<DTO, Err>;
+
+export function withPagination<
+  Q extends { readonly page?: number | undefined; readonly limit?: number | undefined },
+  T,
+  DTO,
+  Err,
+>(
+  query: Q,
+  op: (pagination: PaginationParams) => E.Effect<Paginated<T>, Err>,
+  toDTO?: (paginated: Paginated<T>) => DTO,
+): E.Effect<Paginated<T> | DTO, Err> {
+  return op(parsePagination(query)).pipe(E.map(toDTO ?? ((x) => x as unknown as DTO)));
 }

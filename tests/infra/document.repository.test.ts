@@ -2,11 +2,11 @@
  * document.repository.test.ts — integration tests for DrizzleDocumentRepository.
  *
  * Tests cover:
- *   • findById / findActiveById
+ *   • getById / getActiveById
  *   • findByOwner with pagination
  *   • search (name ILIKE)
  *   • insertDocumentWithVersion / softDelete
- *   • insertVersionAndUpdate / findVersionsByDocument / findVersionById
+ *   • insertVersionAndUpdate / findVersionsByDocument / getVersionById
  *   • deleteVersion
  *   • E2E round-trip: create → add versions → soft-delete → list
  */
@@ -69,17 +69,17 @@ async function seedDoc(doc: Document, versionNumber = 1): Promise<Document> {
 }
 
 // ---------------------------------------------------------------------------
-// findById / findActiveById
+// getById / getActiveById
 // ---------------------------------------------------------------------------
 
 describe("findById", () => {
-  it("returns None for unknown document", async () => {
+  it("returns O.none() for unknown document", async () => {
     const id = DocumentId.create(crypto.randomUUID()).unwrap();
     const result = await E.runPromise(repo.findById(id));
     expect(O.isNone(result)).toBe(true);
   });
 
-  it("returns Some after insertDocumentWithVersion", async () => {
+  it("returns O.some(document) after insertDocumentWithVersion", async () => {
     const doc = makeDocument({ ownerId: owner.id });
     await seedDoc(doc);
 
@@ -90,7 +90,7 @@ describe("findById", () => {
     }
   });
 
-  it("returns deleted documents (findById ignores soft-delete)", async () => {
+  it("returns O.some with deleted document (findById ignores soft-delete)", async () => {
     const seeded = await seedDoc(makeDocument({ ownerId: owner.id }));
 
     const deleted = E.runSync(seeded.softDelete());
@@ -105,7 +105,7 @@ describe("findById", () => {
 });
 
 describe("findActiveById", () => {
-  it("returns None for soft-deleted document", async () => {
+  it("returns O.none() for soft-deleted document", async () => {
     const seeded = await seedDoc(makeDocument({ ownerId: owner.id }));
 
     const deleted = E.runSync(seeded.softDelete());
@@ -115,12 +115,15 @@ describe("findActiveById", () => {
     expect(O.isNone(result)).toBe(true);
   });
 
-  it("returns Some for active document", async () => {
+  it("returns O.some(document) for active document", async () => {
     const doc = makeDocument({ ownerId: owner.id });
     await seedDoc(doc);
 
     const result = await E.runPromise(repo.findActiveById(doc.id));
     expect(O.isSome(result)).toBe(true);
+    if (O.isSome(result)) {
+      expect(result.value.id).toBe(doc.id);
+    }
   });
 });
 
@@ -264,12 +267,13 @@ describe("insertDocumentWithVersion", () => {
     const docWithV = E.runSync(doc.setCurrentVersion(version.id));
     await E.runPromise(repo.insertDocumentWithVersion(doc, version, docWithV));
 
-    const found = await E.runPromise(repo.findById(doc.id));
-    expect(O.isSome(found)).toBe(true);
-    if (O.isSome(found)) {
-      expect(O.isSome(found.value.currentVersionId)).toBe(true);
-      if (O.isSome(found.value.currentVersionId)) {
-        expect(found.value.currentVersionId.value).toBe(version.id);
+    const optDoc = await E.runPromise(repo.findById(doc.id));
+    expect(O.isSome(optDoc)).toBe(true);
+    if (O.isSome(optDoc)) {
+      const found = optDoc.value;
+      expect(O.isSome(found.currentVersionId)).toBe(true);
+      if (O.isSome(found.currentVersionId)) {
+        expect(found.currentVersionId.value).toBe(version.id);
       }
     }
   });
@@ -375,17 +379,17 @@ describe("insertVersionAndUpdate / findVersionsByDocument", () => {
 });
 
 // ---------------------------------------------------------------------------
-// findVersionById
+// getVersionById
 // ---------------------------------------------------------------------------
 
 describe("findVersionById", () => {
-  it("returns None for unknown version", async () => {
+  it("returns O.none() for unknown version", async () => {
     const id = VersionId.create(crypto.randomUUID()).unwrap();
     const result = await E.runPromise(repo.findVersionById(id));
     expect(O.isNone(result)).toBe(true);
   });
 
-  it("returns Some after insertDocumentWithVersion creates the version", async () => {
+  it("returns O.some(version) after insertDocumentWithVersion creates it", async () => {
     const doc = makeDocument({ ownerId: owner.id });
     const version = makeDocumentVersion({
       documentId: doc.id as string,
@@ -467,10 +471,10 @@ describe("E2E round-trip", () => {
     await E.runPromise(repo.insertVersionAndUpdate(v2, docFinal));
 
     // 3. Fetch active document — should reflect latest state
-    const activeResult = await E.runPromise(repo.findActiveById(doc.id));
-    expect(O.isSome(activeResult)).toBe(true);
-    if (O.isSome(activeResult)) {
-      const active = activeResult.value;
+    const activeOpt = await E.runPromise(repo.findActiveById(doc.id));
+    expect(O.isSome(activeOpt)).toBe(true);
+    if (O.isSome(activeOpt)) {
+      const active = activeOpt.value;
       expect(active.name).toBe("spec-v2.pdf");
       expect(O.isSome(active.currentVersionId)).toBe(true);
       if (O.isSome(active.currentVersionId)) {
@@ -484,7 +488,7 @@ describe("E2E round-trip", () => {
     expect(versions[0]!.versionNumber).toBe(1);
     expect(versions[1]!.versionNumber).toBe(2);
 
-    // 5. Soft-delete and verify findActiveById returns None
+    // 5. Soft-delete and verify findActiveById returns O.none()
     const docDeleted = E.runSync(docFinal.softDelete());
     await E.runPromise(repo.softDelete(docDeleted));
 

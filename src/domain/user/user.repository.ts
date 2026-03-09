@@ -12,13 +12,11 @@ import type { RepositoryEffect } from "@domain/utils/repository.types.ts";
 export interface IUserRepository {
   /**
    * Find a user by their primary key.
-   *
    */
   findById(id: UserId): RepositoryEffect<O.Option<User>>;
 
   /**
    * Find a user by their email address (login identifier).
-   *
    */
   findByEmail(email: Email): RepositoryEffect<O.Option<User>>;
 

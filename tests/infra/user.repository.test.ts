@@ -40,12 +40,12 @@ beforeEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe("findById", () => {
-  it("returns None when user does not exist", async () => {
+  it("returns O.none() when user does not exist", async () => {
     const result = await E.runPromise(repo.findById(makeUserId()));
     expect(O.isNone(result)).toBe(true);
   });
 
-  it("returns Some(user) after save", async () => {
+  it("returns O.some(user) after save", async () => {
     const user = makeUser();
     await E.runPromise(repo.save(user));
 
@@ -64,13 +64,13 @@ describe("findById", () => {
 // ---------------------------------------------------------------------------
 
 describe("findByEmail", () => {
-  it("returns None for unknown email", async () => {
+  it("returns O.none() for unknown email", async () => {
     const email = Email.create("unknown@example.com").unwrap();
     const result = await E.runPromise(repo.findByEmail(email));
     expect(O.isNone(result)).toBe(true);
   });
 
-  it("returns Some(user) matching saved email (case-sensitive)", async () => {
+  it("returns O.some(user) matching saved email (case-sensitive)", async () => {
     const user = makeUser();
     await E.runPromise(repo.save(user));
 
@@ -93,6 +93,7 @@ describe("save", () => {
 
     const found = await E.runPromise(repo.findById(user.id));
     expect(O.isSome(found)).toBe(true);
+    if (O.isSome(found)) expect(found.value.id).toBe(user.id);
   });
 
   it("persists an admin user with correct role", async () => {
@@ -101,9 +102,7 @@ describe("save", () => {
 
     const found = await E.runPromise(repo.findById(admin.id));
     expect(O.isSome(found)).toBe(true);
-    if (O.isSome(found)) {
-      expect(found.value.role).toBe(admin.role);
-    }
+    if (O.isSome(found)) expect(found.value.role).toBe(admin.role);
   });
 
   it("returns UserAlreadyExistsError on duplicate email", async () => {
@@ -136,9 +135,7 @@ describe("update", () => {
 
     const found = await E.runPromise(repo.findById(user.id));
     expect(O.isSome(found)).toBe(true);
-    if (O.isSome(found)) {
-      expect(found.value.role).toBe(updated.role);
-    }
+    if (O.isSome(found)) expect(found.value.role).toBe(updated.role);
   });
 
   it("returns UserNotFoundError for nonexistent id", async () => {
@@ -164,11 +161,10 @@ describe("round-trip", () => {
     const found = await E.runPromise(repo.findById(user.id));
     expect(O.isSome(found)).toBe(true);
     if (O.isSome(found)) {
-      const u = found.value;
-      expect(u.id).toBe(user.id);
-      expect(u.email).toBe(user.email);
-      expect(u.passwordHash).toBe(user.passwordHash);
-      expect(u.role).toBe(user.role);
+      expect(found.value.id).toBe(user.id);
+      expect(found.value.email).toBe(user.email);
+      expect(found.value.passwordHash).toBe(user.passwordHash);
+      expect(found.value.role).toBe(user.role);
     }
   });
 

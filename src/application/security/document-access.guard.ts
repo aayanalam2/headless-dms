@@ -9,7 +9,7 @@ import type { Actor } from "@application/shared/actor.ts";
 export type GuardErrors<Err> = {
   readonly notFound: (resource: string) => Err;
   readonly accessDenied: (reason: string) => Err;
-  readonly unavailable: (operation: string, cause: unknown) => Err;
+  readonly unavailable: (cause?: unknown) => Err;
 };
 
 export class DocumentAccessGuard {
@@ -23,7 +23,7 @@ export class DocumentAccessGuard {
   ): E.Effect<Document, Err> {
     return pipe(
       this.documentRepo.findActiveByIdWithPolicies(documentId, actor.userId),
-      E.mapError((e) => errors.unavailable("repo.findActiveByIdWithPolicies", e)),
+      E.mapError((e) => errors.unavailable(e)),
       E.flatMap(
         O.match({
           onNone: () => E.fail(errors.notFound(`Document '${documentId}'`)),

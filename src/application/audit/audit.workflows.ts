@@ -8,7 +8,6 @@ import { decodeCommand } from "@application/shared/decode.ts";
 import { withPagination } from "@application/shared/pagination.ts";
 import {
   ListAuditLogsQuerySchema,
-  toPaginatedAuditLogsDTO,
   type ListAuditLogsQueryEncoded,
   type PaginatedAuditLogsDTO,
 } from "./dtos/audit.dto.ts";
@@ -32,17 +31,14 @@ export class AuditWorkflows {
         ),
       ),
       E.flatMap((query) =>
-        withPagination(
-          query,
-          (pagination) =>
-            liftRepo(
-              this.auditRepo.listAuditLogs({
-                ...pagination,
-                ...(query.resourceType !== undefined && { resourceType: query.resourceType }),
-                ...(query.resourceId !== undefined && { resourceId: query.resourceId }),
-              }),
-            ),
-          toPaginatedAuditLogsDTO,
+        withPagination(query, (pagination) =>
+          liftRepo(
+            this.auditRepo.listAuditLogs({
+              ...pagination,
+              ...(query.resourceType !== undefined && { resourceType: query.resourceType }),
+              ...(query.resourceId !== undefined && { resourceId: query.resourceId }),
+            }),
+          ),
         ),
       ),
     );
