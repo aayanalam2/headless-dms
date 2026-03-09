@@ -1,7 +1,7 @@
 import "reflect-metadata";
-import { Effect as E, Schema as S, pipe } from "effect";
+import { Effect as E, pipe } from "effect";
 import { inject, injectable } from "tsyringe";
-import { StringToAccessPolicyId } from "@domain/utils/refined.types.ts";
+import { newAccessPolicyId } from "@domain/utils/refined.types.ts";
 import { TOKENS } from "@infra/di/tokens.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
 import { DocumentAccessGuard } from "@application/security/document-access.guard.ts";
@@ -27,13 +27,14 @@ import {
   type ListDocumentPoliciesQueryEncoded,
 } from "./dtos/access-policy.dto.ts";
 import {
-  unavailable,
+  liftRepo,
   requirePolicy,
   buildPolicy,
   emitPolicyGranted,
   emitPolicyUpdated,
   emitPolicyRevoked,
 } from "./access-policy.helpers.ts";
+import { replacePolicy } from "./access-policy.service.ts";
 
 @injectable()
 export class AccessPolicyWorkflows {
@@ -49,16 +50,11 @@ export class AccessPolicyWorkflows {
       decodeCommand(GrantAccessCommandSchema, raw, AccessPolicyWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          this.accessGuard.require(
-            cmd.documentId,
-            cmd.actor,
-            PermissionAction.Share,
-            AccessPolicyWorkflowError,
-          ),
+          this.accessGuard.require(cmd.documentId, cmd.actor, PermissionAction.Share, AccessPolicyWorkflowError),
           E.flatMap(() =>
             buildPolicy(
               {
-                id: S.decodeSync(StringToAccessPolicyId)(crypto.randomUUID()),
+                id: newAccessPolicyId(),
                 createdAt: new Date(),
                 documentId: cmd.documentId,
                 subjectId: cmd.subjectId,
@@ -68,22 +64,17 @@ export class AccessPolicyWorkflows {
               "subjectId must be a valid user ID",
             ),
           ),
-          E.flatMap((policy) =>
-            pipe(
-              this.policyRepo.save(policy),
-              E.mapError(unavailable("policyRepo.save")),
-              E.flatMap(() =>
-                emitPolicyGranted({
-                  actorId: cmd.actor.userId,
-                  resourceId: policy.id,
-                  documentId: cmd.documentId,
-                  action: cmd.action,
-                  effect: policy.effect,
-                }),
-              ),
-              E.as(toAccessPolicyDTO(policy)),
-            ),
+          E.tap((policy) => liftRepo("policyRepo.save", this.policyRepo.save(policy))),
+          E.tap((policy) =>
+            emitPolicyGranted({
+              actorId: cmd.actor.userId,
+              resourceId: policy.id,
+              documentId: cmd.documentId,
+              action: cmd.action,
+              effect: policy.effect,
+            }),
           ),
+          E.map(toAccessPolicyDTO),
         ),
       ),
     );
@@ -97,50 +88,38 @@ export class AccessPolicyWorkflows {
         pipe(
           requirePolicy(this.policyRepo, cmd.policyId),
           E.flatMap((existing) =>
-            pipe(
-              this.accessGuard.require(
-                existing.documentId,
-                cmd.actor,
-                PermissionAction.Share,
-                AccessPolicyWorkflowError,
-              ),
-              E.flatMap(() =>
-                buildPolicy(
-                  {
-                    id: S.decodeSync(StringToAccessPolicyId)(crypto.randomUUID()),
-                    createdAt: new Date(),
-                    documentId: existing.documentId,
-                    subjectId: existing.subjectId,
-                    action: existing.action,
-                    effect: cmd.effect,
-                  },
-                  "Policy reconstruction failed",
-                ),
-              ),
-              E.flatMap((replacement) =>
-                pipe(
-                  this.policyRepo.delete(cmd.policyId),
-                  E.mapError(unavailable("policyRepo.delete")),
-                  E.flatMap(() =>
-                    pipe(
-                      this.policyRepo.save(replacement),
-                      E.mapError(unavailable("policyRepo.save")),
-                    ),
-                  ),
-                  E.flatMap(() =>
-                    emitPolicyUpdated({
-                      actorId: cmd.actor.userId,
-                      resourceId: replacement.id,
-                      previousPolicyId: cmd.policyId,
-                      documentId: existing.documentId,
-                      effect: cmd.effect,
-                    }),
-                  ),
-                  E.as(toAccessPolicyDTO(replacement)),
-                ),
-              ),
+            E.as(
+              this.accessGuard.require(existing.documentId, cmd.actor, PermissionAction.Share, AccessPolicyWorkflowError),
+              existing,
             ),
           ),
+          E.flatMap((existing) =>
+            E.map(
+              buildPolicy(
+                {
+                id: newAccessPolicyId(),
+                createdAt: new Date(),
+                documentId: existing.documentId,
+                  subjectId: existing.subjectId,
+                  action: existing.action,
+                  effect: cmd.effect,
+                },
+                "Policy reconstruction failed",
+              ),
+              (replacement) => ({ existing, replacement }),
+            ),
+          ),
+          E.tap(({ replacement }) => replacePolicy(this.policyRepo, cmd.policyId, replacement)),
+          E.tap(({ existing, replacement }) =>
+            emitPolicyUpdated({
+              actorId: cmd.actor.userId,
+              resourceId: replacement.id,
+              previousPolicyId: cmd.policyId,
+              documentId: existing.documentId,
+              effect: cmd.effect,
+            }),
+          ),
+          E.map(({ replacement }) => toAccessPolicyDTO(replacement)),
         ),
       ),
     );
@@ -153,28 +132,19 @@ export class AccessPolicyWorkflows {
         pipe(
           requirePolicy(this.policyRepo, cmd.policyId),
           E.flatMap((existing) =>
-            pipe(
-              this.accessGuard.require(
-                existing.documentId,
-                cmd.actor,
-                PermissionAction.Share,
-                AccessPolicyWorkflowError,
-              ),
-              E.flatMap(() =>
-                pipe(
-                  this.policyRepo.delete(cmd.policyId),
-                  E.mapError(unavailable("policyRepo.delete")),
-                ),
-              ),
-              E.flatMap(() =>
-                emitPolicyRevoked({
-                  actorId: cmd.actor.userId,
-                  resourceId: cmd.policyId,
-                  documentId: existing.documentId,
-                  action: existing.action,
-                }),
-              ),
+            E.as(
+              this.accessGuard.require(existing.documentId, cmd.actor, PermissionAction.Share, AccessPolicyWorkflowError),
+              existing,
             ),
+          ),
+          E.tap(() => liftRepo("policyRepo.delete", this.policyRepo.delete(cmd.policyId))),
+          E.flatMap((existing) =>
+            emitPolicyRevoked({
+              actorId: cmd.actor.userId,
+              resourceId: cmd.policyId,
+              documentId: existing.documentId,
+              action: existing.action,
+            }),
           ),
         ),
       ),
@@ -185,19 +155,12 @@ export class AccessPolicyWorkflows {
     return pipe(
       decodeCommand(CheckAccessQuerySchema, raw, AccessPolicyWorkflowError.invalidInput),
       E.flatMap((cmd) =>
-        pipe(
-          this.accessGuard.require(
-            cmd.documentId,
-            cmd.actor,
-            cmd.action,
-            AccessPolicyWorkflowError,
-          ),
-          E.map(() => true),
-          E.catchIf(
-            (e) => e._tag === AccessPolicyWorkflowErrorTag.AccessDenied,
-            () => E.succeed(false),
-          ),
-        ),
+        this.accessGuard.require(cmd.documentId, cmd.actor, cmd.action, AccessPolicyWorkflowError),
+      ),
+      E.map(() => true),
+      E.catchIf(
+        (e) => e._tag === AccessPolicyWorkflowErrorTag.AccessDenied,
+        () => E.succeed(false),
       ),
     );
   }
@@ -209,17 +172,9 @@ export class AccessPolicyWorkflows {
       decodeCommand(ListDocumentPoliciesQuerySchema, raw, AccessPolicyWorkflowError.invalidInput),
       E.flatMap((cmd) =>
         pipe(
-          this.accessGuard.require(
-            cmd.documentId,
-            cmd.actor,
-            PermissionAction.Share,
-            AccessPolicyWorkflowError,
-          ),
+          this.accessGuard.require(cmd.documentId, cmd.actor, PermissionAction.Share, AccessPolicyWorkflowError),
           E.flatMap(() =>
-            pipe(
-              this.policyRepo.findByDocument(cmd.documentId),
-              E.mapError(unavailable("policyRepo.findByDocument")),
-            ),
+            liftRepo("policyRepo.findByDocument", this.policyRepo.findByDocument(cmd.documentId)),
           ),
           E.map((policies) => policies.map(toAccessPolicyDTO)),
         ),

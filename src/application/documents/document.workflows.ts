@@ -1,25 +1,16 @@
 import { inject, injectable } from "tsyringe";
-import { Effect as E, Schema as S, pipe } from "effect";
-import { Document } from "@domain/document/document.entity.ts";
+import { Effect as E, pipe } from "effect";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
 import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { withPagination } from "@application/shared/pagination.ts";
-import {
-  type BucketKey,
-  type Checksum,
-  StringToDocumentId,
-  StringToVersionId,
-} from "@domain/utils/refined.types.ts";
+import { newVersionId } from "@domain/utils/refined.types.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
 import { TOKENS } from "@infra/di/tokens.ts";
 import { DocumentAccessGuard } from "@application/security/document-access.guard.ts";
-import { BucketKeyFactory } from "@domain/document/value-objects/bucket-key.vo.ts";
-import { ChecksumFactory } from "@domain/document/value-objects/checksum.vo.ts";
-import { Tags } from "@domain/document/value-objects/tags.vo.ts";
-import { Metadata } from "@domain/document/value-objects/metadata.vo.ts";
 import {
-  commitVersion,
+  liftRepo,
+  liftConflict,
   requireVersion,
   requireVersionOfDocument,
   requireCurrentVersion,
@@ -28,6 +19,15 @@ import {
   emitVersionCreated,
   emitDocumentDeleted,
 } from "./document.helpers.ts";
+import {
+  uploadAndHash,
+  uploadFile,
+  resolveVersionMeta,
+  buildAndCommitVersion,
+  buildAndCommitFirstDocument,
+  prepareUpload,
+  buildDocument,
+} from "./document.service.ts";
 import {
   toDocumentDTO,
   toPaginatedDocumentsDTO,
@@ -67,29 +67,6 @@ export type UploadDocumentResult = {
 
 export type UploadVersionResult = { readonly version: VersionDTO };
 
-const unavailable =
-  (op: string) =>
-  (e: unknown): WorkflowError =>
-    DocumentWorkflowError.unavailable(op, e);
-
-function uploadAndHash(
-  storage: IStorage,
-  bucketKey: BucketKey,
-  buffer: ArrayBuffer,
-  contentType: string,
-): E.Effect<Checksum, WorkflowError> {
-  return pipe(
-    E.all([
-      ChecksumFactory.fromBuffer(buffer),
-      pipe(
-        storage.uploadFile(bucketKey, Buffer.from(buffer), contentType),
-        E.mapError(unavailable("storage.uploadFile")),
-      ),
-    ]),
-    E.map(([checksum]) => checksum),
-  );
-}
-
 function buildPresignedResponse(
   storage: IStorage,
   version: DocumentVersion,
@@ -120,98 +97,33 @@ export class DocumentWorkflows {
   ): E.Effect<UploadDocumentResult, WorkflowError> {
     return pipe(
       decodeCommand(UploadDocumentMetaSchema, rawMeta, DocumentWorkflowError.invalidInput),
-      E.flatMap((meta) => {
-        const now = new Date();
-        const docId = S.decodeSync(StringToDocumentId)(crypto.randomUUID());
-        const verId = S.decodeSync(StringToVersionId)(crypto.randomUUID());
-        const filename = meta.name?.trim() || file.name || "untitled";
-        const bucketKey = BucketKeyFactory.forVersion(docId, verId, filename);
-
-        return pipe(
-          E.all([
-            pipe(
-              Metadata.parse(meta.rawMetadata),
-              E.map((m) => m.value),
-              E.mapError(() =>
-                DocumentWorkflowError.invalidInput(
-                  "Metadata must be a valid JSON object of string values",
-                ),
-              ),
-            ),
-            E.promise(() => file.arrayBuffer()),
-          ]),
-          E.map(([metadata, buffer]) => ({
-            metadata,
-            buffer,
-            tags: Tags.parse(meta.rawTags).value,
-          })),
-
-          E.flatMap(({ metadata, buffer, tags }) =>
-            pipe(
-              Document.createNew({
-                id: docId,
-                ownerId: meta.actor.userId,
-                name: filename,
-                contentType: file.type,
-                tags,
-                metadata,
-                createdAt: now,
-                updatedAt: now,
-              }),
-              E.mapError((e) => DocumentWorkflowError.invalidContentType(e.contentType)),
-              E.map((doc) => ({ doc, buffer })),
-            ),
-          ),
-
-          E.flatMap(({ doc, buffer }) =>
-            pipe(
-              uploadAndHash(this.storage, bucketKey, buffer, doc.contentType),
-              E.map((checksum) => ({ doc, buffer, checksum })),
-            ),
-          ),
-
-          E.flatMap(({ doc, buffer, checksum }) => {
-            const version = DocumentVersion.createNew({
-              id: verId,
-              documentId: docId,
-              versionNumber: 1,
-              bucketKey: bucketKey,
-              sizeBytes: buffer.byteLength,
-              checksum: checksum,
-              uploadedBy: meta.actor.userId,
-              createdAt: now,
-            });
-            return pipe(
-              doc.setCurrentVersion(version.id, now),
-              E.mapError((e) => DocumentWorkflowError.conflict(e.message)),
-              E.flatMap((updatedDoc) =>
-                pipe(
-                  this.documentRepo.insertDocumentWithVersion(doc, version, updatedDoc),
-                  E.mapError((e) =>
-                    DocumentWorkflowError.unavailable("repo.insertDocumentWithVersion", e),
-                  ),
-                  E.as({ version, updated: updatedDoc }),
-                ),
-              ),
-            );
-          }),
-
-          E.tap(({ updated, version }) =>
-            emitDocumentUploaded({
-              actorId: meta.actor.userId,
-              resourceId: updated.id,
-              versionId: version.id,
-              filename,
-              contentType: updated.contentType,
-            }),
-          ),
-
-          E.map(({ updated, version }) => ({
-            document: toDocumentDTO(updated),
-            version: toVersionDTO(version),
-          })),
-        );
-      }),
+      E.flatMap((meta) => prepareUpload(meta, file)),
+      E.flatMap((ctx) => E.map(buildDocument(ctx), (doc) => ({ ...ctx, doc }))),
+      E.flatMap(({ doc, buffer, bucketKey, verId, actorId, now, filename }) =>
+        E.map(
+          uploadAndHash(this.storage, bucketKey, buffer, doc.contentType),
+          (checksum) => ({ doc, buffer, checksum, bucketKey, verId, actorId, now, filename }),
+        ),
+      ),
+      E.flatMap(({ doc, verId, bucketKey, buffer, checksum, actorId, now, filename }) =>
+        E.map(
+          buildAndCommitFirstDocument(this.documentRepo, doc, verId, bucketKey, buffer, checksum, actorId, now),
+          ({ version, updated }) => ({ version, updated, filename, actorId }),
+        ),
+      ),
+      E.tap(({ updated, version, filename, actorId }) =>
+        emitDocumentUploaded({
+          actorId,
+          resourceId: updated.id,
+          versionId: version.id,
+          filename,
+          contentType: updated.contentType,
+        }),
+      ),
+      E.map(({ updated, version }) => ({
+        document: toDocumentDTO(updated),
+        version: toVersionDTO(version),
+      })),
     );
   }
 
@@ -223,65 +135,22 @@ export class DocumentWorkflows {
       decodeCommand(UploadVersionMetaSchema, rawMeta, DocumentWorkflowError.invalidInput),
       E.flatMap((meta) => {
         const now = new Date();
-        const verId = S.decodeSync(StringToVersionId)(crypto.randomUUID());
+        const verId = newVersionId();
 
         return pipe(
-          this.accessGuard.require(
-            meta.documentId,
-            meta.actor,
-            PermissionAction.Write,
-            DocumentWorkflowError,
-          ),
+          this.accessGuard.require(meta.documentId, meta.actor, PermissionAction.Write, DocumentWorkflowError),
           E.flatMap((document) =>
-            pipe(
-              this.documentRepo.findVersionsByDocument(meta.documentId),
-              E.mapError(unavailable("repo.findVersionsByDocument")),
-              E.map((versions) => {
-                const filename = meta.name?.trim() || file.name || document.name;
-                const contentType = file.type || document.contentType;
-                const versionNumber = DocumentVersion.nextNumber(versions);
-                const bucketKey = BucketKeyFactory.forVersion(meta.documentId, verId, filename);
-                return { document, filename, contentType, versionNumber, bucketKey };
-              }),
+            resolveVersionMeta(this.documentRepo, meta.documentId, verId, meta.name, file, document),
+          ),
+          E.flatMap((ctx) =>
+            E.map(
+              uploadFile(this.storage, file, ctx.bucketKey, ctx.contentType),
+              (hash) => ({ ...ctx, ...hash }),
             ),
           ),
-
-          E.flatMap(({ document, filename, contentType, versionNumber, bucketKey }) =>
-            pipe(
-              E.promise(() => file.arrayBuffer()),
-              E.flatMap((buffer) =>
-                pipe(
-                  uploadAndHash(this.storage, bucketKey, buffer, contentType),
-                  E.map((checksum) => ({
-                    document,
-                    filename,
-                    versionNumber,
-                    bucketKey,
-                    buffer,
-                    checksum,
-                  })),
-                ),
-              ),
-            ),
+          E.flatMap((ctx) =>
+            buildAndCommitVersion(this.documentRepo, verId, meta.documentId, meta.actor.userId, now, ctx),
           ),
-
-          E.flatMap(({ document, filename, versionNumber, bucketKey, buffer, checksum }) => {
-            const version = DocumentVersion.createNew({
-              id: verId,
-              documentId: meta.documentId,
-              versionNumber,
-              bucketKey: bucketKey,
-              sizeBytes: buffer.byteLength,
-              checksum: checksum,
-              uploadedBy: meta.actor.userId,
-              createdAt: now,
-            });
-            return pipe(
-              commitVersion(this.documentRepo, document, version, now),
-              E.as({ version, versionNumber, filename }),
-            );
-          }),
-
           E.tap(({ version, versionNumber, filename }) =>
             emitVersionCreated({
               actorId: meta.actor.userId,
@@ -291,7 +160,6 @@ export class DocumentWorkflows {
               filename,
             }),
           ),
-
           E.map(({ version }) => ({ version: toVersionDTO(version) })),
         );
       }),
@@ -322,14 +190,8 @@ export class DocumentWorkflows {
         withPagination(
           query,
           (pagination) =>
-            pipe(
-              scopeList(
-                this.documentRepo,
-                query.actor,
-                { ownerId: query.ownerId, name: query.name },
-                pagination,
-              ),
-              E.mapError((e) => DocumentWorkflowError.unavailable("repo.listDocuments", e)),
+            liftRepo("repo.listDocuments",
+              scopeList(this.documentRepo, query.actor, { ownerId: query.ownerId, name: query.name }, pagination),
             ),
           toPaginatedDocumentsDTO,
         ),
@@ -392,12 +254,7 @@ export class DocumentWorkflows {
             DocumentWorkflowError,
           ),
           E.flatMap((document) =>
-            pipe(
-              this.documentRepo.findVersionsByDocument(document.id),
-              E.mapError((e) =>
-                DocumentWorkflowError.unavailable("repo.findVersionsByDocument", e),
-              ),
-            ),
+            liftRepo("repo.findVersionsByDocument", this.documentRepo.findVersionsByDocument(document.id)),
           ),
           E.map((versions) => versions.map(toVersionDTO)),
         ),
@@ -416,18 +273,8 @@ export class DocumentWorkflows {
             PermissionAction.Delete,
             DocumentWorkflowError,
           ),
-          E.flatMap((document) =>
-            pipe(
-              document.softDelete(),
-              E.mapError((e) => DocumentWorkflowError.conflict(e.message)),
-            ),
-          ),
-          E.flatMap((deleted) =>
-            pipe(
-              this.documentRepo.softDelete(deleted),
-              E.mapError((e) => DocumentWorkflowError.unavailable("repo.softDelete", e)),
-            ),
-          ),
+          E.flatMap((document) => liftConflict(document.softDelete())),
+          E.flatMap((deleted) => liftRepo("repo.softDelete", this.documentRepo.softDelete(deleted))),
           E.tap(() =>
             emitDocumentDeleted({
               actorId: cmd.actor.userId,

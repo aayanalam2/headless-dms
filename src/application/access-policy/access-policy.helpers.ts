@@ -14,9 +14,10 @@ import {
   AccessPolicyWorkflowError,
   type AccessPolicyWorkflowError as WorkflowError,
 } from "./access-policy-workflow.errors.ts";
-import { makeUnavailable, requireFound } from "@application/shared/workflow.helpers.ts";
+import { makeUnavailable, makeLiftRepo, requireFound } from "@application/shared/workflow.helpers.ts";
 
 export const unavailable = makeUnavailable(AccessPolicyWorkflowError.unavailable);
+export const liftRepo = makeLiftRepo(AccessPolicyWorkflowError.unavailable);
 
 export function requirePolicy(
   repo: IAccessPolicyRepository,

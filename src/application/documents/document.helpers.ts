@@ -18,9 +18,15 @@ import {
   DocumentWorkflowError,
   type DocumentWorkflowError as WorkflowError,
 } from "./document-workflow.errors.ts";
-import { makeUnavailable, requireFound } from "@application/shared/workflow.helpers.ts";
+import { makeUnavailable, makeLiftRepo, makeLiftConflict, requireFound } from "@application/shared/workflow.helpers.ts";
 
 const unavailable = makeUnavailable(DocumentWorkflowError.unavailable);
+
+/** Lift any effect's error to Unavailable. Intended for repository and storage calls. */
+export const liftRepo = makeLiftRepo(DocumentWorkflowError.unavailable);
+
+/** Lift a domain Effect whose error has a `message` field to a Conflict error. */
+export const liftConflict = makeLiftConflict(DocumentWorkflowError.conflict);
 
 /**
  * Resolves which repository query to run for a list operation based on the
@@ -101,14 +107,33 @@ export function commitVersion(
   now: Date,
 ): E.Effect<{ readonly version: DocumentVersion; readonly updated: Document }, WorkflowError> {
   return pipe(
-    doc.setCurrentVersion(version.id, now),
-    E.mapError((e) => DocumentWorkflowError.conflict(e.message)),
+    liftConflict(doc.setCurrentVersion(version.id, now)),
     E.flatMap((updatedDoc) =>
-      pipe(
-        repo.insertVersionAndUpdate(version, updatedDoc),
-        E.mapError((e) => DocumentWorkflowError.unavailable("repo.insertVersionAndUpdate", e)),
-        E.as({ version, updated: updatedDoc }),
-      ),
+      E.as(
+        liftRepo("repo.insertVersionAndUpdate", repo.insertVersionAndUpdate(version, updatedDoc)),
+        { version, updated: updatedDoc },
+      )
+    ),
+  );
+}
+
+/**
+ * Like `commitVersion` but uses `insertDocumentWithVersion` — for the initial
+ * upload where the document row itself must also be inserted atomically.
+ */
+export function commitNewDocument(
+  repo: IDocumentRepository,
+  doc: Document,
+  version: DocumentVersion,
+  now: Date,
+): E.Effect<{ readonly version: DocumentVersion; readonly updated: Document }, WorkflowError> {
+  return pipe(
+    liftConflict(doc.setCurrentVersion(version.id, now)),
+    E.flatMap((updatedDoc) =>
+      E.as(
+        liftRepo("repo.insertDocumentWithVersion", repo.insertDocumentWithVersion(doc, version, updatedDoc)),
+        { version, updated: updatedDoc },
+      )
     ),
   );
 }

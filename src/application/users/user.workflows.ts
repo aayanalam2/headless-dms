@@ -62,23 +62,20 @@ export class UserWorkflows {
       E.flatMap((cmd) =>
         pipe(
           parseEmail(cmd.email),
-          E.flatMap((email) =>
-            pipe(
-              requireNoEmailConflict(this.userRepo, email, cmd.email),
-              E.flatMap(() => E.promise(() => this.authService.hash(cmd.password))),
-              E.flatMap((passwordHash) =>
-                buildUser({
-                  id: crypto.randomUUID(),
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                  email: cmd.email,
-                  passwordHash,
-                  role: cmd.role ?? Role.User,
-                }),
-              ),
-              E.flatMap((user) => pipe(saveNewUser(this.userRepo, user), E.as(toUserDTO(user)))),
-            ),
+          E.flatMap((email) => requireNoEmailConflict(this.userRepo, email, cmd.email)),
+          E.flatMap(() => E.promise(() => this.authService.hash(cmd.password))),
+          E.flatMap((passwordHash) =>
+            buildUser({
+              id: crypto.randomUUID(),
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              email: cmd.email,
+              passwordHash,
+              role: cmd.role ?? Role.User,
+            }),
           ),
+          E.tap((user) => saveNewUser(this.userRepo, user)),
+          E.map(toUserDTO),
         ),
       ),
     );
@@ -92,16 +89,14 @@ export class UserWorkflows {
         pipe(
           parseEmailForLogin(cmd.email),
           E.flatMap((email) => requireUserByEmail(this.userRepo, email)),
-          E.flatMap((user) =>
-            pipe(
-              assertPasswordValid(
-                (p, h) => this.authService.verify(p, h),
-                cmd.password,
-                user.passwordHash,
-              ),
-              E.as({ claims: toJwtClaims(user), user: toUserDTO(user) }),
+          E.tap((user) =>
+            assertPasswordValid(
+              (p, h) => this.authService.verify(p, h),
+              cmd.password,
+              user.passwordHash,
             ),
           ),
+          E.map((user) => ({ claims: toJwtClaims(user), user: toUserDTO(user) })),
         ),
       ),
     );
@@ -117,12 +112,8 @@ export class UserWorkflows {
             requireUser(this.userRepo, cmd.targetUserId, `User '${cmd.targetUserId}'`),
           ),
           E.map((user) => user.changeRole(cmd.newRole, new Date())),
-          E.flatMap((updated) =>
-            pipe(
-              updateUser(this.userRepo, updated, `User '${cmd.targetUserId}'`),
-              E.as(toUserDTO(updated)),
-            ),
-          ),
+          E.tap((updated) => updateUser(this.userRepo, updated, `User '${cmd.targetUserId}'`)),
+          E.map(toUserDTO),
         ),
       ),
     );

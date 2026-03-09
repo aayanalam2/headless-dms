@@ -30,6 +30,36 @@ export function requireAbsent<E>(
   );
 }
 
+/**
+ * Factory that binds an 'unavailable' constructor and returns a `liftRepo` function.
+ * The returned function maps any effect's error to an Unavailable error — intended for
+ * repository and storage calls.
+ *
+ * @example
+ * const liftRepo = makeLiftRepo(MyError.unavailable);
+ * liftRepo("repo.findById", repo.findById(id))
+ */
+export function makeLiftRepo<Err>(
+  ctor: (op: string, cause: unknown) => Err,
+): <A, F>(op: string, eff: E.Effect<A, F>) => E.Effect<A, Err> {
+  return (op, eff) => pipe(eff, E.mapError((e) => ctor(op, e)));
+}
+
+/**
+ * Factory that binds a 'conflict' constructor and returns a `liftConflict` function.
+ * The returned function maps a domain Effect whose error carries a `message` field
+ * to a Conflict error.
+ *
+ * @example
+ * const liftConflict = makeLiftConflict(MyError.conflict);
+ * liftConflict(entity.someMethod())
+ */
+export function makeLiftConflict<Err>(
+  ctor: (message: string) => Err,
+): <A>(eff: E.Effect<A, { readonly message: string }>) => E.Effect<A, Err> {
+  return (eff) => pipe(eff, E.mapError((e) => ctor(e.message)));
+}
+
 export function assertOrFail<T, E>(condition: boolean, value: T, onFail: () => E): E.Effect<T, E> {
   return condition ? E.succeed(value) : E.fail(onFail());
 }
