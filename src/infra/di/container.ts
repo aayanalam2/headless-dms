@@ -33,37 +33,25 @@ export function buildContainer(db: AppDb, storage: IStorage): typeof container {
   // to construct them (they need `db` which isn't injectable itself).
   // -------------------------------------------------------------------------
   const documentRepo = new DrizzleDocumentRepository(db);
-  container.registerInstance(TOKENS.DocumentRepository as unknown as string, documentRepo);
-  container.registerInstance(
-    TOKENS.UserRepository as unknown as string,
-    new DrizzleUserRepository(db),
-  );
-  container.registerInstance(
-    TOKENS.AuditRepository as unknown as string,
-    new DrizzleAuditRepository(db),
-  );
-  container.registerInstance(
-    TOKENS.AccessPolicyRepository as unknown as string,
-    new DrizzleAccessPolicyRepository(db),
-  );
+  container.registerInstance(TOKENS.DocumentRepository, documentRepo);
+  container.registerInstance(TOKENS.UserRepository, new DrizzleUserRepository(db));
+  container.registerInstance(TOKENS.AuditRepository, new DrizzleAuditRepository(db));
+  container.registerInstance(TOKENS.AccessPolicyRepository, new DrizzleAccessPolicyRepository(db));
 
   // -------------------------------------------------------------------------
   // Storage — passed in from the caller (created with s3 config).
   // -------------------------------------------------------------------------
-  container.registerInstance(TOKENS.StorageService as unknown as string, storage);
+  container.registerInstance(TOKENS.StorageService, storage);
 
   // -------------------------------------------------------------------------
   // AuthService — singleton; no external deps (reads config internally).
   // -------------------------------------------------------------------------
-  container.registerInstance(TOKENS.AuthService as unknown as string, new AuthService());
+  container.registerInstance(TOKENS.AuthService, new AuthService());
 
   // -------------------------------------------------------------------------
   // DocumentAccessGuard — depends on the document repository.
   // -------------------------------------------------------------------------
-  container.registerInstance(
-    TOKENS.DocumentAccessGuard as unknown as string,
-    new DocumentAccessGuard(documentRepo),
-  );
+  container.registerInstance(TOKENS.DocumentAccessGuard, new DocumentAccessGuard(documentRepo));
 
   return container;
 }

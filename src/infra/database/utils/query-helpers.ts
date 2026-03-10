@@ -28,8 +28,13 @@ export function fetchSingle<TRow, TEntity>(
   query: () => Promise<TRow[]>,
   fromRow: (row: TRow) => TEntity,
 ): E.Effect<O.Option<TEntity>, RepositoryError> {
-  return E.map(executeQuery(query), (rows) =>
-    rows[0] ? O.some(fromRow(rows[0])) : O.none<TEntity>(),
+  return E.flatMap(executeQuery(query), (rows) =>
+    rows[0]
+      ? E.map(
+          E.try({ try: () => fromRow(rows[0]!), catch: (e) => new RepositoryError("fromRow", e) }),
+          O.some,
+        )
+      : E.succeed(O.none<TEntity>()),
   );
 }
 
@@ -37,7 +42,11 @@ export function fetchMultiple<TRow, TEntity>(
   query: () => Promise<TRow[]>,
   fromRow: (row: TRow) => TEntity,
 ): E.Effect<readonly TEntity[], RepositoryError> {
-  return E.map(executeQuery(query), (rows) => rows.map(fromRow));
+  return E.flatMap(executeQuery(query), (rows) =>
+    E.forEach(rows, (row) =>
+      E.try({ try: () => fromRow(row), catch: (e) => new RepositoryError("fromRow", e) }),
+    ),
+  );
 }
 
 // Returns true for Postgres SQLSTATE 23505 (unique constraint violation).

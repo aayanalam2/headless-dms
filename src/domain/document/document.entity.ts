@@ -57,8 +57,8 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
     this.name = data.name;
     this.contentType = data.contentType;
     this.currentVersionId = data.currentVersionId;
-    this.tags = data.tags;
-    this.metadata = data.metadata;
+    this.tags = [...data.tags];
+    this.metadata = { ...data.metadata };
     this.deletedAt = data.deletedAt;
     Object.freeze(this);
   }
@@ -67,11 +67,6 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
     return O.isSome(this.deletedAt);
   }
 
-  /**
-   * Returns `true` when the document has at least one uploaded version.
-   * Mirrors the `hasVersion` guard in document.guards.ts as a first-class
-   * entity predicate so callers do not need to inspect the Option directly.
-   */
   get hasVersions(): boolean {
     return O.isSome(this.currentVersionId);
   }
@@ -84,7 +79,7 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
       contentType: this.contentType,
       currentVersionId: this.currentVersionId,
       tags: [...this.tags],
-      metadata: this.metadata,
+      metadata: { ...this.metadata },
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       deletedAt: this.deletedAt,
@@ -145,7 +140,7 @@ export class Document extends BaseEntity<DocumentId> implements IDocument {
       contentType: this.contentType,
       currentVersionId: this.currentVersionId,
       tags: [...this.tags],
-      metadata: this.metadata,
+      metadata: { ...this.metadata },
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       deletedAt: this.deletedAt,

@@ -17,7 +17,7 @@ import {
 import { Document } from "@domain/document/document.entity.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IAccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
-import type { DocumentRow, VersionRow } from "@infra/database/schema.ts";
+import type { DocumentRow, VersionRow, AccessPolicyRow } from "@infra/database/schema.ts";
 import {
   DocumentNotFoundError,
   DocumentVersionNotFoundError,
@@ -71,6 +71,16 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
     });
   };
 
+  private static readonly fromPolicyRow = (p: AccessPolicyRow): IAccessPolicy => ({
+    id: S.decodeSync(StringToAccessPolicyId)(p.id),
+    documentId: S.decodeSync(StringToDocumentId)(p.documentId),
+    subjectId: S.decodeSync(StringToUserId)(p.subjectId),
+    action: p.action,
+    effect: p.effect,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+  });
+
   findById(id: DocumentId): RepositoryEffect<O.Option<Document>> {
     return fetchSingle(
       () => this.db.select().from(documentsTable).where(eq(documentsTable.id, id)).limit(1),
@@ -114,18 +124,7 @@ export class DrizzleDocumentRepository implements IDocumentRepository {
       const document = DrizzleDocumentRepository.fromDocumentRow(rows[0]!.doc);
       const policies: IAccessPolicy[] = rows
         .filter((r) => r.policy !== null)
-        .map((r) => {
-          const p = r.policy!;
-          return {
-            id: S.decodeSync(StringToAccessPolicyId)(p.id),
-            documentId: S.decodeSync(StringToDocumentId)(p.documentId),
-            subjectId: S.decodeSync(StringToUserId)(p.subjectId),
-            action: p.action,
-            effect: p.effect,
-            createdAt: p.createdAt,
-            updatedAt: p.updatedAt,
-          } satisfies IAccessPolicy;
-        });
+        .map((r) => DrizzleDocumentRepository.fromPolicyRow(r.policy!));
 
       return O.some({ document, policies });
     });
