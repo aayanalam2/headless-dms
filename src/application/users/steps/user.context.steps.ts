@@ -1,10 +1,17 @@
 import { Effect as E, pipe, Schema as S } from "effect";
 import { User } from "@domain/user/user.entity.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
-import { type Email, type HashedPassword, type UserId, StringToEmail } from "@domain/utils/refined.types.ts";
+import {
+  type Email,
+  type HashedPassword,
+  type StringToEmail,
+} from "@domain/utils/refined.types.ts";
 import { Role } from "@domain/utils/enums.ts";
 import { makeRequireAdmin } from "@application/shared/workflow.helpers.ts";
-import { UserWorkflowError, type UserWorkflowError as WorkflowError } from "../user-workflow.errors.ts";
+import {
+  UserWorkflowError,
+  type UserWorkflowError as WorkflowError,
+} from "../user-workflow.errors.ts";
 import { parseEmail, assertPasswordValid, buildUser } from "../services/user.auth.ts";
 import {
   requireNoEmailConflict,
@@ -13,11 +20,7 @@ import {
   saveNewUser,
   updateUser,
 } from "../services/user.repository.ts";
-import type {
-  RegisterUserCommand,
-  LoginCommand,
-  ChangeUserRoleCommand,
-} from "../dtos/user.dto.ts";
+import type { RegisterUserCommand, LoginCommand, ChangeUserRoleCommand } from "../dtos/user.dto.ts";
 
 // ---------------------------------------------------------------------------
 // Named pipeline context types
@@ -67,7 +70,10 @@ export function hashRegistrationPassword(
   hashFn: (password: string) => Promise<HashedPassword>,
 ): (ctx: RegisterCtx) => E.Effect<RegisterCtxWithHash, WorkflowError> {
   return (ctx) =>
-    E.map(E.promise(() => hashFn(ctx.password)), (passwordHash) => ({ ...ctx, passwordHash }));
+    E.map(
+      E.promise(() => hashFn(ctx.password)),
+      (passwordHash) => ({ ...ctx, passwordHash }),
+    );
 }
 
 /** Constructs a new User entity and merges it as `user`. */
@@ -114,8 +120,7 @@ export function parseLoginEmail(ctx: LoginCmd): E.Effect<LoginCtxWithEmail, Work
 export function findUserByEmail(
   repo: IUserRepository,
 ): (ctx: LoginCtxWithEmail) => E.Effect<LoginCtxWithUser, WorkflowError> {
-  return (ctx) =>
-    E.map(requireUserByEmail(repo, ctx.parsedEmail), (user) => ({ ...ctx, user }));
+  return (ctx) => E.map(requireUserByEmail(repo, ctx.parsedEmail), (user) => ({ ...ctx, user }));
 }
 
 /** Verifies `ctx.password` against `ctx.user.passwordHash`. */
@@ -139,10 +144,10 @@ export function requireTargetUser(
   repo: IUserRepository,
 ): (ctx: ChangeRoleCmd) => E.Effect<ChangeRoleCmdWithUser, WorkflowError> {
   return (ctx) =>
-    E.map(
-      requireUser(repo, ctx.targetUserId, `User '${ctx.targetUserId}'`),
-      (user) => ({ ...ctx, user }),
-    );
+    E.map(requireUser(repo, ctx.targetUserId, `User '${ctx.targetUserId}'`), (user) => ({
+      ...ctx,
+      user,
+    }));
 }
 
 /** Pure sync step — applies the new role and merges the result as `updated`. */

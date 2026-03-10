@@ -1,7 +1,10 @@
 import { Effect as E, pipe, Schema as S } from "effect";
 import { User, type SerializedUser } from "@domain/user/user.entity.ts";
 import { type Email, type HashedPassword, StringToEmail } from "@domain/utils/refined.types.ts";
-import { UserWorkflowError, type UserWorkflowError as WorkflowError } from "../user-workflow.errors.ts";
+import {
+  UserWorkflowError,
+  type UserWorkflowError as WorkflowError,
+} from "../user-workflow.errors.ts";
 
 // ---------------------------------------------------------------------------
 // Email parsing

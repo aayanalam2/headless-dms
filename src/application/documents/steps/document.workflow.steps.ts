@@ -1,5 +1,4 @@
 import { Effect as E, pipe } from "effect";
-import { Document } from "@domain/document/document.entity.ts";
 import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import type { IDocumentRepository } from "@domain/document/document.repository.ts";
 import type { IStorage } from "@infra/repositories/storage.port.ts";
@@ -49,7 +48,10 @@ export const withDefaultTtl = <T extends { expiresInSeconds?: number | undefined
 /** Fetches a presigned download URL and builds the response DTO. */
 export function buildPresignedCtx(
   storage: IStorage,
-): (ctx: { version: DocumentVersion; ttl: number }) => E.Effect<PresignedDownloadDTO, WorkflowError> {
+): (ctx: {
+  version: DocumentVersion;
+  ttl: number;
+}) => E.Effect<PresignedDownloadDTO, WorkflowError> {
   return (ctx) =>
     pipe(
       storage.getPresignedDownloadUrl(ctx.version.bucketKey, ctx.ttl),
@@ -80,7 +82,9 @@ export function paginateDocuments(
 /** Fetches all versions for the document in the context. */
 export function fetchVersionsForDocument(
   repo: IDocumentRepository,
-): (ctx: Pick<DocumentCmdWithDoc, "document">) => E.Effect<readonly DocumentVersion[], WorkflowError> {
+): (
+  ctx: Pick<DocumentCmdWithDoc, "document">,
+) => E.Effect<readonly DocumentVersion[], WorkflowError> {
   return (ctx) => liftRepo(repo.findVersionsByDocument(ctx.document.id));
 }
 

@@ -8,11 +8,7 @@ import {
   type ListAuditLogsQueryEncoded,
   type PaginatedAuditLogsDTO,
 } from "../dtos/audit.dto.ts";
-import {
-  decode,
-  assertAdminAccess,
-  paginateAuditLogs,
-} from "../steps/audit.workflow.steps.ts";
+import { decode, assertAdminAccess, paginateAuditLogs } from "../steps/audit.workflow.steps.ts";
 
 @injectable()
 export class AuditWorkflows {

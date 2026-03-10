@@ -21,10 +21,7 @@ import {
   type DocumentWorkflowError as WorkflowError,
 } from "../document-workflow.errors.ts";
 import { liftRepo, commitVersion, commitNewDocument } from "./document.repository.ts";
-import type {
-  UploadContext,
-  VersionUploadCtxWithFile,
-} from "../steps/document.context.steps.ts";
+import type { UploadContext, VersionUploadCtxWithFile } from "../steps/document.context.steps.ts";
 import type { UploadDocumentMeta } from "../dtos/document.dto.ts";
 
 // ---------------------------------------------------------------------------
@@ -113,7 +110,10 @@ export function buildAndCommitVersion(
   documentId: DocumentId,
   actorId: UserId,
   now: Date,
-  ctx: Pick<VersionUploadCtxWithFile, "document" | "filename" | "versionNumber" | "bucketKey" | "buffer" | "checksum">,
+  ctx: Pick<
+    VersionUploadCtxWithFile,
+    "document" | "filename" | "versionNumber" | "bucketKey" | "buffer" | "checksum"
+  >,
 ): E.Effect<
   { readonly version: DocumentVersion; readonly versionNumber: number; readonly filename: string },
   WorkflowError
@@ -165,7 +165,10 @@ export function buildAndCommitFirstDocument(
 
 /** Construct a Document entity from upload context, mapping domain validation errors. */
 export function buildDocument(
-  ctx: Pick<UploadContext, "docId" | "actorId" | "filename" | "contentType" | "tags" | "metadata" | "now">,
+  ctx: Pick<
+    UploadContext,
+    "docId" | "actorId" | "filename" | "contentType" | "tags" | "metadata" | "now"
+  >,
 ): E.Effect<Document, WorkflowError> {
   return E.mapError(
     Document.createNew({

@@ -41,9 +41,7 @@ export const emitGrantPolicyCtx = (
     effect: ctx.policy.effect,
   });
 
-export const emitUpdatePolicyCtx = (
-  ctx: PolicyCtxWithReplacement<UpdateAccessCommand>,
-) =>
+export const emitUpdatePolicyCtx = (ctx: PolicyCtxWithReplacement<UpdateAccessCommand>) =>
   emitPolicyUpdated({
     actorId: ctx.actor.userId,
     resourceId: ctx.replacement.id,
@@ -52,9 +50,7 @@ export const emitUpdatePolicyCtx = (
     effect: ctx.effect,
   });
 
-export const emitRevokePolicyCtx = (
-  ctx: PolicyCtxWithExisting<RevokeAccessCommand>,
-) =>
+export const emitRevokePolicyCtx = (ctx: PolicyCtxWithExisting<RevokeAccessCommand>) =>
   emitPolicyRevoked({
     actorId: ctx.actor.userId,
     resourceId: ctx.policyId,

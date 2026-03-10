@@ -1,17 +1,13 @@
 import { Effect as E } from "effect";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
 import type { DocumentId } from "@domain/utils/refined.types.ts";
-import type { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
 import { makeDecoder } from "@application/shared/decode.ts";
 import {
   AccessPolicyWorkflowError,
   type AccessPolicyWorkflowError as WorkflowError,
 } from "../access-policy-workflow.errors.ts";
 import { liftRepo } from "../services/access-policy.repository.ts";
-import {
-  toAccessPolicyDTO,
-  type AccessPolicyDTO,
-} from "../dtos/access-policy.dto.ts";
+import { toAccessPolicyDTO, type AccessPolicyDTO } from "../dtos/access-policy.dto.ts";
 
 /** Decode a raw input against a schema, mapping parse errors to InvalidInput. */
 export const decode = makeDecoder(AccessPolicyWorkflowError.invalidInput);

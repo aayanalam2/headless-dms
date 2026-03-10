@@ -14,7 +14,10 @@ import type { IStorage } from "@infra/repositories/storage.port.ts";
 import type { DocumentActorCtx } from "@application/shared/actor.ts";
 import type { DocumentAccessGuard } from "@application/security/document-access.guard.ts";
 import { PermissionAction } from "@domain/access-policy/value-objects/permission-action.vo.ts";
-import { DocumentWorkflowError, type DocumentWorkflowError as WorkflowError } from "../document-workflow.errors.ts";
+import {
+  DocumentWorkflowError,
+  type DocumentWorkflowError as WorkflowError,
+} from "../document-workflow.errors.ts";
 import {
   liftRepo,
   liftConflict,
@@ -117,14 +120,16 @@ export function requireAccess<T extends DocumentActorCtx>(
   action: PermissionAction,
 ): (ctx: T) => E.Effect<T & { document: Document }, WorkflowError> {
   return (ctx) =>
-    E.map(
-      guard.require(ctx.documentId, ctx.actor, action, DocumentWorkflowError),
-      (document) => ({ ...ctx, document }),
-    );
+    E.map(guard.require(ctx.documentId, ctx.actor, action, DocumentWorkflowError), (document) => ({
+      ...ctx,
+      document,
+    }));
 }
 
 /** Stamps the current timestamp and a fresh version id into the context. */
-export function withVersionTimestamps(ctx: UploadVersionMeta & Record<string, unknown>): VersionUploadCtx & typeof ctx {
+export function withVersionTimestamps(
+  ctx: UploadVersionMeta & Record<string, unknown>,
+): VersionUploadCtx & typeof ctx {
   return { ...ctx, now: new Date(), verId: newVersionId() } as VersionUploadCtx & typeof ctx;
 }
 
@@ -138,10 +143,10 @@ export function attachChecksum(
   storage: IStorage,
 ): (ctx: UploadContextWithDoc) => E.Effect<UploadContextWithChecksum, WorkflowError> {
   return (ctx) =>
-    E.map(
-      uploadAndHash(storage, ctx.bucketKey, ctx.buffer, ctx.doc.contentType),
-      (checksum) => ({ ...ctx, checksum }),
-    );
+    E.map(uploadAndHash(storage, ctx.bucketKey, ctx.buffer, ctx.doc.contentType), (checksum) => ({
+      ...ctx,
+      checksum,
+    }));
 }
 
 /**
@@ -163,7 +168,12 @@ export function commitFirstDocument(
         ctx.actorId,
         ctx.now,
       ),
-      ({ version, updated }) => ({ version, updated, filename: ctx.filename, actorId: ctx.actorId }),
+      ({ version, updated }) => ({
+        version,
+        updated,
+        filename: ctx.filename,
+        actorId: ctx.actorId,
+      }),
     );
 }
 
@@ -185,10 +195,11 @@ export function attachVersionFile(
   file: File,
 ): (ctx: VersionUploadCtxResolved) => E.Effect<VersionUploadCtxWithFile, WorkflowError> {
   return (ctx) =>
-    E.map(
-      uploadFile(storage, file, ctx.bucketKey, ctx.contentType),
-      ({ buffer, checksum }) => ({ ...ctx, buffer, checksum }),
-    );
+    E.map(uploadFile(storage, file, ctx.bucketKey, ctx.contentType), ({ buffer, checksum }) => ({
+      ...ctx,
+      buffer,
+      checksum,
+    }));
 }
 
 /** Builds a DocumentVersion entity and commits it atomically, merging `version` into the context. */

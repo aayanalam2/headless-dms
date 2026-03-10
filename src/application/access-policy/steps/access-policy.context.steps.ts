@@ -2,23 +2,20 @@ import { Effect as E, pipe } from "effect";
 import { AccessPolicy } from "@domain/access-policy/access-policy.entity.ts";
 import type { AccessPolicyType } from "@domain/access-policy/access-policy.entity.ts";
 import type { IAccessPolicyRepository } from "@domain/access-policy/access-policy.repository.ts";
-import type {
-  AccessPolicyId,
-} from "@domain/utils/refined.types.ts";
+import type { AccessPolicyId } from "@domain/utils/refined.types.ts";
 import { newAccessPolicyId } from "@domain/utils/refined.types.ts";
 import type { DocumentActorCtx, Actor } from "@application/shared/actor.ts";
 import type { DocumentAccessGuard } from "@application/security/document-access.guard.ts";
-import { PermissionAction, type PolicyEffect } from "@domain/access-policy/value-objects/permission-action.vo.ts";
+import {
+  PermissionAction,
+  type PolicyEffect,
+} from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import {
   AccessPolicyWorkflowError,
   type AccessPolicyWorkflowError as WorkflowError,
 } from "../access-policy-workflow.errors.ts";
 import { liftRepo, requirePolicy, buildPolicy } from "../services/access-policy.repository.ts";
-import type {
-  GrantAccessCommand,
-  UpdateAccessCommand,
-  RevokeAccessCommand,
-} from "../dtos/access-policy.dto.ts";
+import type { GrantAccessCommand } from "../dtos/access-policy.dto.ts";
 
 // ---------------------------------------------------------------------------
 // Named pipeline context types
@@ -62,9 +59,7 @@ export function validateShareAccess<T extends DocumentActorCtx>(
  */
 export function validateExistingPolicyAccess<
   T extends { existing: Pick<AccessPolicyType, "documentId">; actor: Actor },
->(
-  guard: DocumentAccessGuard,
-): (ctx: T) => E.Effect<T, WorkflowError> {
+>(guard: DocumentAccessGuard): (ctx: T) => E.Effect<T, WorkflowError> {
   return (ctx) =>
     E.as(
       guard.require(
@@ -102,8 +97,7 @@ export function buildGrantPolicy<T extends GrantAccessCommand>(
 export function requireExistingPolicy<T extends { policyId: AccessPolicyId }>(
   repo: IAccessPolicyRepository,
 ): (ctx: T) => E.Effect<T & { existing: AccessPolicyType }, WorkflowError> {
-  return (ctx) =>
-    E.map(requirePolicy(repo, ctx.policyId), (existing) => ({ ...ctx, existing }));
+  return (ctx) => E.map(requirePolicy(repo, ctx.policyId), (existing) => ({ ...ctx, existing }));
 }
 
 /** Builds the replacement policy from `ctx.existing` + `ctx.effect` and merges it as `replacement`. */

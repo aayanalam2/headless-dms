@@ -1,6 +1,3 @@
-import type { DocumentId, UserId } from "@domain/utils/refined.types.ts";
-import { Document } from "@domain/document/document.entity.ts";
-import { DocumentVersion } from "@domain/document/document-version.entity.ts";
 import { makeEmit } from "@application/shared/event.helpers.ts";
 import {
   DocumentEvent,
@@ -20,7 +17,9 @@ import type {
 
 export const emitDocumentUploaded = makeEmit<DocumentUploadedEvent>(DocumentEvent.Uploaded);
 
-export const emitVersionCreated = makeEmit<DocumentVersionCreatedEvent>(DocumentEvent.VersionCreated);
+export const emitVersionCreated = makeEmit<DocumentVersionCreatedEvent>(
+  DocumentEvent.VersionCreated,
+);
 
 export const emitDocumentDeleted = makeEmit<DocumentDeletedEvent>(DocumentEvent.Deleted);
 
@@ -28,9 +27,7 @@ export const emitDocumentDeleted = makeEmit<DocumentDeletedEvent>(DocumentEvent.
 // Context-aware emitters (accept pipeline context objects)
 // ---------------------------------------------------------------------------
 
-export const emitUploadedCtx = (
-  ctx: UploadContextCommitted,
-) =>
+export const emitUploadedCtx = (ctx: UploadContextCommitted) =>
   emitDocumentUploaded({
     actorId: ctx.actorId,
     resourceId: ctx.updated.id,
@@ -40,7 +37,10 @@ export const emitUploadedCtx = (
   });
 
 export const emitVersionCreatedCtx = (
-  ctx: Pick<VersionUploadCtxCommitted, "actor" | "documentId" | "version" | "versionNumber" | "filename">,
+  ctx: Pick<
+    VersionUploadCtxCommitted,
+    "actor" | "documentId" | "version" | "versionNumber" | "filename"
+  >,
 ) =>
   emitVersionCreated({
     actorId: ctx.actor.userId,

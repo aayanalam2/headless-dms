@@ -1,9 +1,5 @@
 import { Effect as E, pipe } from "effect";
-import {
-  type DocumentId,
-  type VersionId,
-  type UserId,
-} from "@domain/utils/refined.types.ts";
+import { type DocumentId, type VersionId, type UserId } from "@domain/utils/refined.types.ts";
 import { optionToMaybe } from "@domain/utils/utils.ts";
 import { Role } from "@domain/utils/enums.ts";
 import { Document } from "@domain/document/document.entity.ts";
