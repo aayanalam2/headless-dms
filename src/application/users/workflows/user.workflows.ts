@@ -29,8 +29,8 @@ import {
   requireTargetUser,
   applyRoleChange,
   saveRoleChange,
-} from "../steps/user.context.steps.ts";
-import { decode, type LoginResult } from "../steps/user.workflow.steps.ts";
+} from "./steps/user.context.steps.ts";
+import { decode, type LoginResult } from "./steps/user.workflow.helpers.ts";
 
 @injectable()
 export class UserWorkflows {

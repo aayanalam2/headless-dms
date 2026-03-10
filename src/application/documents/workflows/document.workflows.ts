@@ -18,12 +18,12 @@ import {
   persistSoftDelete,
   withCurrentVersionCtx,
   withVersionCtx,
-} from "../steps/document.context.steps.ts";
+} from "./steps/document.context.steps.ts";
 import {
   emitUploadedCtx,
   emitVersionCreatedCtx,
   emitDocumentDeletedCtx,
-} from "../emitters/document.events.ts";
+} from "../events/document.event.publishers.ts";
 import {
   decode,
   withDefaultTtl,
@@ -32,8 +32,8 @@ import {
   fetchVersionsForDocument,
   toUploadResult,
   toVersionDTOList,
-} from "../steps/document.workflow.steps.ts";
-import { prepareUpload } from "../services/document.upload.ts";
+} from "./steps/document.workflow.helpers.ts";
+import { prepareUpload } from "../services/document.upload.service.ts";
 import {
   toDocumentDTO,
   toVersionDTO,

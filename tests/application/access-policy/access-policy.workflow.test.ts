@@ -23,7 +23,7 @@ import {
   PolicyEffect,
 } from "@domain/access-policy/value-objects/permission-action.vo.ts";
 import { AuditAction, Role } from "@domain/utils/enums.ts";
-import { createAuditListeners } from "@application/audit/audit.listener.ts";
+import { createAuditListeners } from "@application/audit/events/audit.events.listeners.ts";
 import {
   createInMemoryDocumentRepository,
   createInMemoryAccessPolicyRepository,

@@ -9,7 +9,7 @@ import type { DocumentActorCtx } from "@application/shared/actor.ts";
 import type {
   UploadContextCommitted,
   VersionUploadCtxCommitted,
-} from "../steps/document.context.steps.ts";
+} from "../workflows/steps/document.context.steps.ts";
 
 // ---------------------------------------------------------------------------
 // Raw event emitters (plain event payload)

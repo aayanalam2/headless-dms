@@ -1,26 +1,26 @@
 import { Effect as E, pipe, Schema as S } from "effect";
 import { User } from "@domain/user/user.entity.ts";
 import type { IUserRepository } from "@domain/user/user.repository.ts";
-import {
-  type Email,
-  type HashedPassword,
-  StringToEmail,
-} from "@domain/utils/refined.types.ts";
+import { type Email, type HashedPassword, StringToEmail } from "@domain/utils/refined.types.ts";
 import { Role } from "@domain/utils/enums.ts";
 import { makeRequireAdmin } from "@application/shared/workflow.helpers.ts";
 import {
   UserWorkflowError,
   type UserWorkflowError as WorkflowError,
-} from "../user-workflow.errors.ts";
-import { parseEmail, assertPasswordValid, buildUser } from "../services/user.auth.ts";
+} from "../../user-workflow.errors.ts";
+import { parseEmail, assertPasswordValid, buildUser } from "../../services/user.auth.service.ts";
 import {
   requireNoEmailConflict,
   requireUserByEmail,
   requireUser,
   saveNewUser,
   updateUser,
-} from "../services/user.repository.ts";
-import type { RegisterUserCommand, LoginCommand, ChangeUserRoleCommand } from "../dtos/user.dto.ts";
+} from "../../services/user.repository.service.ts";
+import type {
+  RegisterUserCommand,
+  LoginCommand,
+  ChangeUserRoleCommand,
+} from "../../dtos/user.dto.ts";
 
 // ---------------------------------------------------------------------------
 // Named pipeline context types

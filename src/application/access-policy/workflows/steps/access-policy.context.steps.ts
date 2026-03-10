@@ -13,9 +13,13 @@ import {
 import {
   AccessPolicyWorkflowError,
   type AccessPolicyWorkflowError as WorkflowError,
-} from "../access-policy-workflow.errors.ts";
-import { liftRepo, requirePolicy, buildPolicy } from "../services/access-policy.repository.ts";
-import type { GrantAccessCommand } from "../dtos/access-policy.dto.ts";
+} from "../../access-policy-workflow.errors.ts";
+import {
+  liftRepo,
+  requirePolicy,
+  buildPolicy,
+} from "../../services/access-policy.repository.service.ts";
+import type { GrantAccessCommand } from "../../dtos/access-policy.dto.ts";
 
 // ---------------------------------------------------------------------------
 // Named pipeline context types

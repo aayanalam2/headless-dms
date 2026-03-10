@@ -7,8 +7,8 @@ import { makeDecoder } from "@application/shared/decode.ts";
 import {
   DocumentWorkflowError,
   type DocumentWorkflowError as WorkflowError,
-} from "../document-workflow.errors.ts";
-import { liftRepo, scopeList } from "../services/document.repository.ts";
+} from "../../document-workflow.errors.ts";
+import { liftRepo, scopeList } from "../../services/document.repository.service.ts";
 import {
   toDocumentDTO,
   toPaginatedDocumentsDTO,
@@ -19,7 +19,7 @@ import {
   type UploadDocumentResult,
   DEFAULT_PRESIGNED_URL_TTL_SECONDS,
   type ListDocumentsQueryDecoded,
-} from "../dtos/document.dto.ts";
+} from "../../dtos/document.dto.ts";
 import type { UploadContextCommitted, DocumentCmdWithDoc } from "./document.context.steps.ts";
 
 // ---------------------------------------------------------------------------

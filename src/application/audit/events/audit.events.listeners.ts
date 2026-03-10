@@ -1,5 +1,5 @@
 import { Effect as E } from "effect";
-import type { IAuditRepository } from "./audit.repository.port.ts";
+import type { IAuditRepository } from "../audit.repository.port.ts";
 import { AuditAction, AuditResourceType } from "@domain/utils/enums.ts";
 import { DocumentEvent } from "@domain/events/document.events.ts";
 import { AccessPolicyEvent } from "@domain/events/access-policy.events.ts";

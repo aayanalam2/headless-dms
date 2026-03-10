@@ -2,15 +2,15 @@ import { Effect as E } from "effect";
 import { makeLiftRepo, makeRequireAdmin } from "@application/shared/workflow.helpers.ts";
 import { withPagination } from "@application/shared/pagination.ts";
 import { makeDecoder } from "@application/shared/decode.ts";
-import type { IAuditRepository } from "../audit.repository.port.ts";
+import type { IAuditRepository } from "../../audit.repository.port.ts";
 import {
   AuditWorkflowError,
   type AuditWorkflowError as WorkflowError,
-} from "../audit-workflow.errors.ts";
+} from "../../audit-workflow.errors.ts";
 import {
   type PaginatedAuditLogsDTO,
   type ListAuditLogsQuery as ListAuditLogsQueryDecoded,
-} from "../dtos/audit.dto.ts";
+} from "../../dtos/audit.dto.ts";
 
 /** Lift any effect's error to Unavailable. */
 export const liftRepo = makeLiftRepo(AuditWorkflowError.unavailable);

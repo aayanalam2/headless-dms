@@ -31,17 +31,17 @@ import {
   savePolicy,
   replacePolicy,
   deleteExistingPolicy,
-} from "../steps/access-policy.context.steps.ts";
+} from "./steps/access-policy.context.steps.ts";
 import {
   emitGrantPolicyCtx,
   emitUpdatePolicyCtx,
   emitRevokePolicyCtx,
-} from "../emitters/access-policy.events.ts";
+} from "../events/access-policy.event.publishers.ts";
 import {
   decode,
   fetchDocumentPolicies,
   toAccessPolicyDTO,
-} from "../steps/access-policy.workflow.steps.ts";
+} from "./steps/access-policy.workflow.helpers.ts";
 
 @injectable()
 export class AccessPolicyWorkflows {

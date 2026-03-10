@@ -17,14 +17,14 @@ import { PermissionAction } from "@domain/access-policy/value-objects/permission
 import {
   DocumentWorkflowError,
   type DocumentWorkflowError as WorkflowError,
-} from "../document-workflow.errors.ts";
+} from "../../document-workflow.errors.ts";
 import {
   liftRepo,
   liftConflict,
   requireVersion,
   requireVersionOfDocument,
   requireCurrentVersion,
-} from "../services/document.repository.ts";
+} from "../../services/document.repository.service.ts";
 import {
   buildDocument,
   uploadAndHash,
@@ -32,8 +32,8 @@ import {
   resolveVersionMeta,
   buildAndCommitVersion,
   buildAndCommitFirstDocument,
-} from "../services/document.upload.ts";
-import type { UploadVersionMeta, GetDocumentQueryDecoded } from "../dtos/document.dto.ts";
+} from "../../services/document.upload.service.ts";
+import type { UploadVersionMeta, GetDocumentQueryDecoded } from "../../dtos/document.dto.ts";
 
 // ---------------------------------------------------------------------------
 // Named pipeline context types

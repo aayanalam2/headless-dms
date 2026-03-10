@@ -20,8 +20,11 @@ import {
   DocumentWorkflowError,
   type DocumentWorkflowError as WorkflowError,
 } from "../document-workflow.errors.ts";
-import { liftRepo, commitVersion, commitNewDocument } from "./document.repository.ts";
-import type { UploadContext, VersionUploadCtxWithFile } from "../steps/document.context.steps.ts";
+import { liftRepo, commitVersion, commitNewDocument } from "./document.repository.service.ts";
+import type {
+  UploadContext,
+  VersionUploadCtxWithFile,
+} from "../workflows/steps/document.context.steps.ts";
 import type { UploadDocumentMeta } from "../dtos/document.dto.ts";
 
 // ---------------------------------------------------------------------------

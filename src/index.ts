@@ -7,7 +7,7 @@ import { config } from "@infra/config/env.ts";
 import { logger } from "./presentation/http/lib/logger.ts";
 import { createDb } from "@infra/database/utils/connection.ts";
 import { createS3Storage } from "@infra/repositories/s3.storage.ts";
-import { createAuditListeners } from "@application/audit/audit.listener.ts";
+import { createAuditListeners } from "@application/audit/events/audit.events.listeners.ts";
 import { buildContainer } from "@infra/di/container.ts";
 import { DocumentWorkflows } from "@application/documents/workflows/document.workflows.ts";
 import { UserWorkflows } from "@application/users/workflows/user.workflows.ts";
