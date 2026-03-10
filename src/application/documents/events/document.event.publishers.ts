@@ -1,3 +1,4 @@
+import { Effect as E } from "effect";
 import { makeEmit } from "@application/shared/event.helpers.ts";
 import {
   DocumentEvent,
@@ -27,7 +28,7 @@ export const emitDocumentDeleted = makeEmit<DocumentDeletedEvent>(DocumentEvent.
 // Context-aware emitters (accept pipeline context objects)
 // ---------------------------------------------------------------------------
 
-export const emitUploadedCtx = (ctx: UploadContextCommitted) =>
+export const emitUploadedCtx = (ctx: UploadContextCommitted): E.Effect<void, never> =>
   emitDocumentUploaded({
     actorId: ctx.actorId,
     resourceId: ctx.updated.id,
@@ -41,7 +42,7 @@ export const emitVersionCreatedCtx = (
     VersionUploadCtxCommitted,
     "actor" | "documentId" | "version" | "versionNumber" | "filename"
   >,
-) =>
+): E.Effect<void, never> =>
   emitVersionCreated({
     actorId: ctx.actor.userId,
     resourceId: ctx.documentId,
@@ -50,5 +51,5 @@ export const emitVersionCreatedCtx = (
     filename: ctx.filename,
   });
 
-export const emitDocumentDeletedCtx = (ctx: DocumentActorCtx) =>
+export const emitDocumentDeletedCtx = (ctx: DocumentActorCtx): E.Effect<void, never> =>
   emitDocumentDeleted({ actorId: ctx.actor.userId, resourceId: ctx.documentId });
