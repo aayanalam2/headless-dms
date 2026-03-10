@@ -4,7 +4,7 @@ import type { IUserRepository } from "@domain/user/user.repository.ts";
 import {
   type Email,
   type HashedPassword,
-  type StringToEmail,
+  StringToEmail,
 } from "@domain/utils/refined.types.ts";
 import { Role } from "@domain/utils/enums.ts";
 import { makeRequireAdmin } from "@application/shared/workflow.helpers.ts";

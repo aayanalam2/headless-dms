@@ -21,9 +21,6 @@ import type { GrantAccessCommand } from "../dtos/access-policy.dto.ts";
 // Named pipeline context types
 // ---------------------------------------------------------------------------
 
-/** Decoded grant command — reuses the DTO type directly. */
-export type GrantPolicyCtx = GrantAccessCommand;
-
 /** Grant context after the new policy entity has been constructed. */
 export type GrantPolicyCtxWithPolicy<T> = T & { readonly policy: AccessPolicy };
 
