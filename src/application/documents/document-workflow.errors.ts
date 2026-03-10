@@ -6,10 +6,6 @@
 // errors) must NEVER escape past a workflow function — they are mapped here
 // so that callers (controllers) only reason about this vocabulary.
 //
-// Mapping rule (from the Carbonteq multi-level error handling guide):
-//   • Domain business-rule failures  → NotFound / AccessDenied / Conflict / InvalidContentType
-//   • Infra failures (repo, storage) → Unavailable
-//   • Input decode/validation        → InvalidInput
 // ---------------------------------------------------------------------------
 
 export const DocumentWorkflowErrorTag = {

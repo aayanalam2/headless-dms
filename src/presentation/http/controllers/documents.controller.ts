@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { Effect as E, pipe } from "effect";
 import { authPlugin } from "../middleware/auth.plugin.ts";
 import { makeRun } from "../lib/http.ts";
-import type { DocumentWorkflows } from "@application/documents/document.workflows.ts";
+import type { DocumentWorkflows } from "@application/documents/workflows/document.workflows.ts";
 import { documentWorkflowToHttp } from "../lib/error-map.ts";
 
 const run = makeRun(documentWorkflowToHttp);

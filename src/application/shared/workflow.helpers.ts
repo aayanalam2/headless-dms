@@ -1,4 +1,6 @@
 import { Effect as E, Option as O, pipe } from "effect";
+import type { Role } from "@domain/utils/enums.ts";
+import { Role as RoleEnum } from "@domain/utils/enums.ts";
 
 /**
  * Factory that binds an 'unavailable' constructor and returns a `liftRepo` function.
@@ -84,4 +86,20 @@ export function requireAbsent<Err>(
     E.mapError(mapError),
     E.flatMap((opt) => (O.isSome(opt) ? E.fail(onFound()) : E.void)),
   );
+}
+
+/**
+ * Factory that returns a context-passing admin guard.
+ *
+ * The returned function asserts `ctx.actor.role === Role.Admin`, failing with
+ * the error produced by `onFail` when the check fails.
+ *
+ * @example
+ * export const assertAdminActor = makeRequireAdmin(
+ *   () => MyError.forbidden("Admin only"),
+ * );
+ */
+export function makeRequireAdmin<Err>(onFail: () => Err) {
+  return <T extends { actor: { readonly role: Role } }>(ctx: T): E.Effect<T, Err> =>
+    E.as(assertGuard(ctx.actor.role === RoleEnum.Admin, onFail), ctx);
 }

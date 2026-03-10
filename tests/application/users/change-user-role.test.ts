@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Effect as E, Either } from "effect";
-import { UserWorkflows } from "@application/users/user.workflows.ts";
+import { UserWorkflows } from "@application/users/workflows/user.workflows.ts";
 import { UserWorkflowErrorTag } from "@application/users/user-workflow.errors.ts";
 import type { ChangeUserRoleCommandEncoded } from "@application/users/dtos/user.dto.ts";
 import { Role } from "@domain/utils/enums.ts";

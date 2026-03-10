@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { authPlugin } from "../middleware/auth.plugin.ts";
 import type { AuditResourceType } from "@domain/utils/enums.ts";
 import { makeRun } from "../lib/http.ts";
-import type { AuditWorkflows } from "@application/audit/audit.workflows.ts";
+import type { AuditWorkflows } from "@application/audit/workflows/audit.workflows.ts";
 import { auditWorkflowToHttp } from "../lib/error-map.ts";
 
 const run = makeRun(auditWorkflowToHttp);

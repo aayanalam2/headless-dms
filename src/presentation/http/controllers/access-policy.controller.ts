@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { authPlugin } from "../middleware/auth.plugin.ts";
 import { makeRun } from "../lib/http.ts";
-import type { AccessPolicyWorkflows } from "@application/access-policy/access-policy.workflows.ts";
+import type { AccessPolicyWorkflows } from "@application/access-policy/workflows/access-policy.workflows.ts";
 import { accessPolicyWorkflowToHttp } from "../lib/error-map.ts";
 import {
   PermissionAction,

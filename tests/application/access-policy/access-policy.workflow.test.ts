@@ -15,7 +15,7 @@
 import "reflect-metadata";
 import { describe, expect, it } from "bun:test";
 import { Effect as E, Either } from "effect";
-import { AccessPolicyWorkflows } from "@application/access-policy/access-policy.workflows.ts";
+import { AccessPolicyWorkflows } from "@application/access-policy/workflows/access-policy.workflows.ts";
 import { AccessPolicyWorkflowErrorTag } from "@application/access-policy/access-policy-workflow.errors.ts";
 import { DocumentAccessGuard } from "@application/security/document-access.guard.ts";
 import {

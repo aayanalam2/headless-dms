@@ -139,3 +139,10 @@ export function toPaginatedDocumentsDTO(paginated: Paginated<Document>): Paginat
     pageInfo: paginated.pageInfo,
   };
 }
+
+export type UploadDocumentResult = {
+  readonly document: DocumentDTO;
+  readonly version: VersionDTO;
+};
+
+export type UploadVersionResult = { readonly version: VersionDTO };

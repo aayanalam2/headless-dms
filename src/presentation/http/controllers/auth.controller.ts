@@ -4,7 +4,7 @@ import { jwtPlugin } from "../middleware/auth.plugin.ts";
 import { StatusCode } from "status-code-enum";
 import { Role } from "@domain/utils/enums.ts";
 import { makeRun } from "../lib/http.ts";
-import type { UserWorkflows } from "@application/users/user.workflows.ts";
+import type { UserWorkflows } from "@application/users/workflows/user.workflows.ts";
 import { userWorkflowToHttp } from "../lib/error-map.ts";
 
 const run = makeRun(userWorkflowToHttp);

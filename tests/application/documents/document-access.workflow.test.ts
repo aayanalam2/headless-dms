@@ -16,7 +16,7 @@
 import "reflect-metadata";
 import { describe, expect, it } from "bun:test";
 import { Effect as E, Either } from "effect";
-import { DocumentWorkflows } from "@application/documents/document.workflows.ts";
+import { DocumentWorkflows } from "@application/documents/workflows/document.workflows.ts";
 import { DocumentWorkflowErrorTag } from "@application/documents/document-workflow.errors.ts";
 import { DocumentAccessGuard } from "@application/security/document-access.guard.ts";
 import {

@@ -24,11 +24,6 @@ export class InvalidMetadataError extends DomainError {
   }
 }
 
-/**
- * Raised when an operation that requires an active document
- * (soft-delete, new-version upload, rename, …) is attempted on a document
- * that has already been soft-deleted.
- */
 export class DocumentAlreadyDeletedError extends DomainError {
   readonly _tag = DocumentErrorTags.DocumentAlreadyDeleted as const;
 
@@ -37,10 +32,6 @@ export class DocumentAlreadyDeletedError extends DomainError {
   }
 }
 
-/**
- * Raised by the document repository when no document row matches the
- * requested document ID.
- */
 export class DocumentNotFoundError extends DomainError {
   readonly _tag = DocumentErrorTags.DocumentNotFound as const;
 
@@ -49,10 +40,6 @@ export class DocumentNotFoundError extends DomainError {
   }
 }
 
-/**
- * Raised by the document repository when no version row matches the
- * requested version ID.
- */
 export class DocumentVersionNotFoundError extends DomainError {
   readonly _tag = DocumentErrorTags.DocumentVersionNotFound as const;
 
